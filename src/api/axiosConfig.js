@@ -59,7 +59,7 @@ api.interceptors.response.use(
 
             try {
                 // Hit the backend to process the HttpOnly refresh token
-                const { data } = await axios.post('http://localhost:5001/api/auth/refresh', {}, { withCredentials: true });
+                const { data } = await axios.post('http://localhost:5010/api/auth/refresh', {}, { withCredentials: true });
                 
                 const newAccessToken = data.accessToken;
                 
@@ -82,7 +82,7 @@ api.interceptors.response.use(
                 localStorage.clear();
                 
                 // Tell backend to clear the http-only cookie too
-                await axios.post('http://localhost:5001/api/auth/logout', {}, { withCredentials: true }).catch(() => {});
+                await axios.post('http://localhost:5010/api/auth/logout', {}, { withCredentials: true }).catch(() => {});
 
                 // Force UI Navigation to Login (Window location is safest pure-JS fallback outside of React Router context)
                 window.location.href = '/login';
