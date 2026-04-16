@@ -12,6 +12,13 @@ export default function Tasks() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   
+  // Search & Pagination states
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize] = useState(10);
+
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
 
@@ -30,8 +37,15 @@ export default function Tasks() {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams();
+      queryParams.append('page', page);
+      queryParams.append('limit', pageSize);
+
       if (isGlobalAdmin && selectedTenantId) {
           queryParams.append('tenant_id', selectedTenantId);
+      }
+
+      if (debouncedSearch) {
+          queryParams.append('search', debouncedSearch);
       }
 
       const [tasksRes, tenantsRes] = await Promise.all([
@@ -39,7 +53,9 @@ export default function Tasks() {
         isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: { data: [] } })
       ]);
       
-      setTasks(tasksRes.data);
+      setTasks(tasksRes.data.data || []);
+      setTotalCount(tasksRes.data.totalCount || 0);
+
       if (isGlobalAdmin) setTenants(tenantsRes.data.data || []);
     } catch (err) {
       console.error("Fetch Tasks Error:", err);
@@ -50,7 +66,16 @@ export default function Tasks() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTenantId]);
+  }, [selectedTenantId, page, debouncedSearch]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        setDebouncedSearch(search);
+        setPage(1); // Reset page on search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const handleOpenModal = (task = null) => {
     if (task) {
@@ -151,24 +176,73 @@ export default function Tasks() {
         )}
       </div>
 
-      {isGlobalAdmin && (
-        <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Filter by Company:</span>
-            <select 
-              value={selectedTenantId} 
-              onChange={(e) => setSelectedTenantId(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '14px', outline: 'none', backgroundColor: '#fff' }}
-            >
-              <option value="">All Companies (Global View)</option>
-              {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
-            </select>
+      {/* Filters & Search Row */}
+      <div style={{ 
+        marginBottom: '24px', 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {isGlobalAdmin && (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Filter by Company:</span>
+              <select 
+                value={selectedTenantId} 
+                onChange={(e) => {
+                  setSelectedTenantId(e.target.value);
+                  setPage(1);
+                }}
+                style={{ marginLeft: '12px', padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '14px', outline: 'none', backgroundColor: '#fff' }}
+              >
+                <option value="">All Companies (Global View)</option>
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+              </select>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Search Bar */}
+        <div style={{ position: 'relative', width: '320px' }}>
+          <span style={{ 
+            position: 'absolute', 
+            left: '12px', 
+            top: '50%', 
+            transform: 'translateY(-50%)', 
+            color: 'var(--text-muted)',
+            fontSize: '14px'
+          }}>
+            🔍
+          </span>
+          <input
+            type="text"
+            placeholder="Search task, status, company..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px 8px 36px',
+              borderRadius: '10px',
+              border: '1px solid var(--border)',
+              fontSize: '13px',
+              outline: 'none',
+              backgroundColor: '#fff',
+              transition: 'border-color 0.2s'
+            }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+            onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+          />
+        </div>
+      </div>
 
       <DataTable 
         columns={columns} 
         data={tasks} 
         isLoading={loading}
+        totalCount={totalCount}
+        currentPage={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
         actions={(row) => (
           <>
             {hasPermission('tasks.update') && (

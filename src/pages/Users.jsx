@@ -18,9 +18,12 @@ export default function Users() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   
-  // Search states
+  // Search & Pagination states
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize] = useState(10);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -38,6 +41,9 @@ export default function Users() {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams();
+      queryParams.append('page', page);
+      queryParams.append('limit', pageSize);
+
       if (isGlobalAdmin) {
         queryParams.append('scope', viewScope);
         if (selectedTenantId) queryParams.append('tenant_id', selectedTenantId);
@@ -46,13 +52,13 @@ export default function Users() {
       if (debouncedSearch) {
         queryParams.append('search', debouncedSearch);
       }
-
       const [usersRes, tenantsRes] = await Promise.all([
         api.get(`/users?${queryParams.toString()}`),
         isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: { data: [] } })
       ]);
       
-      setUsers(usersRes.data);
+      setUsers(usersRes.data.data || []);
+      setTotalCount(usersRes.data.totalCount || 0);
       if (isGlobalAdmin) setTenants(tenantsRes.data.data || []);
 
       // Fetch roles if we are in tenant context or regular tenant admin
@@ -72,6 +78,11 @@ export default function Users() {
 
   useEffect(() => {
     fetchData();
+  }, [viewScope, selectedTenantId, debouncedSearch, page]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
   }, [viewScope, selectedTenantId, debouncedSearch]);
 
   // Debounce search input
@@ -310,6 +321,10 @@ export default function Users() {
         columns={columns} 
         data={users} 
         isLoading={loading}
+        totalCount={totalCount}
+        currentPage={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
         actions={(row) => (
           <div style={{ display: 'flex', gap: '8px' }}>
             <Button size="sm" type="secondary" onClick={() => handleOpenModal(row)}>Edit</Button>
