@@ -26,14 +26,22 @@ export const Badge = ({ children, type = 'default' }) => {
   );
 };
 
-export const DataTable = ({ columns, data, actions, isLoading }) => {
+export const DataTable = ({ 
+  columns, 
+  data, 
+  actions, 
+  isLoading, 
+  totalCount, 
+  currentPage, 
+  pageSize, 
+  onPageChange 
+}) => {
   if (isLoading) {
     return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading records...</div>;
   }
 
-  if (!data || data.length === 0) {
-    return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', backgroundColor: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>No records found.</div>;
-  }
+  const hasData = data && data.length > 0;
+  const totalPages = totalCount ? Math.ceil(totalCount / pageSize) : 0;
 
   return (
     <div style={{ backgroundColor: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
@@ -50,25 +58,99 @@ export const DataTable = ({ columns, data, actions, isLoading }) => {
             </tr>
           </thead>
           <tbody>
-            {data.map((row, rowIdx) => (
-              <tr key={rowIdx} style={{ borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                {columns.map((col, cellIdx) => (
-                  <td key={cellIdx} style={{ padding: '16px 24px', fontSize: '14px', color: 'var(--text-main)' }}>
-                    {col.render ? col.render(row) : row[col.key]}
-                  </td>
-                ))}
-                {actions && (
-                  <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                      {actions(row)}
-                    </div>
-                  </td>
-                )}
+            {!hasData ? (
+              <tr>
+                <td colSpan={columns.length + (actions ? 1 : 0)} style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  No records found.
+                </td>
               </tr>
-            ))}
+            ) : (
+              data.map((row, rowIdx) => (
+                <tr key={rowIdx} style={{ borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  {columns.map((col, cellIdx) => (
+                    <td key={cellIdx} style={{ padding: '16px 24px', fontSize: '14px', color: 'var(--text-main)' }}>
+                      {col.render ? col.render(row) : row[col.key]}
+                    </td>
+                  ))}
+                  {actions && (
+                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        {actions(row)}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Footer */}
+      {totalCount > 0 && onPageChange && (
+        <div style={{ 
+          padding: '12px 24px', 
+          borderTop: '1px solid var(--border)', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          backgroundColor: '#fff'
+        }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500' }}>
+            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} entries
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button 
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: currentPage === 1 ? '#f8fafc' : '#fff',
+                color: currentPage === 1 ? '#94a3b8' : 'var(--text-main)',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Previous
+            </button>
+            <div style={{ 
+              width: '32px', 
+              height: '32px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              backgroundColor: 'var(--primary)', 
+              color: '#fff', 
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '700'
+            }}>
+              {currentPage}
+            </div>
+            <button 
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: currentPage >= totalPages ? '#f8fafc' : '#fff',
+                color: currentPage >= totalPages ? '#94a3b8' : 'var(--text-main)',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
