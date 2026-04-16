@@ -150,59 +150,59 @@ export default function Tenants() {
       <div style={{ 
         marginBottom: '24px', 
         display: 'flex', 
-        flexDirection: 'column',
-        gap: '20px'
+        justifyContent: 'space-between',
+        alignItems: 'flex-end'
       }}>
         {/* Status Filter */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {['', 'active', 'inactive', 'trial', 'suspended'].map((status) => (
-            <button
-              key={status}
-              onClick={() => {
-                setStatusFilter(status);
-                setPage(1);
-              }}
-              style={{
-                padding: '6px 16px',
-                borderRadius: '20px',
-                border: '1px solid var(--border)',
-                backgroundColor: statusFilter === status ? 'var(--primary)' : '#fff',
-                color: statusFilter === status ? '#fff' : 'var(--text-muted)',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                textTransform: 'capitalize'
-              }}
-            >
-              {status || 'All'}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Filter by Status:</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+              fontSize: '14px',
+              outline: 'none',
+              backgroundColor: '#fff',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="trial">Trial</option>
+            <option value="suspended">Suspended</option>
+          </select>
         </div>
 
         {/* Search Bar */}
-        <div style={{ position: 'relative', maxWidth: '400px' }}>
+        <div style={{ position: 'relative', width: '320px' }}>
           <span style={{ 
             position: 'absolute', 
             left: '12px', 
             top: '50%', 
             transform: 'translateY(-50%)', 
             color: 'var(--text-muted)',
-            fontSize: '16px'
+            fontSize: '14px'
           }}>
             🔍
           </span>
           <input
             type="text"
-            placeholder="Search by name, email or country..."
+            placeholder="Search name, email or country..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
               width: '100%',
-              padding: '10px 12px 10px 40px',
-              borderRadius: '12px',
+              padding: '8px 12px 8px 36px',
+              borderRadius: '10px',
               border: '1px solid var(--border)',
-              fontSize: '14px',
+              fontSize: '13px',
               outline: 'none',
               backgroundColor: '#fff',
               transition: 'border-color 0.2s'

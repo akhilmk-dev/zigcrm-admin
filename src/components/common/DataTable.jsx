@@ -40,7 +40,9 @@ export const DataTable = ({
     return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading records...</div>;
   }
 
-  const hasData = data && data.length > 0;
+  // Handle both plain array (legacy) and paginated object (new)
+  const rows = Array.isArray(data) ? data : (data?.data || []);
+  const hasData = rows.length > 0;
   const totalPages = totalCount ? Math.ceil(totalCount / pageSize) : 0;
 
   return (
@@ -65,7 +67,7 @@ export const DataTable = ({
                 </td>
               </tr>
             ) : (
-              data.map((row, rowIdx) => (
+              rows.map((row, rowIdx) => (
                 <tr key={rowIdx} style={{ borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                   {columns.map((col, cellIdx) => (
                     <td key={cellIdx} style={{ padding: '16px 24px', fontSize: '14px', color: 'var(--text-main)' }}>

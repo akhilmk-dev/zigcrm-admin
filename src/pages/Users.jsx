@@ -17,6 +17,10 @@ export default function Users() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  
+  // Search states
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -38,20 +42,24 @@ export default function Users() {
         queryParams.append('scope', viewScope);
         if (selectedTenantId) queryParams.append('tenant_id', selectedTenantId);
       }
+      
+      if (debouncedSearch) {
+        queryParams.append('search', debouncedSearch);
+      }
 
       const [usersRes, tenantsRes] = await Promise.all([
         api.get(`/users?${queryParams.toString()}`),
-        isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: [] })
+        isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: { data: [] } })
       ]);
       
       setUsers(usersRes.data);
-      if (isGlobalAdmin) setTenants(tenantsRes.data);
+      if (isGlobalAdmin) setTenants(tenantsRes.data.data || []);
 
       // Fetch roles if we are in tenant context or regular tenant admin
       if (!isGlobalAdmin || (viewScope === 'tenant' && (selectedTenantId || formData.target_tenant_id))) {
           const tid = isGlobalAdmin ? (selectedTenantId || formData.target_tenant_id) : '';
           const rolesRes = await api.get(`/roles${tid ? `?tenant_id=${tid}` : ''}`);
-          setRoles(rolesRes.data);
+          setRoles(rolesRes.data.data || []);
       } else {
           setRoles([]);
       }
@@ -64,12 +72,20 @@ export default function Users() {
 
   useEffect(() => {
     fetchData();
-  }, [viewScope, selectedTenantId]);
+  }, [viewScope, selectedTenantId, debouncedSearch]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // When form target tenant changes, refresh roles for that tenant
   useEffect(() => {
     if (isGlobalAdmin && viewScope === 'tenant' && formData.target_tenant_id) {
-        api.get(`/roles?tenant_id=${formData.target_tenant_id}`).then(res => setRoles(res.data));
+        api.get(`/roles?tenant_id=${formData.target_tenant_id}`).then(res => setRoles(res.data.data || []));
     }
   }, [formData.target_tenant_id]);
 
@@ -195,33 +211,100 @@ export default function Users() {
         )}
       </div>
 
-      {isGlobalAdmin && (
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '12px', width: 'fit-content' }}>
-          <button 
-            onClick={() => { setViewScope('platform'); setSelectedTenantId(''); }}
-            style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: '600', backgroundColor: viewScope === 'platform' ? '#fff' : 'transparent', color: viewScope === 'platform' ? 'var(--primary)' : 'var(--text-muted)', boxShadow: viewScope === 'platform' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}
-          >
-            Platform Admins
-          </button>
-          <button 
-            onClick={() => setViewScope('tenant')}
-            style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: '600', backgroundColor: viewScope === 'tenant' ? '#fff' : 'transparent', color: viewScope === 'tenant' ? 'var(--primary)' : 'var(--text-muted)', boxShadow: viewScope === 'tenant' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}
-          >
-            Tenant Users
-          </button>
-          
-          {viewScope === 'tenant' && (
-            <select 
-              value={selectedTenantId} 
-              onChange={(e) => setSelectedTenantId(e.target.value)}
-              style={{ marginLeft: '12px', padding: '4px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-            >
-              <option value="">All Companies (Everything)</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
-            </select>
+      {/* Filters & Search Row */}
+      <div style={{ 
+        marginBottom: '24px', 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {isGlobalAdmin && (
+            <div style={{ display: 'flex', gap: '8px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '12px' }}>
+              <button 
+                onClick={() => { setViewScope('platform'); setSelectedTenantId(''); setSearch(''); }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  backgroundColor: viewScope === 'platform' ? '#fff' : 'transparent',
+                  color: viewScope === 'platform' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: viewScope === 'platform' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Platform Admins
+              </button>
+              <button 
+                onClick={() => { setViewScope('tenant'); setSearch(''); }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  backgroundColor: viewScope === 'tenant' ? '#fff' : 'transparent',
+                  color: viewScope === 'tenant' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: viewScope === 'tenant' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Tenant Users
+              </button>
+            </div>
+          )}
+
+          {isGlobalAdmin && viewScope === 'tenant' && (
+            <div style={{ display: 'flex', alignItems: 'center', borderLeft: '1px solid var(--border)', marginLeft: '12px', paddingLeft: '12px' }}>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Filter by Company:</span>
+              <select 
+                value={selectedTenantId} 
+                onChange={(e) => setSelectedTenantId(e.target.value)}
+                style={{ marginLeft: '12px', padding: '6px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
+              >
+                <option value="">All Companies (Everything)</option>
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+              </select>
+            </div>
           )}
         </div>
-      )}
+
+        {/* Search Bar */}
+        <div style={{ position: 'relative', width: '320px' }}>
+          <span style={{ 
+            position: 'absolute', 
+            left: '12px', 
+            top: '50%', 
+            transform: 'translateY(-50%)', 
+            color: 'var(--text-muted)',
+            fontSize: '14px'
+          }}>
+            🔍
+          </span>
+          <input
+            type="text"
+            placeholder={viewScope === 'platform' ? "Search admins by name, email, role..." : "Search users by name, email..."}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px 8px 36px',
+              borderRadius: '10px',
+              border: '1px solid var(--border)',
+              fontSize: '13px',
+              outline: 'none',
+              backgroundColor: '#fff',
+              transition: 'border-color 0.2s'
+            }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+            onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+          />
+        </div>
+      </div>
 
       <DataTable 
         columns={columns} 
@@ -256,7 +339,7 @@ export default function Users() {
           {isGlobalAdmin && viewScope === 'tenant' && (
             <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Target Company</label>
-              <select 
+              <button 
                 value={formData.target_tenant_id}
                 onChange={(e) => setFormData({...formData, target_tenant_id: e.target.value})}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff' }}
@@ -264,8 +347,8 @@ export default function Users() {
                 disabled={!!editingUser} // Prevent moving users between tenants for now
               >
                 <option value="">Select a Company</option>
-                {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
-              </select>
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+              </button>
             </div>
           )}
 
@@ -316,7 +399,7 @@ export default function Users() {
                   required
                 >
                   <option value="">Select a role</option>
-                  {roles.map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
+                  {(Array.isArray(roles) ? roles : []).map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
                 </select>
               </div>
             )

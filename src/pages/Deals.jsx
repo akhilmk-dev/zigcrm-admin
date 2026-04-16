@@ -13,6 +13,13 @@ export default function Deals() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState(null);
   
+  // Search & Pagination states
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize] = useState(10);
+
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
 
@@ -32,17 +39,26 @@ export default function Deals() {
     setLoading(true);
     try {
       const queryParams = new URLSearchParams();
+      queryParams.append('page', page);
+      queryParams.append('limit', pageSize);
+
       if (isGlobalAdmin && selectedTenantId) {
           queryParams.append('tenant_id', selectedTenantId);
       }
 
+      if (debouncedSearch) {
+          queryParams.append('search', debouncedSearch);
+      }
+
       const [dealsRes, tenantsRes] = await Promise.all([
         api.get(`/deals?${queryParams.toString()}`),
-        isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: [] })
+        isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: { data: [] } })
       ]);
       
-      setDeals(dealsRes.data);
-      if (isGlobalAdmin) setTenants(tenantsRes.data);
+      setDeals(dealsRes.data.data || []);
+      setTotalCount(dealsRes.data.totalCount || 0);
+
+      if (isGlobalAdmin) setTenants(tenantsRes.data.data || []);
 
       // Fetch contacts for the specific tenant or current tenant
       const contactParams = new URLSearchParams();
@@ -51,7 +67,9 @@ export default function Deals() {
           if (tid) contactParams.append('tenant_id', tid);
       }
       const contactsRes = await api.get(`/contacts?${contactParams.toString()}`);
-      setContacts(contactsRes.data);
+      // Contacts API is now paginated too, but for the dropdown we might need a larger limit or a different endpoint.
+      // For now, extract .data
+      setContacts(contactsRes.data.data || []);
 
     } catch (err) {
       console.error("Fetch Deals Error:", err);
@@ -62,12 +80,21 @@ export default function Deals() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTenantId]);
+  }, [selectedTenantId, page, debouncedSearch]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        setDebouncedSearch(search);
+        setPage(1); // Reset page on search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // If adding/editing and tenant changes, refresh contacts
   useEffect(() => {
     if (isGlobalAdmin && formData.tenant_id) {
-        api.get(`/contacts?tenant_id=${formData.tenant_id}`).then(res => setContacts(res.data));
+        api.get(`/contacts?tenant_id=${formData.tenant_id}&limit=100`).then(res => setContacts(res.data.data || []));
     }
   }, [formData.tenant_id]);
 
@@ -181,24 +208,73 @@ export default function Deals() {
         )}
       </div>
 
-      {isGlobalAdmin && (
-        <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Filter by Company:</span>
-            <select 
-              value={selectedTenantId} 
-              onChange={(e) => setSelectedTenantId(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '14px', outline: 'none', backgroundColor: '#fff' }}
-            >
-              <option value="">All Companies (Global View)</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
-            </select>
+      {/* Filters & Search Row */}
+      <div style={{ 
+        marginBottom: '24px', 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {isGlobalAdmin && (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Filter by Company:</span>
+              <select 
+                value={selectedTenantId} 
+                onChange={(e) => {
+                  setSelectedTenantId(e.target.value);
+                  setPage(1);
+                }}
+                style={{ marginLeft: '12px', padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '14px', outline: 'none', backgroundColor: '#fff' }}
+              >
+                <option value="">All Companies (Global View)</option>
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+              </select>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Search Bar */}
+        <div style={{ position: 'relative', width: '320px' }}>
+          <span style={{ 
+            position: 'absolute', 
+            left: '12px', 
+            top: '50%', 
+            transform: 'translateY(-50%)', 
+            color: 'var(--text-muted)',
+            fontSize: '14px'
+          }}>
+            🔍
+          </span>
+          <input
+            type="text"
+            placeholder="Search deal, stage, company..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px 8px 36px',
+              borderRadius: '10px',
+              border: '1px solid var(--border)',
+              fontSize: '13px',
+              outline: 'none',
+              backgroundColor: '#fff',
+              transition: 'border-color 0.2s'
+            }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+            onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+          />
+        </div>
+      </div>
 
       <DataTable 
         columns={columns} 
         data={deals} 
         isLoading={loading}
+        totalCount={totalCount}
+        currentPage={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
         actions={(row) => (
           <>
             {hasPermission('deals.update') && (
@@ -233,7 +309,7 @@ export default function Deals() {
                   required
                 >
                   <option value="">Select a Company</option>
-                  {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+                  {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
                 </select>
             </div>
           )}

@@ -155,15 +155,15 @@ export default function Roles() {
         )}
       </div>
 
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ position: 'relative', maxWidth: '400px' }}>
+      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ position: 'relative', width: '320px' }}>
           <span style={{ 
             position: 'absolute', 
             left: '12px', 
             top: '50%', 
             transform: 'translateY(-50%)', 
             color: 'var(--text-muted)',
-            fontSize: '16px'
+            fontSize: '14px'
           }}>
             🔍
           </span>
@@ -174,10 +174,10 @@ export default function Roles() {
             onChange={(e) => setSearch(e.target.value)}
             style={{
               width: '100%',
-              padding: '10px 12px 10px 40px',
-              borderRadius: '12px',
+              padding: '8px 12px 8px 36px',
+              borderRadius: '10px',
               border: '1px solid var(--border)',
-              fontSize: '14px',
+              fontSize: '13px',
               outline: 'none',
               backgroundColor: '#fff',
               transition: 'border-color 0.2s'

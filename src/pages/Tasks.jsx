@@ -36,11 +36,11 @@ export default function Tasks() {
 
       const [tasksRes, tenantsRes] = await Promise.all([
         api.get(`/tasks?${queryParams.toString()}`),
-        isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: [] })
+        isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: { data: [] } })
       ]);
       
       setTasks(tasksRes.data);
-      if (isGlobalAdmin) setTenants(tenantsRes.data);
+      if (isGlobalAdmin) setTenants(tenantsRes.data.data || []);
     } catch (err) {
       console.error("Fetch Tasks Error:", err);
     } finally {
@@ -160,7 +160,7 @@ export default function Tasks() {
               style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '14px', outline: 'none', backgroundColor: '#fff' }}
             >
               <option value="">All Companies (Global View)</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+              {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
             </select>
         </div>
       )}
@@ -203,7 +203,7 @@ export default function Tasks() {
                   required
                 >
                   <option value="">Select a Company</option>
-                  {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+                  {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
                 </select>
             </div>
           )}
