@@ -14,16 +14,16 @@ export default function Login() {
 
     try {
       const response = await api.post('/auth/login', { email, password });
-      
+
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      window.location.href = '/'; 
+
+      window.location.href = '/';
     } catch (err) {
       if (err.response?.status === 401 || err.response?.status === 403) {
-         setError(err.response.data.error || 'Invalid credentials or permissions');
+        setError(err.response.data.error || 'Invalid credentials or permissions');
       } else {
-         setError('Server connection error.');
+        setError('Server connection error.');
       }
     } finally {
       setLoading(false);
@@ -31,28 +31,28 @@ export default function Login() {
   };
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      minHeight: '100vh', 
+    <div style={{
+      display: 'flex',
+      minHeight: '100vh',
       width: '100vw',
-      justifyContent: 'center', 
-      alignItems: 'center', 
+      justifyContent: 'center',
+      alignItems: 'center',
       backgroundColor: 'var(--bg-main)',
       padding: '24px'
     }}>
-      <div style={{ 
-        backgroundColor: 'var(--bg-card)', 
-        padding: '48px 40px', 
-        borderRadius: '16px', 
-        width: '100%', 
-        maxWidth: '440px', 
-        boxShadow: 'var(--shadow-lg)'
+      <div style={{
+        // backgroundColor: 'var(--bg-card)',
+        padding: '48px 40px',
+        // borderRadius: '16px',  
+        width: '100%',
+        maxWidth: '440px',
+        // boxShadow: 'var(--shadow-lg)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div style={{ 
-            width: '48px', 
-            height: '48px', 
-            backgroundColor: 'var(--primary)', 
+          <div style={{
+            width: '48px',
+            height: '48px',
+            backgroundColor: 'var(--primary)',
             borderRadius: '12px',
             margin: '0 auto 16px',
             display: 'flex',
@@ -67,11 +67,11 @@ export default function Login() {
         </div>
 
         {error && (
-          <div style={{ 
-            backgroundColor: '#fef2f2', 
-            color: 'var(--danger)', 
-            padding: '12px 16px', 
-            borderRadius: 'var(--radius)', 
+          <div style={{
+            backgroundColor: '#fef2f2',
+            color: 'var(--danger)',
+            padding: '12px 16px',
+            borderRadius: 'var(--radius)',
             fontSize: '14px',
             marginBottom: '24px',
             border: '1px solid #fee2e2',
@@ -80,21 +80,21 @@ export default function Login() {
             {error}
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>Email Address</label>
-            <input 
-              type="email" 
+            <input
+              type="email"
               placeholder="name@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{ 
-                width: '100%', 
-                padding: '12px 16px', 
-                borderRadius: 'var(--radius)', 
-                border: '1px solid var(--border)', 
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
                 backgroundColor: '#fff',
                 fontSize: '14px',
                 outline: 'none',
@@ -106,17 +106,17 @@ export default function Login() {
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>Password</label>
-            <input 
-              type="password" 
+            <input
+              type="password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{ 
-                width: '100%', 
-                padding: '12px 16px', 
-                borderRadius: 'var(--radius)', 
-                border: '1px solid var(--border)', 
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
                 backgroundColor: '#fff',
                 fontSize: '14px',
                 outline: 'none',
@@ -126,24 +126,24 @@ export default function Login() {
               onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
             />
           </div>
-          <button 
-             type="submit" 
-             disabled={loading}
-             style={{ 
-               marginTop: '8px', 
-               width: '100%', 
-               padding: '12px', 
-               borderRadius: 'var(--radius)', 
-               backgroundColor: 'var(--primary)', 
-               color: '#white', 
-               border: 'none', 
-               cursor: loading ? 'not-allowed' : 'pointer', 
-               fontWeight: '600',
-               fontSize: '16px',
-               color: '#fff',
-               opacity: loading ? 0.7 : 1
-             }}>
-             {loading ? 'Signing in...' : 'Sign In'}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              marginTop: '8px',
+              width: '100%',
+              padding: '12px',
+              borderRadius: 'var(--radius)',
+              backgroundColor: 'var(--primary)',
+              color: '#white',
+              border: 'none',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight: '600',
+              fontSize: '16px',
+              color: '#fff',
+              opacity: loading ? 0.7 : 1
+            }}>
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
