@@ -22,6 +22,7 @@ export default function DashboardLayout() {
   const navItems = [
     { label: 'Dashboard', path: '/', icon: '📊' },
     { label: 'Tenants', path: '/tenants', icon: '🏢', permission: 'tenants.manage' },
+    { label: 'Plans & Pricing', path: '/plans', icon: '🎟️', requireSuperAdmin: true },
     { label: 'Users', path: '/users', icon: '👥', permission: 'users.manage' },
     { label: 'Roles', path: '/roles', icon: '🔐', requireSuperAdmin: true },
     { label: 'Contacts', path: '/contacts', icon: '📇', permission: 'contacts.read' },

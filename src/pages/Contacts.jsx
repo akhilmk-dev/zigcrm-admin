@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input } from '../components/common/Modal';
@@ -21,6 +22,7 @@ export default function Contacts() {
   
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
+  const [tenantUsers, setTenantUsers] = useState([]);
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -28,12 +30,28 @@ export default function Contacts() {
     email: '',
     phone: '',
     company_name: '',
+    job_title: '',
+    source: '',
+    tags: '',
     status: 'lead',
-    tenant_id: ''
+    tenant_id: '',
+    assigned_to: ''
   });
 
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
+
+  // Fetch users for assignment when tenant selection changes
+  useEffect(() => {
+    const tid = formData.tenant_id || loggedInUser?.tenantId;
+    if (tid) {
+      api.get(`/users?tenant_id=${tid}&scope=tenant&limit=100`)
+        .then(res => setTenantUsers(res.data.data || []))
+        .catch(console.error);
+    } else {
+      setTenantUsers([]);
+    }
+  }, [formData.tenant_id]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -90,8 +108,12 @@ export default function Contacts() {
         email: contact.email || '',
         phone: contact.phone || '',
         company_name: contact.company_name || '',
+        job_title: contact.job_title || '',
+        source: contact.source || '',
+        tags: contact.tags || '',
         status: contact.status,
-        tenant_id: contact.tenant_id || ''
+        tenant_id: contact.tenant_id || '',
+        assigned_to: contact.assigned_to || ''
       });
     } else {
       setEditingContact(null);
@@ -101,8 +123,12 @@ export default function Contacts() {
           email: '', 
           phone: '', 
           company_name: '', 
+          job_title: '',
+          source: '',
+          tags: '',
           status: 'lead',
-          tenant_id: isGlobalAdmin ? selectedTenantId : ''
+          tenant_id: isGlobalAdmin ? selectedTenantId : (loggedInUser?.tenantId || ''),
+          assigned_to: ''
       });
     }
     setIsModalOpen(true);
@@ -140,7 +166,20 @@ export default function Contacts() {
       header: 'Name', 
       key: 'name',
       render: (row) => (
-        <div style={{ fontWeight: '600' }}>{row.first_name} {row.last_name}</div>
+        <Link 
+          to={`/contacts/${row.id}`}
+          style={{ 
+            fontWeight: '600', 
+            color: 'var(--primary)', 
+            textDecoration: 'none',
+            transition: 'color 0.2s',
+            cursor: 'pointer'
+          }}
+          onMouseEnter={(e) => e.target.style.color = 'var(--primary-hover)'}
+          onMouseLeave={(e) => e.target.style.color = 'var(--primary)'}
+        >
+          {row.first_name} {row.last_name}
+        </Link>
       )
     },
     { header: 'Email', key: 'email' },
@@ -269,7 +308,7 @@ export default function Contacts() {
         </>}
       >
         <form onSubmit={handleSubmit}>
-          {isGlobalAdmin && !editingContact && (
+          {isGlobalAdmin && (
             <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Assign to Company</label>
                 <select 
@@ -288,29 +327,45 @@ export default function Contacts() {
             <Input label="First Name" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} required />
             <Input label="Last Name" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} />
           </div>
-          <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-          <Input label="Phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
-          <Input label="Workplace Name" value={formData.company_name} onChange={(e) => setFormData({...formData, company_name: e.target.value})} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+            <Input label="Phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+          </div>
           
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Lead Status</label>
-            <select 
-              value={formData.status}
-              onChange={(e) => setFormData({...formData, status: e.target.value})}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-                fontSize: '14px',
-                backgroundColor: '#fff',
-                outline: 'none'
-              }}
-            >
-              <option value="lead">Lead</option>
-              <option value="active">Active Customer</option>
-              <option value="lost">Lost</option>
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input label="Workplace Name" value={formData.company_name} onChange={(e) => setFormData({...formData, company_name: e.target.value})} />
+            <Input label="Job Title" value={formData.job_title} onChange={(e) => setFormData({...formData, job_title: e.target.value})} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+             <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Assigned To</label>
+                <select 
+                  value={formData.assigned_to}
+                  onChange={(e) => setFormData({...formData, assigned_to: e.target.value})}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff' }}
+                >
+                  <option value="">Unassigned</option>
+                  {tenantUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.roles?.role_name})</option>)}
+                </select>
+             </div>
+             <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Lead Status</label>
+                <select 
+                  value={formData.status}
+                  onChange={(e) => setFormData({...formData, status: e.target.value})}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff', outline: 'none' }}
+                >
+                  <option value="lead">Lead</option>
+                  <option value="active">Active Customer</option>
+                  <option value="lost">Lost</option>
+                </select>
+             </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input label="Source" placeholder="e.g. LinkedIn, Referral" value={formData.source} onChange={(e) => setFormData({...formData, source: e.target.value})} />
+            <Input label="Tags" placeholder="e.g. VIP, Tech" value={formData.tags} onChange={(e) => setFormData({...formData, tags: e.target.value})} />
           </div>
         </form>
       </Modal>
