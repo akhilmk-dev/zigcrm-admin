@@ -193,7 +193,13 @@ export default function Roles() {
         onPageChange={setPage}
         actions={(row) => (
           <div style={{ display: 'flex', gap: '8px' }}>
-            <Button type="secondary" size="sm" onClick={() => handleOpenPerms(row)}>
+            <Button 
+              type="secondary" 
+              size="sm" 
+              onClick={() => handleOpenPerms(row)}
+              disabled={row.role_name === 'Super Admin'}
+              title={row.role_name === 'Super Admin' ? "Super Admin permissions are locked for system safety" : ""}
+            >
               Edit Permissions
             </Button>
             {!row.is_system_role && (

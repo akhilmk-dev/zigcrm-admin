@@ -5,6 +5,7 @@ import { Modal, Button, Input } from '../components/common/Modal';
 
 export default function Tenants() {
   const [tenants, setTenants] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
@@ -22,8 +23,14 @@ export default function Tenants() {
     company_email: '',
     phone: '',
     country: '',
-    status: 'active'
+    status: 'active',
+    plan_id: ''
   });
+
+  // Load plans for the dropdown
+  useEffect(() => {
+    api.get('/tenants/plans').then(res => setPlans(res.data || [])).catch(console.error);
+  }, []);
 
   // Debounce search input
   useEffect(() => {
@@ -65,7 +72,8 @@ export default function Tenants() {
         company_email: tenant.company_email || '',
         phone: tenant.phone || '',
         country: tenant.country || '',
-        status: tenant.status
+        status: tenant.status,
+        plan_id: tenant.plan_id || ''
       });
     } else {
       setEditingTenant(null);
@@ -74,7 +82,8 @@ export default function Tenants() {
         company_email: '',
         phone: '',
         country: '',
-        status: 'active'
+        status: 'active',
+        plan_id: plans.find(p => p.plan_name === 'Free Tier')?.id || ''
       });
     }
     setIsModalOpen(true);
@@ -117,6 +126,12 @@ export default function Tenants() {
       header: 'Company Name',
       render: (row) => (
         <div style={{ fontWeight: '600' }}>{row.tenant_name}</div>
+      )
+    },
+    { 
+      header: 'Plan', 
+      render: (row) => (
+        <Badge type="info">{row.plan_name}</Badge>
       )
     },
     { header: 'Email', key: 'company_email' },
@@ -250,6 +265,27 @@ export default function Tenants() {
             onChange={(e) => setFormData({ ...formData, tenant_name: e.target.value })}
             required
           />
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Subscription Plan</label>
+            <select
+              value={formData.plan_id}
+              onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+                fontSize: '14px',
+                backgroundColor: '#fff',
+                outline: 'none'
+              }}
+            >
+              <option value="">Select Plan</option>
+              {plans.map(p => (
+                <option key={p.id} value={p.id}>{p.plan_name} (${p.price})</option>
+              ))}
+            </select>
+          </div>
           <Input
             label="Company Email"
             type="email"

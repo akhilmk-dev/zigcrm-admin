@@ -10,6 +10,8 @@ import Contacts from './pages/Contacts';
 import Deals from './pages/Deals';
 import Tasks from './pages/Tasks';
 import Profile from './pages/Profile';
+import Plans from './pages/Plans';
+import ContactDetail from './pages/ContactDetail';
 
 function App() {
   const isAuthenticated = !!localStorage.getItem('accessToken');
@@ -23,9 +25,11 @@ function App() {
         <Route path="/" element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
            <Route index element={<Home />} />
            <Route path="tenants" element={<Tenants />} />
+           <Route path="plans" element={<Plans />} />
            <Route path="users" element={<Users />} />
            <Route path="roles" element={<Roles />} />
            <Route path="contacts" element={<Contacts />} />
+           <Route path="contacts/:id" element={<ContactDetail />} />
            <Route path="deals" element={<Deals />} />
            <Route path="tasks" element={<Tasks />} />
            <Route path="profile" element={<Profile />} />
