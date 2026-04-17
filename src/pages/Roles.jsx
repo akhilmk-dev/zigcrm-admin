@@ -1,193 +1,188 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
 
 export default function Roles() {
-  const { hasPermission } = usePermission();
-  const [roles, setRoles] = useState([]);
-  const [allPermissions, setAllPermissions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user: loggedInUser } = usePermission();
+  const isSuperAdmin = loggedInUser?.isSuperAdmin;
 
-  // Pagination and Search states
+  // ─── List State ──────────────────────────────────────────────────────────────
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // Selection / Modal States
+  // ─── Permissions State ───────────────────────────────────────────────────────
+  const [allPermissions, setAllPermissions] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
   const [isPermsModalOpen, setIsPermsModalOpen] = useState(false);
   const [rolePerms, setRolePerms] = useState([]);
+
+  // ─── New Role Modal ───────────────────────────────────────────────────────────
   const [isNewRoleModalOpen, setIsNewRoleModalOpen] = useState(false);
   const [newRole, setNewRole] = useState({ role_name: '', description: '' });
 
-  // Debounce search input
+  // ─── Debounce ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1); // Reset to first page on search
-    }, 500);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 500);
+    return () => clearTimeout(t);
   }, [search]);
 
-  const fetchRoles = async () => {
+  // ─── Load Permissions (once) ─────────────────────────────────────────────────
+  useEffect(() => {
+    api.get('/permissions').then(res => setAllPermissions(res.data || [])).catch(() => {});
+  }, []);
+
+  // ─── Load Roles ──────────────────────────────────────────────────────────────
+  const fetchRoles = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page,
-        limit: pageSize,
-        search: debouncedSearch
-      });
-      const rolesRes = await api.get(`/roles?${params.toString()}`);
-      setRoles(rolesRes.data.data);
-      setTotalCount(rolesRes.data.totalCount);
+      const params = new URLSearchParams({ page, limit: pageSize });
+      if (debouncedSearch) params.append('search', debouncedSearch);
+
+      const res = await api.get(`/roles?${params.toString()}`);
+      setRoles(res.data.data || []);
+      setTotalCount(res.data.totalCount || 0);
     } catch (err) {
-      console.error("Fetch Roles Error:", err);
+      console.error('Fetch Roles Error:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, debouncedSearch, pageSize]);
 
-  const fetchAllPermissions = async () => {
-    try {
-      const permsRes = await api.get('/permissions');
-      setAllPermissions(permsRes.data);
-    } catch (err) {
-      console.error("Fetch Permissions Error:", err);
-    }
-  };
+  useEffect(() => { fetchRoles(); }, [fetchRoles]);
 
-  useEffect(() => {
-    fetchAllPermissions();
-  }, []);
-
-  useEffect(() => {
-    fetchRoles();
-  }, [page, debouncedSearch]);
-
+  // ─── Open Permissions Modal ───────────────────────────────────────────────────
   const handleOpenPerms = async (role) => {
     setSelectedRole(role);
     try {
       const res = await api.get(`/roles/${role.id}/permissions`);
-      setRolePerms(res.data);
+      setRolePerms(res.data || []);
       setIsPermsModalOpen(true);
     } catch (err) {
-      console.error("Fetch Role Permissions Error:", err);
+      console.error('Fetch Role Permissions Error:', err);
     }
   };
 
+  // ─── Toggle a Permission ──────────────────────────────────────────────────────
   const togglePermission = async (permId) => {
-    let newPerms;
-    if (rolePerms.includes(permId)) {
-      newPerms = rolePerms.filter(id => id !== permId);
-    } else {
-      newPerms = [...rolePerms, permId];
-    }
+    const newPerms = rolePerms.includes(permId)
+      ? rolePerms.filter(id => id !== permId)
+      : [...rolePerms, permId];
     setRolePerms(newPerms);
 
     try {
       await api.post(`/roles/${selectedRole.id}/permissions`, { permissionIds: newPerms });
     } catch (err) {
-      console.error("Save Permissions Error:", err);
+      console.error('Save Permissions Error:', err);
     }
   };
 
+  // ─── Create Role ──────────────────────────────────────────────────────────────
   const handleCreateRole = async (e) => {
     e.preventDefault();
     try {
       await api.post('/roles', newRole);
-      fetchRoles(); // Refresh to catch new pagination/sorting
+      fetchRoles();
       setIsNewRoleModalOpen(false);
       setNewRole({ role_name: '', description: '' });
     } catch (err) {
-      console.error("Create Role Error:", err);
+      console.error('Create Role Error:', err);
+      alert(err.response?.data?.error || 'Failed to create role');
     }
   };
 
+  // ─── Delete Role ──────────────────────────────────────────────────────────────
   const handleDeleteRole = async (roleId) => {
-    if (!window.confirm("Are you sure you want to delete this role?")) return;
+    if (!window.confirm('Are you sure you want to delete this role?')) return;
     try {
       await api.delete(`/roles/${roleId}`);
       fetchRoles();
     } catch (err) {
-      console.error("Delete Role Error:", err);
-      alert("Failed to delete role.");
+      console.error('Delete Role Error:', err);
+      alert(err.response?.data?.error || 'Failed to delete role');
     }
   };
 
+  // ─── Permission Groups ───────────────────────────────────────────────────────
+  const groupedPermissions = allPermissions.reduce((acc, perm) => {
+    if (!acc[perm.module_name]) acc[perm.module_name] = { own: [], all: [] };
+    if (perm.action.endsWith('_all')) {
+      acc[perm.module_name].all.push(perm);
+    } else {
+      acc[perm.module_name].own.push(perm);
+    }
+    return acc;
+  }, {});
+
+  // ─── Table Columns ────────────────────────────────────────────────────────────
   const columns = [
     {
       header: 'Role Name',
       key: 'role_name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontWeight: '600' }}>{row.role_name}</span>
+          <span style={{ fontWeight: '600', color: row.role_name.startsWith('tenant-') ? '#0ea5e9' : 'var(--text-main)' }}>
+            {row.role_name}
+          </span>
           {row.is_system_role && <Badge>System</Badge>}
+          {row.role_name.startsWith('tenant-') && <Badge type="info">Tenant</Badge>}
         </div>
       )
     },
-    { header: 'Description', key: 'description' },
+    { header: 'Description', key: 'description', render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{row.description || '—'}</span> },
     {
-      header: 'Created At',
+      header: 'Created',
       key: 'created_at',
-      render: (row) => new Date(row.created_at).toLocaleDateString()
+      render: (row) => <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{new Date(row.created_at).toLocaleDateString()}</span>
     }
   ];
 
-  const groupedPermissions = allPermissions.reduce((acc, perm) => {
-    if (!acc[perm.module_name]) acc[perm.module_name] = [];
-    acc[perm.module_name].push(perm);
-    return acc;
-  }, {});
+  if (!isSuperAdmin) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <h2>Access Denied</h2>
+        <p>Only Super Admins can manage roles and permissions.</p>
+      </div>
+    );
+  }
 
   return (
     <div>
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Roles & Permissions</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Define access levels and assign permissions for your team members.</p>
+          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Unified Roles Management</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>
+            Platform and Tenant roles are now managed centrally. Use the <code>tenant-</code> prefix for roles intended for client staff.
+          </p>
         </div>
-        {hasPermission('roles.manage') && (
-          <Button onClick={() => setIsNewRoleModalOpen(true)}>+ Create Role</Button>
-        )}
+        <Button onClick={() => setIsNewRoleModalOpen(true)}>
+          + Create New Role
+        </Button>
       </div>
 
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'flex-end' }}>
-        <div style={{ position: 'relative', width: '320px' }}>
-          <span style={{ 
-            position: 'absolute', 
-            left: '12px', 
-            top: '50%', 
-            transform: 'translateY(-50%)', 
-            color: 'var(--text-muted)',
-            fontSize: '14px'
-          }}>
-            🔍
-          </span>
+      {/* Filter Bar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
+        {/* Search */}
+        <div style={{ position: 'relative', width: '280px' }}>
+          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '14px' }}>🔍</span>
           <input
             type="text"
             placeholder="Search roles..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px 8px 36px',
-              borderRadius: '10px',
-              border: '1px solid var(--border)',
-              fontSize: '13px',
-              outline: 'none',
-              backgroundColor: '#fff',
-              transition: 'border-color 0.2s'
-            }}
-            onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-            onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+            style={{ width: '100%', padding: '8px 12px 8px 36px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
           />
         </div>
       </div>
 
+      {/* Table */}
       <DataTable
         columns={columns}
         data={roles}
@@ -198,7 +193,9 @@ export default function Roles() {
         onPageChange={setPage}
         actions={(row) => (
           <div style={{ display: 'flex', gap: '8px' }}>
-            <Button type="secondary" size="sm" onClick={() => handleOpenPerms(row)}>Edit Permissions</Button>
+            <Button type="secondary" size="sm" onClick={() => handleOpenPerms(row)}>
+              Edit Permissions
+            </Button>
             {!row.is_system_role && (
               <Button type="ghost" size="sm" onClick={() => handleDeleteRole(row.id)}>
                 <span style={{ color: 'var(--danger)' }}>Delete</span>
@@ -208,67 +205,102 @@ export default function Roles() {
         )}
       />
 
-      {/* Permissions Edit Modal */}
+      {/* ─── Permissions Edit Modal ─────────────────────────────────────────── */}
       <Modal
         isOpen={isPermsModalOpen}
         onClose={() => setIsPermsModalOpen(false)}
-        title={`Edit Permissions: ${selectedRole?.role_name}`}
-        width="800px"
+        title={`Permissions: ${selectedRole?.role_name}`}
+        width="820px"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', maxHeight: '60vh', overflowY: 'auto', padding: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxHeight: '62vh', overflowY: 'auto', padding: '4px 8px' }}>
           {Object.keys(groupedPermissions).map(module => (
             <div key={module}>
-              <h4 style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.05em', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                {module} Module
+              <h4 style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.07em', marginBottom: '14px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                {module}
               </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-                {groupedPermissions[module].map(perm => (
-                  <label key={perm.id} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    cursor: 'pointer',
-                    padding: '8px',
-                    borderRadius: '8px',
-                    transition: 'background-color 0.2s'
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={rolePerms.includes(perm.id)}
-                      onChange={() => togglePermission(perm.id)}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary)' }}
-                    />
-                    <div>
-                      <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>{perm.action.charAt(0).toUpperCase() + perm.action.slice(1)}</p>
-                      <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{perm.description}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
+
+              {/* Personal permissions */}
+              {groupedPermissions[module].own.length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+                    🔒 Personal (own records only)
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
+                    {groupedPermissions[module].own.map(perm => (
+                      <label key={perm.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', backgroundColor: rolePerms.includes(perm.id) ? '#eff6ff' : '#fafafa', border: `1px solid ${rolePerms.includes(perm.id) ? '#bfdbfe' : '#e2e8f0'}`, transition: 'all 0.15s' }}>
+                        <input
+                          type="checkbox"
+                          checked={rolePerms.includes(perm.id)}
+                          onChange={() => togglePermission(perm.id)}
+                          style={{ marginTop: '2px', width: '15px', height: '15px', cursor: 'pointer', accentColor: 'var(--primary)' }}
+                        />
+                        <div>
+                          <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+                            {perm.action.charAt(0).toUpperCase() + perm.action.slice(1)}
+                          </p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{perm.description}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tenant-wide permissions */}
+              {groupedPermissions[module].all.length > 0 && (
+                <div style={{ backgroundColor: '#fffbeb', borderRadius: '10px', padding: '12px', border: '1px dashed #fcd34d' }}>
+                  <p style={{ fontSize: '11px', fontWeight: '700', color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+                    🏢 Tenant-Wide (all records in company)
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
+                    {groupedPermissions[module].all.map(perm => (
+                      <label key={perm.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', backgroundColor: rolePerms.includes(perm.id) ? '#fef3c7' : '#fff', border: `1px solid ${rolePerms.includes(perm.id) ? '#fcd34d' : '#e2e8f0'}`, transition: 'all 0.15s' }}>
+                        <input
+                          type="checkbox"
+                          checked={rolePerms.includes(perm.id)}
+                          onChange={() => togglePermission(perm.id)}
+                          style={{ marginTop: '2px', width: '15px', height: '15px', cursor: 'pointer', accentColor: '#f59e0b' }}
+                        />
+                        <div>
+                          <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+                            {perm.action.replace('_all', ' All').charAt(0).toUpperCase() + perm.action.replace('_all', ' All').slice(1)}
+                          </p>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{perm.description}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
       </Modal>
 
-      {/* New Role Modal */}
+      {/* ─── Create Role Modal ──────────────────────────────────────────────── */}
       <Modal
         isOpen={isNewRoleModalOpen}
         onClose={() => setIsNewRoleModalOpen(false)}
-        title="Create New Role"
+        title="Create Unified Role"
         footer={<>
           <Button type="secondary" onClick={() => setIsNewRoleModalOpen(false)}>Cancel</Button>
           <Button onClick={handleCreateRole}>Create Role</Button>
         </>}
       >
+        <div style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: '#fefce8', border: '1px solid #fde047', fontSize: '13px', color: '#854d0e', marginBottom: '16px' }}>
+          💡 Start the name with <strong>tenant-</strong> (e.g. <code>tenant-sales</code>) if this role is intended for client staff.
+        </div>
+
         <Input
           label="Role Name"
-          placeholder="e.g. Sales Manager"
+          placeholder="e.g. manager or tenant-operator"
           value={newRole.role_name}
           onChange={(e) => setNewRole({ ...newRole, role_name: e.target.value })}
+          required
         />
         <Input
           label="Description"
-          placeholder="What can this role do?"
+          placeholder="Brief description of what this role can do"
           value={newRole.description}
           onChange={(e) => setNewRole({ ...newRole, description: e.target.value })}
         />

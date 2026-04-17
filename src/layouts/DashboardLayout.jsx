@@ -21,9 +21,9 @@ export default function DashboardLayout() {
 
   const navItems = [
     { label: 'Dashboard', path: '/', icon: '📊' },
-    { label: 'Tenants', path: '/tenants', icon: '🏢', requiresAdmin: true },
+    { label: 'Tenants', path: '/tenants', icon: '🏢', permission: 'tenants.manage' },
     { label: 'Users', path: '/users', icon: '👥', permission: 'users.manage' },
-    { label: 'Roles', path: '/roles', icon: '🔐', permission: 'roles.manage' },
+    { label: 'Roles', path: '/roles', icon: '🔐', requireSuperAdmin: true },
     { label: 'Contacts', path: '/contacts', icon: '📇', permission: 'contacts.read' },
     { label: 'Deals', path: '/deals', icon: '🤝', permission: 'deals.read' },
     { label: 'Tasks', path: '/tasks', icon: '✅', permission: 'tasks.read' },
@@ -31,10 +31,8 @@ export default function DashboardLayout() {
   ];
 
   const filteredNav = navItems.filter(item => {
-    // Platform Level Routes
-    if (item.requiresAdmin) return user?.isSuperAdmin || user?.isAdmin;
-    
-    // Normal Routes
+    if (item.requireSuperAdmin) return user?.isSuperAdmin;
+    // Normal Routes — explicit permission check
     if (item.permission) return hasPermission(item.permission);
     
     return true; // Dashboard etc visible to all
