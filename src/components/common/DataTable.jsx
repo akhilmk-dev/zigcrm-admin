@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 export const Badge = ({ children, type = 'default' }) => {
   const styles = {
@@ -26,6 +26,60 @@ export const Badge = ({ children, type = 'default' }) => {
   );
 };
 
+const TableSkeleton = ({ columns, hasActions }) => {
+  return (
+    <div style={{ backgroundColor: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+      <style>
+        {`
+          @keyframes skeleton-shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
+          .skeleton-box {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.5s infinite;
+            border-radius: 4px;
+          }
+        `}
+      </style>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+              {columns.map((col, idx) => (
+                <th key={idx} style={{ padding: '16px 24px' }}>
+                  <div className="skeleton-box" style={{ width: '60px', height: '14px' }} />
+                </th>
+              ))}
+              {hasActions && <th style={{ padding: '16px 24px' }}></th>}
+            </tr>
+          </thead>
+          <tbody>
+            {[...Array(5)].map((_, rowIndex) => (
+              <tr key={rowIndex} style={{ borderBottom: '1px solid var(--border)' }}>
+                {columns.map((_, colIndex) => (
+                  <td key={colIndex} style={{ padding: '16px 24px' }}>
+                    <div className="skeleton-box" style={{ width: colIndex === 0 ? '70%' : '40%', height: '16px' }} />
+                  </td>
+                ))}
+                {hasActions && (
+                  <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <div className="skeleton-box" style={{ width: '60px', height: '28px', borderRadius: '8px' }} />
+                      <div className="skeleton-box" style={{ width: '60px', height: '28px', borderRadius: '8px' }} />
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
 export const DataTable = ({ 
   columns, 
   data, 
@@ -36,8 +90,21 @@ export const DataTable = ({
   pageSize, 
   onPageChange 
 }) => {
-  if (isLoading) {
-    return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading records...</div>;
+  const [showSkeleton, setShowSkeleton] = useState(isLoading);
+
+  useEffect(() => {
+    let timeout;
+    if (isLoading) {
+      setShowSkeleton(true);
+    } else {
+      // Small delay to ensure skeleton is seen and transitions smoothly
+      timeout = setTimeout(() => setShowSkeleton(false), 800);
+    }
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
+
+  if (showSkeleton) {
+    return <TableSkeleton columns={columns} hasActions={!!actions} />;
   }
 
   // Handle both plain array (legacy) and paginated object (new)
