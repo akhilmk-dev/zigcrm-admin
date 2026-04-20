@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input } from '../components/common/Modal';
+import { Modal, Button, Input, Select } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
 
 export default function Users() {
@@ -25,18 +27,61 @@ export default function Users() {
   // ─── Dropdown Data ───────────────────────────────────────────────────────────
   const [tenants, setTenants] = useState([]);          // For filter bar + modal
   const [allRoles, setAllRoles] = useState([]);        // Unified roles list
+  const [formRolesLoading, setFormRolesLoading] = useState(false);
 
   // ─── Modal State ─────────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role_id: '',
-    target_tenant_id: '',
+
+  const formik = useFormik({
+    initialValues: {
+      name: '',
+      email: '',
+      password: '',
+      role_id: '',
+      target_tenant_id: '',
+      status: 'active',
+    },
+    validationSchema: Yup.object({
+      name: Yup.string().required('Full name is required'),
+      email: Yup.string().email('Invalid email').required('Email is required'),
+      password: Yup.string().when('isEditing', {
+          is: () => !editingUser,
+          then: () => Yup.string().required('Password is required').min(6, 'Min 6 characters')
+      }),
+      role_id: Yup.string().required('Role is required'),
+      target_tenant_id: Yup.string().when('viewScope', {
+          is: () => viewScope === 'tenant' && isGlobalAdmin,
+          then: () => Yup.string().required('Company assignment is required')
+      })
+    }),
+    onSubmit: async (values) => {
+      try {
+        const payload = {
+          scope: viewScope,
+          name: values.name,
+          email: values.email,
+          role_id: values.role_id,
+          target_tenant_id: values.target_tenant_id || loggedInUser?.tenantId,
+          status: values.status,
+        };
+
+        if (values.password) payload.password = values.password;
+
+        if (editingUser) {
+          await api.patch(`/users/${editingUser.id}`, payload);
+        } else {
+          await api.post('/users', payload);
+        }
+
+        handleCloseModal();
+        fetchUsers();
+      } catch (err) {
+        console.error('Save User Error:', err);
+        alert(err.response?.data?.error || 'Failed to save user');
+      }
+    }
   });
-  const [formRolesLoading, setFormRolesLoading] = useState(false);
 
   // ─── Debounce ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -55,7 +100,6 @@ export default function Users() {
   const loadRoles = async () => {
     setFormRolesLoading(true);
     try {
-      // Get all roles for internal filtering
       const res = await api.get('/roles?limit=1000');
       setAllRoles(res.data.data || []);
     } catch (err) {
@@ -92,56 +136,32 @@ export default function Users() {
   const handleOpenModal = (user = null) => {
     if (user) {
       setEditingUser(user);
-      setFormData({
+      formik.setValues({
         name: user.name,
         email: user.email,
         password: '',
         role_id: user.role_id || '',
         target_tenant_id: user.tenant_id || '',
+        status: user.status || 'active',
       });
     } else {
       setEditingUser(null);
       const defaultTenantId = !isGlobalAdmin ? loggedInUser?.tenantId : '';
-      setFormData({ 
-        name: '', 
-        email: '', 
-        password: '', 
-        role_id: '', 
-        target_tenant_id: defaultTenantId || '' 
+      formik.resetForm({
+        values: {
+            name: '', 
+            email: '', 
+            password: '', 
+            role_id: '', 
+            target_tenant_id: defaultTenantId || '',
+            status: 'active'
+        }
       });
     }
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => { setIsModalOpen(false); setEditingUser(null); };
-
-  // ─── Submit ───────────────────────────────────────────────────────────────────
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        scope: viewScope,
-        name: formData.name,
-        email: formData.email,
-        role_id: formData.role_id,
-        target_tenant_id: formData.target_tenant_id || loggedInUser?.tenantId,
-      };
-
-      if (formData.password) payload.password = formData.password;
-
-      if (editingUser) {
-        await api.patch(`/users/${editingUser.id}`, payload);
-      } else {
-        await api.post('/users', payload);
-      }
-
-      handleCloseModal();
-      fetchUsers();
-    } catch (err) {
-      console.error('Save User Error:', err);
-      alert(err.response?.data?.error || 'Failed to save user');
-    }
-  };
 
   const toggleStatus = async (user) => {
     const newStatus = user.status === 'active' ? 'suspended' : 'active';
@@ -302,58 +322,99 @@ export default function Users() {
         title={modalTitle}
         footer={<>
           <Button type="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button onClick={handleSubmit}>{editingUser ? 'Save Changes' : 'Create User'}</Button>
+          <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
+            {editingUser ? (formik.isSubmitting ? 'Saving...' : 'Save Changes') : (formik.isSubmitting ? 'Creating...' : 'Create User')}
+          </Button>
         </>}
       >
-        <form onSubmit={handleSubmit}>
-          <Input label="Full Name" placeholder="Jane Doe" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
-          <Input label="Email Address" type="email" placeholder="jane@company.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
+        <form onSubmit={formik.handleSubmit}>
+          <Input 
+            label="Full Name" 
+            name="name"
+            placeholder="Jane Doe" 
+            value={formik.values.name} 
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.errors.name}
+            touched={formik.touched.name}
+            required 
+          />
+          <Input 
+            label="Email Address" 
+            name="email"
+            type="email" 
+            placeholder="jane@company.com" 
+            value={formik.values.email} 
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.errors.email}
+            touched={formik.touched.email}
+            required 
+          />
           <Input
             label={editingUser ? 'Reset Password (blank = no change)' : 'Temporary Password'}
-            type="password" placeholder="••••••••"
-            value={formData.password}
-            onChange={e => setFormData({ ...formData, password: e.target.value })}
+            name="password"
+            type="password" 
+            placeholder="••••••••"
+            value={formik.values.password}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.errors.password}
+            touched={formik.touched.password}
             required={!editingUser}
           />
 
           {/* Company Selector (For Global Admins when viewScope is tenant) */}
           {isGlobalAdmin && viewScope === 'tenant' && (
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Company</label>
-              <select
-                value={formData.target_tenant_id}
-                onChange={e => setFormData({ ...formData, target_tenant_id: e.target.value })}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff', outline: 'none' }}
+            <Select
+                label="Company"
+                name="target_tenant_id"
+                value={formik.values.target_tenant_id}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.errors.target_tenant_id}
+                touched={formik.touched.target_tenant_id}
                 required
-              >
+            >
                 <option value="">— Select a Company —</option>
                 {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
-              </select>
-            </div>
+            </Select>
           )}
 
           {/* Unified Role Selector */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
-              Assigned Role
-              {formRolesLoading && <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px' }}>Loading...</span>}
-            </label>
-            <select
-              value={formData.role_id}
-              onChange={e => setFormData({ ...formData, role_id: e.target.value })}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff', outline: 'none' }}
-              required
-              disabled={formRolesLoading}
-            >
-              <option value="">Select a role</option>
-              {filteredRoles.map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
-            </select>
-            {filteredRoles.length === 0 && !formRolesLoading && (
-              <p style={{ fontSize: '12px', color: '#f59e0b', marginTop: '4px' }}>
-                ⚠️ No suitable roles found. Roles starting with <code>tenant-</code> are only for tenant users.
-              </p>
-            )}
-          </div>
+          <Select
+            label="Assigned Role"
+            name="role_id"
+            value={formik.values.role_id}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.errors.role_id}
+            touched={formik.touched.role_id}
+            required
+            disabled={formRolesLoading}
+          >
+            <option value="">Select a role</option>
+            {filteredRoles.map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
+          </Select>
+          {filteredRoles.length === 0 && !formRolesLoading && (
+            <p style={{ fontSize: '12px', color: '#f59e0b', marginTop: '-12px', marginBottom: '16px' }}>
+              ⚠️ No suitable roles found. Roles starting with <code>tenant-</code> are only for tenant users.
+            </p>
+          )}
+          
+          {/* Account Status */}
+          <Select
+            label="Account Status"
+            name="status"
+            value={formik.values.status}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            required
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="suspended">Suspended</option>
+          </Select>
         </form>
       </Modal>
     </div>

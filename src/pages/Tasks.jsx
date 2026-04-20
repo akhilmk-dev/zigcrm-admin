@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import api from '../api/axiosConfig';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input } from '../components/common/Modal';
+import { Modal, Button, Input, Select } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
 
 export default function Tasks() {
@@ -11,6 +13,10 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [staff, setStaff] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
   
   // Search & Pagination states
   const [search, setSearch] = useState('');
@@ -22,16 +28,42 @@ export default function Tasks() {
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
 
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    due_date: '',
-    status: 'pending',
-    tenant_id: ''
-  });
-
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
+
+  const formik = useFormik({
+    initialValues: {
+      title: '',
+      description: '',
+      due_date: '',
+      status: 'pending',
+      priority: 'medium',
+      assigned_to: '',
+      document_url: '',
+      tenant_id: ''
+    },
+    validationSchema: Yup.object({
+      title: Yup.string().required('Task title is required'),
+      tenant_id: Yup.string().when('isGlobalAdmin', {
+        is: () => isGlobalAdmin && !editingTask,
+        then: () => Yup.string().required('Company assignment is required')
+      }),
+      priority: Yup.string().required('Priority is required')
+    }),
+    onSubmit: async (values) => {
+      try {
+        if (editingTask) {
+          await api.patch(`/tasks/${editingTask.id}`, values);
+        } else {
+          await api.post('/tasks', values);
+        }
+        fetchData();
+        handleCloseModal();
+      } catch (err) {
+        console.error("Save Task Error:", err);
+      }
+    }
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -57,6 +89,13 @@ export default function Tasks() {
       setTotalCount(tasksRes.data.totalCount || 0);
 
       if (isGlobalAdmin) setTenants(tenantsRes.data.data || []);
+      
+      // Fetch staff for the current tenant or chosen tenant
+      const tid = selectedTenantId || loggedInUser.tenantId;
+      if (tid) {
+        const staffRes = await api.get(`/users?tenant_id=${tid}`);
+        setStaff(staffRes.data.data || []);
+      }
     } catch (err) {
       console.error("Fetch Tasks Error:", err);
     } finally {
@@ -67,6 +106,15 @@ export default function Tasks() {
   useEffect(() => {
     fetchData();
   }, [selectedTenantId, page, debouncedSearch]);
+
+  // Fetch staff when formik tenant_id changes (for creation by Super Admin)
+  useEffect(() => {
+    if (formik.values.tenant_id) {
+       api.get(`/users?tenant_id=${formik.values.tenant_id}`)
+         .then(res => setStaff(res.data.data || []))
+         .catch(console.error);
+    }
+  }, [formik.values.tenant_id]);
 
   // Debounce search
   useEffect(() => {
@@ -80,22 +128,31 @@ export default function Tasks() {
   const handleOpenModal = (task = null) => {
     if (task) {
       setEditingTask(task);
-      setFormData({
+      formik.setValues({
         title: task.title,
         description: task.description || '',
         due_date: task.due_date ? task.due_date.split('T')[0] : '',
         status: task.status,
+        priority: task.priority || 'medium',
+        assigned_to: task.assigned_to || '',
+        document_url: task.document_url || '',
         tenant_id: task.tenant_id || ''
       });
     } else {
       setEditingTask(null);
-      setFormData({ 
-          title: '', 
-          description: '', 
-          due_date: '', 
-          status: 'pending',
-          tenant_id: isGlobalAdmin ? selectedTenantId : ''
+      formik.resetForm({
+        values: {
+            title: '', 
+            description: '', 
+            due_date: '', 
+            status: 'pending',
+            priority: 'medium',
+            assigned_to: '',
+            document_url: '',
+            tenant_id: isGlobalAdmin ? selectedTenantId : (loggedInUser.tenantId || '')
+        }
       });
+      setUploadedFileName('');
     }
     setIsModalOpen(true);
   };
@@ -105,18 +162,47 @@ export default function Tasks() {
     setEditingTask(null);
   };
 
-  const handleSubmit = async (e) => {
+  const handleDrag = (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      uploadFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      uploadFile(e.target.files[0]);
+    }
+  };
+
+  const uploadFile = async (file) => {
+    setUploading(true);
+    const uploadData = new FormData();
+    uploadData.append('file', file);
+
     try {
-      if (editingTask) {
-        await api.patch(`/tasks/${editingTask.id}`, formData);
-      } else {
-        await api.post('/tasks', formData);
-      }
-      fetchData();
-      handleCloseModal();
+      const res = await api.post('/tasks/upload', uploadData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      formik.setFieldValue('document_url', res.data.url);
+      setUploadedFileName(res.data.fileName || file.name);
     } catch (err) {
-      console.error("Save Task Error:", err);
+      console.error("Upload Error:", err);
+      alert("Failed to upload document");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -156,6 +242,34 @@ export default function Tasks() {
         const types = { pending: 'warning', in_progress: 'primary', completed: 'success', cancelled: 'secondary' };
         return <Badge type={types[row.status]}>{row.status.replace('_', ' ')}</Badge>;
       }
+    },
+    { 
+      header: 'Priority', 
+      key: 'priority',
+      render: (row) => {
+        const types = { low: 'secondary', medium: 'warning', high: 'danger' };
+        return <Badge type={types[row.priority || 'medium']}>{row.priority?.toUpperCase() || 'MEDIUM'}</Badge>;
+      }
+    },
+    { 
+      header: 'Assignee', 
+      key: 'assigned_to',
+      render: (row) => row.assigned_to_user?.name || 'Unassigned'
+    },
+    { 
+      header: 'Doc', 
+      key: 'document_url',
+      render: (row) => row.document_url ? (
+        <a 
+          href={`${FILE_BASE_URL}${row.document_url}`} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          style={{ textDecoration: 'none', fontSize: '18px' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          📄
+        </a>
+      ) : '-'
     },
     { 
       header: 'Created', 
@@ -263,31 +377,48 @@ export default function Tasks() {
         title={editingTask ? 'Edit Task' : 'New Task'}
         footer={<>
           <Button type="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button onClick={handleSubmit}>{editingTask ? 'Update Task' : 'Create Task'}</Button>
+          <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
+            {editingTask ? (formik.isSubmitting ? 'Updating...' : 'Update Task') : (formik.isSubmitting ? 'Creating...' : 'Create Task')}
+          </Button>
         </>}
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={formik.handleSubmit}>
           {isGlobalAdmin && !editingTask && (
-            <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Assign to Company</label>
-                <select 
-                  value={formData.tenant_id}
-                  onChange={(e) => setFormData({...formData, tenant_id: e.target.value})}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff' }}
-                  required
-                >
-                  <option value="">Select a Company</option>
-                  {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
-                </select>
-            </div>
+            <Select 
+                label="Assign to Company"
+                name="tenant_id"
+                value={formik.values.tenant_id}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.errors.tenant_id}
+                touched={formik.touched.tenant_id}
+                required
+            >
+                <option value="">Select a Company</option>
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+            </Select>
           )}
 
-          <Input label="Task Title" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} required />
+          <Input 
+            label="Task Title" 
+            name="title"
+            placeholder="Enter task title"
+            value={formik.values.title} 
+            onChange={formik.handleChange} 
+            onBlur={formik.handleBlur}
+            error={formik.errors.title}
+            touched={formik.touched.title}
+            required 
+          />
+
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Description</label>
             <textarea 
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              name="description"
+              placeholder="Provide a detailed description of the task..."
+              value={formik.values.description}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
                style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -299,32 +430,177 @@ export default function Tasks() {
                 outline: 'none',
                 fontFamily: 'inherit'
               }}
-              placeholder="What needs to be done?"
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <Input label="Due Date" type="date" value={formData.due_date} onChange={(e) => setFormData({...formData, due_date: e.target.value})} />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input 
+                label="Due Date" 
+                type="date" 
+                name="due_date"
+                value={formik.values.due_date} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
             
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Status</label>
-              <select 
-                value={formData.status}
-                onChange={(e) => setFormData({...formData, status: e.target.value})}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius)',
-                  border: '1px solid var(--border)',
-                  fontSize: '14px',
-                  backgroundColor: '#fff',
-                  outline: 'none'
-                }}
-              >
+            <Select
+                label="Priority"
+                name="priority"
+                value={formik.values.priority}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                required
+            >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+            </Select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Select
+                label="Assign To"
+                name="assigned_to"
+                value={formik.values.assigned_to}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+            >
+                <option value="">Select Staff</option>
+                {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </Select>
+
+            <Select
+                label="Status"
+                name="status"
+                value={formik.values.status}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+            >
                 <option value="pending">Pending</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
-              </select>
+            </Select>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Reference Document</label>
+            
+            <div 
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              style={{
+                position: 'relative',
+                width: '100%',
+                minHeight: '120px',
+                border: `2px dashed ${dragActive ? 'var(--primary)' : 'var(--border)'}`,
+                borderRadius: '12px',
+                backgroundColor: dragActive ? 'rgba(var(--primary-rgb), 0.05)' : '#fcfcfc',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px',
+                transition: 'all 0.2s ease',
+                cursor: 'pointer',
+                overflow: 'hidden'
+              }}
+              onClick={() => document.getElementById('file-upload').click()}
+            >
+              <input 
+                id="file-upload"
+                type="file" 
+                style={{ display: 'none' }}
+                onChange={handleFileUpload}
+                disabled={uploading}
+              />
+              
+              {uploading ? (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ 
+                    width: '32px', 
+                    height: '32px', 
+                    border: '3px solid rgba(var(--primary-rgb), 0.1)', 
+                    borderTopColor: 'var(--primary)', 
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    margin: '0 auto 12px'
+                  }} />
+                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>Uploading document...</span>
+                </div>
+              ) : formik.values.document_url ? (
+                <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
+                  <div style={{ 
+                    fontSize: '40px', 
+                    marginBottom: '12px',
+                    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))'
+                  }}>📄</div>
+                  <div style={{ 
+                    fontSize: '15px', 
+                    fontWeight: '700', 
+                    color: '#059669', // Succesful green
+                    marginBottom: '4px' 
+                  }}>
+                    Document Uploaded!
+                  </div>
+                  {uploadedFileName && (
+                    <div style={{ 
+                      fontSize: '13px', 
+                      color: 'var(--text-muted)', 
+                      marginBottom: '12px',
+                      maxWidth: '250px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      margin: '0 auto 12px'
+                    }}>
+                      {uploadedFileName}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '12px' }}>
+                    <a 
+                      href={`${FILE_BASE_URL}${formik.values.document_url}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ 
+                        fontSize: '13px', 
+                        color: 'var(--primary)', 
+                        fontWeight: '700', 
+                        textDecoration: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        backgroundColor: 'rgba(var(--primary-rgb), 0.1)'
+                      }}
+                    >
+                      Preview File
+                    </a>
+                    <Button 
+                      size="sm" 
+                      type="ghost"
+                      onClick={(e) => { e.stopPropagation(); document.getElementById('file-upload').click(); }}
+                    >
+                      Change File
+                    </Button>
+                  </div>
+                  <style>{`
+                    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                  `}</style>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '32px', marginBottom: '8px', opacity: 0.5 }}>📤</div>
+                  <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)', marginBottom: '4px' }}>
+                    Click or drag file to upload
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    PDF, DOC, images (max 5MB)
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </form>

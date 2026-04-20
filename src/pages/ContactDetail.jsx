@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
-import { Button, Input } from '../components/common/Modal';
+import { Modal, Button, Input, Select } from '../components/common/Modal';
 
 export default function ContactDetail() {
   const { id } = useParams();
@@ -16,27 +18,43 @@ export default function ContactDetail() {
   // Edit Modal States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [tenants, setTenants] = useState([]);
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-    company_name: '',
-    job_title: '',
-    source: '',
-    tags: '',
-    status: 'lead',
-    tenant_id: ''
-  });
 
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
+
+  const formik = useFormik({
+    initialValues: {
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone: '',
+      company_name: '',
+      job_title: '',
+      source: '',
+      tags: '',
+      status: 'lead',
+      tenant_id: ''
+    },
+    validationSchema: Yup.object({
+      first_name: Yup.string().required('First name is required'),
+      tenant_id: Yup.string().required('Company assignment is required'),
+      email: Yup.string().email('Invalid email address')
+    }),
+    onSubmit: async (values) => {
+      try {
+        await api.patch(`/contacts/${id}`, values);
+        setIsEditModalOpen(false);
+        fetchDetail();
+      } catch (err) {
+        console.error("Update contact error", err);
+      }
+    }
+  });
 
   const fetchDetail = async () => {
     setLoading(true);
     try {
       const response = await api.get(`/contacts/${id}`);
-      console.log("Contact Detail API Response:", response.data);
       setData(response.data);
     } catch (err) {
       console.error("Fetch detail error", err);
@@ -76,7 +94,7 @@ export default function ContactDetail() {
   const handleOpenEditModal = () => {
     if (!data?.contact) return;
     const { contact } = data;
-    setFormData({
+    formik.setValues({
       first_name: contact.first_name,
       last_name: contact.last_name || '',
       email: contact.email || '',
@@ -94,17 +112,6 @@ export default function ContactDetail() {
     }
     
     setIsEditModalOpen(true);
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await api.patch(`/contacts/${id}`, formData);
-      setIsEditModalOpen(false);
-      fetchDetail();
-    } catch (err) {
-      console.error("Update contact error", err);
-    }
   };
 
   const handleDeleteNote = async (noteId) => {
@@ -313,84 +320,128 @@ export default function ContactDetail() {
         </main>
       </div>
 
-      <EditModal 
+      <Modal 
         isOpen={isEditModalOpen} 
         onClose={() => setIsEditModalOpen(false)} 
         title="Edit Contact Details"
         footer={<>
           <Button type="secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-          <Button onClick={handleEditSubmit}>Save Changes</Button>
+          <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
+            {formik.isSubmitting ? 'Saving...' : 'Save Changes'}
+          </Button>
         </>}
       >
-        <form onSubmit={handleEditSubmit}>
+        <form onSubmit={formik.handleSubmit}>
           {isGlobalAdmin && (
-            <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Assign to Company</label>
-                <select 
-                  value={formData.tenant_id}
-                  onChange={(e) => setFormData({...formData, tenant_id: e.target.value})}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff' }}
-                >
-                  <option value="">Select a Company</option>
-                  {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
-                </select>
-            </div>
+            <Select
+                label="Assign to Company"
+                name="tenant_id"
+                value={formik.values.tenant_id}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.errors.tenant_id}
+                touched={formik.touched.tenant_id}
+                required
+            >
+                <option value="">Select a Company</option>
+                {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+            </Select>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <Input label="First Name" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} required />
-            <Input label="Last Name" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input 
+                label="First Name" 
+                name="first_name"
+                placeholder="John"
+                value={formik.values.first_name} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+                error={formik.errors.first_name}
+                touched={formik.touched.first_name}
+                required 
+            />
+            <Input 
+                label="Last Name" 
+                name="last_name"
+                placeholder="Doe"
+                value={formik.values.last_name} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-            <Input label="Phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input 
+                label="Email" 
+                name="email"
+                type="email" 
+                placeholder="john.doe@example.com"
+                value={formik.values.email} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+                error={formik.errors.email}
+                touched={formik.touched.email}
+            />
+            <Input 
+                label="Phone" 
+                name="phone"
+                placeholder="+1 (555) 000-0000"
+                value={formik.values.phone} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <Input label="Workplace Name" value={formData.company_name} onChange={(e) => setFormData({...formData, company_name: e.target.value})} />
-            <Input label="Job Title" value={formData.job_title} onChange={(e) => setFormData({...formData, job_title: e.target.value})} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input 
+                label="Workplace Name" 
+                name="company_name"
+                placeholder="Acme Corp"
+                value={formik.values.company_name} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
+            <Input 
+                label="Job Title" 
+                name="job_title"
+                placeholder="CEO"
+                value={formik.values.job_title} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Lead Status</label>
-              <select 
-                value={formData.status}
-                onChange={(e) => setFormData({...formData, status: e.target.value})}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff' }}
-              >
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Select
+                label="Lead Status"
+                name="status"
+                value={formik.values.status}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+            >
                 <option value="lead">Lead</option>
                 <option value="active">Active Customer</option>
                 <option value="lost">Lost</option>
-              </select>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                <Input label="Source" value={formData.source} onChange={(e) => setFormData({...formData, source: e.target.value})} />
-            </div>
+            </Select>
+            <Input 
+                label="Source" 
+                name="source"
+                placeholder="e.g. LinkedIn"
+                value={formik.values.source} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
           </div>
-          <Input label="Tags (comma separated)" value={formData.tags} onChange={(e) => setFormData({...formData, tags: e.target.value})} />
+          <Input 
+            label="Tags" 
+            name="tags"
+            placeholder="e.g. VIP, Prospect"
+            value={formik.values.tags} 
+            onChange={formik.handleChange} 
+            onBlur={formik.handleBlur}
+          />
         </form>
-      </EditModal>
-    </div>
-  );
-}
-
-// Modal component for usage within this page
-function EditModal({ isOpen, onClose, title, footer, children }) {
-  if (!isOpen) return null;
-  return (
-    <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-      <div style={{ backgroundColor: '#fff', borderRadius: '20px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0 }}>{title}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
-        </div>
-        <div style={{ padding: '24px' }}>{children}</div>
-        <div style={{ padding: '24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px', backgroundColor: 'var(--bg-main)', borderBottomLeftRadius: '20px', borderBottomRightRadius: '20px' }}>
-          {footer}
-        </div>
-      </div>
+      </Modal>
     </div>
   );
 }

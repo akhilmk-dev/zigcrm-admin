@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input } from '../components/common/Modal';
+import { Modal, Button, Input, Select } from '../components/common/Modal';
 
 export default function Tenants() {
   const [tenants, setTenants] = useState([]);
@@ -18,13 +20,35 @@ export default function Tenants() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  const [formData, setFormData] = useState({
-    tenant_name: '',
-    company_email: '',
-    phone: '',
-    country: '',
-    status: 'active',
-    plan_id: ''
+  const formik = useFormik({
+    initialValues: {
+      tenant_name: '',
+      company_email: '',
+      phone: '',
+      country: '',
+      status: 'active',
+      plan_id: ''
+    },
+    validationSchema: Yup.object({
+      tenant_name: Yup.string().required('Company name is required'),
+      company_email: Yup.string().email('Invalid email').required('Email is required'),
+      plan_id: Yup.string().required('Subscription plan is required'),
+      status: Yup.string().required('Status is required')
+    }),
+    onSubmit: async (values) => {
+      try {
+        if (editingTenant) {
+          await api.patch(`/tenants/${editingTenant.id}`, values);
+        } else {
+          await api.post('/tenants', values);
+        }
+        fetchTenants();
+        handleCloseModal();
+      } catch (err) {
+        console.error("Failed to save tenant", err);
+        alert(err.response?.data?.error || "Error saving tenant");
+      }
+    }
   });
 
   // Load plans for the dropdown
@@ -67,7 +91,7 @@ export default function Tenants() {
   const handleOpenModal = (tenant = null) => {
     if (tenant) {
       setEditingTenant(tenant);
-      setFormData({
+      formik.setValues({
         tenant_name: tenant.tenant_name,
         company_email: tenant.company_email || '',
         phone: tenant.phone || '',
@@ -77,13 +101,15 @@ export default function Tenants() {
       });
     } else {
       setEditingTenant(null);
-      setFormData({
-        tenant_name: '',
-        company_email: '',
-        phone: '',
-        country: '',
-        status: 'active',
-        plan_id: plans.find(p => p.plan_name === 'Free Tier')?.id || ''
+      formik.resetForm({
+        values: {
+            tenant_name: '',
+            company_email: '',
+            phone: '',
+            country: '',
+            status: 'active',
+            plan_id: plans.find(p => p.plan_name === 'Free Tier')?.id || ''
+        }
       });
     }
     setIsModalOpen(true);
@@ -92,22 +118,6 @@ export default function Tenants() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingTenant(null);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingTenant) {
-        await api.patch(`/tenants/${editingTenant.id}`, formData);
-      } else {
-        await api.post('/tenants', formData);
-      }
-      fetchTenants();
-      handleCloseModal();
-    } catch (err) {
-      console.error("Failed to save tenant", err);
-      alert(err.response?.data?.error || "Error saving tenant");
-    }
   };
 
   const handleDelete = async (id) => {
@@ -175,7 +185,7 @@ export default function Tenants() {
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value);
-              setPage(1);
+              setPage(page);
             }}
             style={{
               padding: '8px 12px',
@@ -253,81 +263,86 @@ export default function Tenants() {
         footer={
           <>
             <Button type="secondary" onClick={handleCloseModal}>Cancel</Button>
-            <Button onClick={handleSubmit}>{editingTenant ? 'Update Tenant' : 'Create Tenant'}</Button>
+            <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
+                {editingTenant ? (formik.isSubmitting ? 'Updating...' : 'Update Tenant') : (formik.isSubmitting ? 'Creating...' : 'Create Tenant')}
+            </Button>
           </>
         }
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={formik.handleSubmit}>
           <Input
             label="Company Name"
+            name="tenant_name"
             placeholder="Acme Inc."
-            value={formData.tenant_name}
-            onChange={(e) => setFormData({ ...formData, tenant_name: e.target.value })}
+            value={formik.values.tenant_name}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.errors.tenant_name}
+            touched={formik.touched.tenant_name}
             required
           />
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Subscription Plan</label>
-            <select
-              value={formData.plan_id}
-              onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-                fontSize: '14px',
-                backgroundColor: '#fff',
-                outline: 'none'
-              }}
-            >
-              <option value="">Select Plan</option>
-              {plans.map(p => (
-                <option key={p.id} value={p.id}>{p.plan_name} (${p.price})</option>
-              ))}
-            </select>
-          </div>
+          
+          <Select
+            label="Subscription Plan"
+            name="plan_id"
+            value={formik.values.plan_id}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.errors.plan_id}
+            touched={formik.touched.plan_id}
+            required
+          >
+            <option value="">Select Plan</option>
+            {plans.map(p => (
+              <option key={p.id} value={p.id}>{p.plan_name} (${p.price})</option>
+            ))}
+          </Select>
+
           <Input
             label="Company Email"
+            name="company_email"
             type="email"
             placeholder="admin@acme.com"
-            value={formData.company_email}
-            onChange={(e) => setFormData({ ...formData, company_email: e.target.value })}
+            value={formik.values.company_email}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.errors.company_email}
+            touched={formik.touched.company_email}
+            required
           />
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Input
               label="Phone"
+              name="phone"
               placeholder="+1..."
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              value={formik.values.phone}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
             />
             <Input
               label="Country"
+              name="country"
               placeholder="USA"
-              value={formData.country}
-              onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+              value={formik.values.country}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
             />
           </div>
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Status</label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-                fontSize: '14px',
-                backgroundColor: '#fff',
-                outline: 'none'
-              }}
-            >
-              <option value="active">Active</option>
-              <option value="trial">Trial</option>
-              <option value="inactive">Inactive</option>
-              <option value="suspended">Suspended</option>
-            </select>
-          </div>
+
+          <Select
+            label="Status"
+            name="status"
+            value={formik.values.status}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            required
+          >
+            <option value="active">Active</option>
+            <option value="trial">Trial</option>
+            <option value="inactive">Inactive</option>
+            <option value="suspended">Suspended</option>
+          </Select>
         </form>
       </Modal>
     </div>

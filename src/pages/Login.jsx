@@ -1,34 +1,38 @@
 import React, { useState } from 'react';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      const response = await api.post('/auth/login', { email, password });
-
-      localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-
-      window.location.href = '/';
-    } catch (err) {
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        setError(err.response.data.error || 'Invalid credentials or permissions');
-      } else {
-        setError('Server connection error.');
+  const formik = useFormik({
+    initialValues: {
+      email: '',
+      password: ''
+    },
+    validationSchema: Yup.object({
+      email: Yup.string().email('Invalid email address').required('Email is required'),
+      password: Yup.string().required('Password is required')
+    }),
+    onSubmit: async (values, { setSubmitting }) => {
+      setError('');
+      try {
+        const response = await api.post('/auth/login', values);
+        localStorage.setItem('accessToken', response.data.accessToken);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        window.location.href = '/';
+      } catch (err) {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          setError(err.response.data.error || 'Invalid credentials or permissions');
+        } else {
+          setError('Server connection error.');
+        }
+      } finally {
+        setSubmitting(false);
       }
-    } finally {
-      setLoading(false);
     }
-  };
+  });
 
   return (
     <div style={{
@@ -41,12 +45,9 @@ export default function Login() {
       padding: '24px'
     }}>
       <div style={{
-        // backgroundColor: 'var(--bg-card)',
         padding: '48px 40px',
-        // borderRadius: '16px',  
         width: '100%',
         maxWidth: '440px',
-        // boxShadow: 'var(--shadow-lg)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <div style={{
@@ -81,69 +82,76 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <form onSubmit={formik.handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>Email Address</label>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>
+                Email Address <span style={{ color: 'var(--danger)' }}>*</span>
+            </label>
             <input
+              name="email"
               type="email"
               placeholder="name@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              value={formik.values.email}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
               style={{
                 width: '100%',
                 padding: '12px 16px',
                 borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
+                border: `1px solid ${formik.touched.email && formik.errors.email ? 'var(--danger)' : 'var(--border)'}`,
                 backgroundColor: '#fff',
                 fontSize: '14px',
                 outline: 'none',
                 transition: 'border-color 0.2s'
               }}
-              onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-              onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
             />
+            {formik.touched.email && formik.errors.email && (
+                <div style={{ color: 'var(--danger)', fontSize: '12px', marginTop: '4px' }}>{formik.errors.email}</div>
+            )}
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>Password</label>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>
+                Password <span style={{ color: 'var(--danger)' }}>*</span>
+            </label>
             <input
+              name="password"
               type="password"
               placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              value={formik.values.password}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
               style={{
                 width: '100%',
                 padding: '12px 16px',
                 borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
+                border: `1px solid ${formik.touched.password && formik.errors.password ? 'var(--danger)' : 'var(--border)'}`,
                 backgroundColor: '#fff',
                 fontSize: '14px',
                 outline: 'none',
                 transition: 'border-color 0.2s'
               }}
-              onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-              onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
             />
+            {formik.touched.password && formik.errors.password && (
+                <div style={{ color: 'var(--danger)', fontSize: '12px', marginTop: '4px' }}>{formik.errors.password}</div>
+            )}
           </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={formik.isSubmitting}
             style={{
               marginTop: '8px',
               width: '100%',
               padding: '12px',
               borderRadius: 'var(--radius)',
               backgroundColor: 'var(--primary)',
-              color: '#white',
+              color: '#fff',
               border: 'none',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: formik.isSubmitting ? 'not-allowed' : 'pointer',
               fontWeight: '600',
               fontSize: '16px',
-              color: '#fff',
-              opacity: loading ? 0.7 : 1
+              opacity: formik.isSubmitting ? 0.7 : 1
             }}>
-            {loading ? 'Signing in...' : 'Sign In'}
+            {formik.isSubmitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input } from '../components/common/Modal';
+import { Modal, Button, Input, Select } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
 
 export default function Deals() {
@@ -23,17 +25,37 @@ export default function Deals() {
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
 
-  const [formData, setFormData] = useState({
-    deal_name: '',
-    value: 0,
-    stage: 'prospecting',
-    contact_id: '',
-    status: 'open',
-    tenant_id: ''
-  });
-
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
+
+  const formik = useFormik({
+    initialValues: {
+      deal_name: '',
+      value: 0,
+      stage: 'prospecting',
+      contact_id: '',
+      status: 'open',
+      tenant_id: ''
+    },
+    validationSchema: Yup.object({
+      deal_name: Yup.string().required('Deal name is required'),
+      value: Yup.number().min(0, 'Value must be positive').required('Deal value is required'),
+      tenant_id: Yup.string().required('Company assignment is required')
+    }),
+    onSubmit: async (values) => {
+      try {
+        if (editingDeal) {
+          await api.patch(`/deals/${editingDeal.id}`, values);
+        } else {
+          await api.post('/deals', values);
+        }
+        fetchData();
+        handleCloseModal();
+      } catch (err) {
+        console.error("Save Deal Error:", err);
+      }
+    }
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -61,15 +83,10 @@ export default function Deals() {
       if (isGlobalAdmin) setTenants(tenantsRes.data.data || []);
 
       // Fetch contacts for the specific tenant or current tenant
-      const contactParams = new URLSearchParams();
-      if (isGlobalAdmin) {
-          const tid = formData.tenant_id || selectedTenantId;
-          if (tid) contactParams.append('tenant_id', tid);
+      const tid = formik.values.tenant_id || selectedTenantId || loggedInUser.tenantId;
+      if (tid) {
+         api.get(`/contacts?tenant_id=${tid}&limit=100`).then(res => setContacts(res.data.data || []));
       }
-      const contactsRes = await api.get(`/contacts?${contactParams.toString()}`);
-      // Contacts API is now paginated too, but for the dropdown we might need a larger limit or a different endpoint.
-      // For now, extract .data
-      setContacts(contactsRes.data.data || []);
 
     } catch (err) {
       console.error("Fetch Deals Error:", err);
@@ -82,6 +99,13 @@ export default function Deals() {
     fetchData();
   }, [selectedTenantId, page, debouncedSearch]);
 
+  // If tenant changes in form, refresh contacts list
+  useEffect(() => {
+    if (formik.values.tenant_id) {
+       api.get(`/contacts?tenant_id=${formik.values.tenant_id}&limit=100`).then(res => setContacts(res.data.data || []));
+    }
+  }, [formik.values.tenant_id]);
+
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -91,17 +115,10 @@ export default function Deals() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // If adding/editing and tenant changes, refresh contacts
-  useEffect(() => {
-    if (isGlobalAdmin && formData.tenant_id) {
-        api.get(`/contacts?tenant_id=${formData.tenant_id}&limit=100`).then(res => setContacts(res.data.data || []));
-    }
-  }, [formData.tenant_id]);
-
   const handleOpenModal = (deal = null) => {
     if (deal) {
       setEditingDeal(deal);
-      setFormData({
+      formik.setValues({
         deal_name: deal.deal_name,
         value: deal.value,
         stage: deal.stage,
@@ -111,13 +128,15 @@ export default function Deals() {
       });
     } else {
       setEditingDeal(null);
-      setFormData({ 
-          deal_name: '', 
-          value: 0, 
-          stage: 'prospecting', 
-          contact_id: '', 
-          status: 'open',
-          tenant_id: isGlobalAdmin ? selectedTenantId : ''
+      formik.resetForm({
+        values: {
+            deal_name: '', 
+            value: 0, 
+            stage: 'prospecting', 
+            contact_id: '', 
+            status: 'open',
+            tenant_id: isGlobalAdmin ? selectedTenantId : (loggedInUser.tenantId || '')
+        }
       });
     }
     setIsModalOpen(true);
@@ -126,21 +145,6 @@ export default function Deals() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingDeal(null);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingDeal) {
-        await api.patch(`/deals/${editingDeal.id}`, formData);
-      } else {
-        await api.post('/deals', formData);
-      }
-      fetchData();
-      handleCloseModal();
-    } catch (err) {
-      console.error("Save Deal Error:", err);
-    }
   };
 
   const handleDelete = async (id) => {
@@ -295,91 +299,90 @@ export default function Deals() {
         title={editingDeal ? 'Edit Deal' : 'New Deal'}
         footer={<>
           <Button type="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button onClick={handleSubmit}>{editingDeal ? 'Save Changes' : 'Create Deal'}</Button>
+          <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
+            {editingDeal ? (formik.isSubmitting ? 'Saving...' : 'Save Changes') : (formik.isSubmitting ? 'Creating...' : 'Create Deal')}
+          </Button>
         </>}
       >
-        <form onSubmit={handleSubmit}>
-          {isGlobalAdmin && !editingDeal && (
-            <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Assign to Company</label>
-                <select 
-                  value={formData.tenant_id}
-                  onChange={(e) => setFormData({...formData, tenant_id: e.target.value})}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff' }}
-                  required
-                >
-                  <option value="">Select a Company</option>
-                  {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
-                </select>
-            </div>
+        <form onSubmit={formik.handleSubmit}>
+          {isGlobalAdmin && (
+            <Select
+                label="Assign to Company"
+                name="tenant_id"
+                value={formik.values.tenant_id}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.errors.tenant_id}
+                touched={formik.touched.tenant_id}
+                required
+            >
+                <option value="">Select a Company</option>
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+            </Select>
           )}
 
-          <Input label="Deal Name" value={formData.deal_name} onChange={(e) => setFormData({...formData, deal_name: e.target.value})} required />
-          <Input label="Value ($)" type="number" value={formData.value} onChange={(e) => setFormData({...formData, value: parseFloat(e.target.value)})} required />
+          <Input 
+            label="Deal Name" 
+            name="deal_name"
+            placeholder="e.g. Enterprise License"
+            value={formik.values.deal_name} 
+            onChange={formik.handleChange} 
+            onBlur={formik.handleBlur}
+            error={formik.errors.deal_name}
+            touched={formik.touched.deal_name}
+            required 
+          />
           
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Contact Partner</label>
-            <select 
-              value={formData.contact_id}
-              onChange={(e) => setFormData({...formData, contact_id: e.target.value})}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-                fontSize: '14px',
-                backgroundColor: '#fff',
-                outline: 'none'
-              }}
-            >
-              <option value="">Select a contact</option>
-              {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
-            </select>
-          </div>
+          <Input 
+            label="Value ($)" 
+            type="number" 
+            name="value"
+            placeholder="0.00"
+            value={formik.values.value} 
+            onChange={formik.handleChange} 
+            onBlur={formik.handleBlur}
+            error={formik.errors.value}
+            touched={formik.touched.value}
+            required 
+          />
+          
+          <Select
+            label="Contact Partner"
+            name="contact_id"
+            value={formik.values.contact_id}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+          >
+            <option value="">Select a contact</option>
+            {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
+          </Select>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Pipeline Stage</label>
-              <select 
-                value={formData.stage}
-                onChange={(e) => setFormData({...formData, stage: e.target.value})}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius)',
-                  border: '1px solid var(--border)',
-                  fontSize: '14px',
-                  backgroundColor: '#fff',
-                  outline: 'none'
-                }}
-              >
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Select
+                label="Pipeline Stage"
+                name="stage"
+                value={formik.values.stage}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+            >
                 <option value="prospecting">Prospecting</option>
                 <option value="qualification">Qualification</option>
                 <option value="proposal">Proposal</option>
                 <option value="negotiation">Negotiation</option>
                 <option value="closed">Closed</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Status</label>
-              <select 
-                value={formData.status}
-                onChange={(e) => setFormData({...formData, status: e.target.value})}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius)',
-                  border: '1px solid var(--border)',
-                  fontSize: '14px',
-                  backgroundColor: '#fff',
-                  outline: 'none'
-                }}
-              >
+            </Select>
+
+            <Select
+                label="Status"
+                name="status"
+                value={formik.values.status}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+            >
                 <option value="open">Open</option>
                 <option value="won">Won</option>
                 <option value="lost">Lost</option>
-              </select>
-            </div>
+            </Select>
           </div>
         </form>
       </Modal>
