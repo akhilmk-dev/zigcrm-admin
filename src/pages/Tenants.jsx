@@ -103,12 +103,12 @@ export default function Tenants() {
       setEditingTenant(null);
       formik.resetForm({
         values: {
-            tenant_name: '',
-            company_email: '',
-            phone: '',
-            country: '',
-            status: 'active',
-            plan_id: plans.find(p => p.plan_name === 'Free Tier')?.id || ''
+          tenant_name: '',
+          company_email: '',
+          phone: '',
+          country: '',
+          status: 'active',
+          plan_id: plans.find(p => p.plan_name === 'Free Tier')?.id || ''
         }
       });
     }
@@ -138,8 +138,8 @@ export default function Tenants() {
         <div style={{ fontWeight: '600' }}>{row.tenant_name}</div>
       )
     },
-    { 
-      header: 'Plan', 
+    {
+      header: 'Plan',
       render: (row) => (
         <Badge type="info">{row.plan_name}</Badge>
       )
@@ -172,9 +172,9 @@ export default function Tenants() {
       </div>
 
       {/* Filters & Search Row */}
-      <div style={{ 
-        marginBottom: '24px', 
-        display: 'flex', 
+      <div style={{
+        marginBottom: '24px',
+        display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'flex-end'
       }}>
@@ -207,11 +207,11 @@ export default function Tenants() {
 
         {/* Search Bar */}
         <div style={{ position: 'relative', width: '320px' }}>
-          <span style={{ 
-            position: 'absolute', 
-            left: '12px', 
-            top: '50%', 
-            transform: 'translateY(-50%)', 
+          <span style={{
+            position: 'absolute',
+            left: '12px',
+            top: '50%',
+            transform: 'translateY(-50%)',
             color: 'var(--text-muted)',
             fontSize: '14px'
           }}>
@@ -264,7 +264,7 @@ export default function Tenants() {
           <>
             <Button type="secondary" onClick={handleCloseModal}>Cancel</Button>
             <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
-                {editingTenant ? (formik.isSubmitting ? 'Updating...' : 'Update Tenant') : (formik.isSubmitting ? 'Creating...' : 'Create Tenant')}
+              {editingTenant ? (formik.isSubmitting ? 'Updating...' : 'Update Tenant') : (formik.isSubmitting ? 'Creating...' : 'Create Tenant')}
             </Button>
           </>
         }
@@ -281,7 +281,7 @@ export default function Tenants() {
             touched={formik.touched.tenant_name}
             required
           />
-          
+
           <Select
             label="Subscription Plan"
             name="plan_id"
