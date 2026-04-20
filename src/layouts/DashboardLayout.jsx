@@ -10,10 +10,11 @@ export default function DashboardLayout() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const dropdownRef = useRef(null);
+  const searchRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -40,6 +41,9 @@ export default function DashboardLayout() {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsProfileOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setIsSearchOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -114,11 +118,60 @@ export default function DashboardLayout() {
 
   const displayName = user?.name || user?.email?.split('@')[0] || 'Account';
 
-  const desktopSidebarWidth = isSidebarHovered ? '260px' : '80px';
+  const desktopSidebarWidth = '80px';
   const sidebarWidth = isMobile ? '280px' : desktopSidebarWidth;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-main)' }}>
+      <style>
+        {`
+          .sidebar-icon-container {
+            position: relative;
+          }
+          .sidebar-tooltip {
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: var(--text-main);
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-left: 14px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+            pointer-events: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          }
+          .sidebar-tooltip::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-style: solid;
+            border-width: 6px 7px 6px 0;
+            border-color: transparent var(--text-main) transparent transparent;
+          }
+          .sidebar-icon-container:hover .sidebar-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-50%) translateX(2px);
+          }
+          .sidebar-icon-link {
+            transition: all 0.2s;
+          }
+          .sidebar-icon-link:hover {
+            background-color: var(--primary-light) !important;
+            color: var(--primary) !important;
+          }
+        `}
+      </style>
 
       {/* Sidebar Backdrop Overlay (Mobile only) */}
       {isMobile && isMobileMenuOpen && (
@@ -136,8 +189,6 @@ export default function DashboardLayout() {
 
       {/* Sidebar */}
       <aside
-        onMouseEnter={() => !isMobile && setIsSidebarHovered(true)}
-        onMouseLeave={() => !isMobile && setIsSidebarHovered(false)}
         style={{
           width: sidebarWidth,
           backgroundColor: '#fff',
@@ -149,15 +200,16 @@ export default function DashboardLayout() {
           height: '100vh',
           zIndex: 100,
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: isSidebarHovered || (isMobile && isMobileMenuOpen) ? '10px 0 30px rgba(0,0,0,0.05)' : 'none',
-          overflowX: 'hidden'
+          boxShadow: (isMobile && isMobileMenuOpen) ? '10px 0 30px rgba(0,0,0,0.05)' : 'none',
+          overflowX: 'visible'
         }}
       >
         <div style={{
-          height: 'var(--header-height)',
+          height: 'var(--header-height, 64px)',
           display: 'flex',
           alignItems: 'center',
-          padding: isSidebarHovered || isMobile ? '0 24px' : '0 20px',
+          justifyContent: isMobile ? 'flex-start' : 'center',
+          padding: isMobile ? '0 24px' : '0',
           borderBottom: '1px solid var(--border)',
           whiteSpace: 'nowrap'
         }}>
@@ -166,7 +218,7 @@ export default function DashboardLayout() {
             height: '32px',
             backgroundColor: 'var(--primary)',
             borderRadius: '8px',
-            marginRight: '12px',
+            marginRight: isMobile ? '12px' : '0',
             flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
@@ -176,110 +228,213 @@ export default function DashboardLayout() {
             fontSize: '18px',
             boxShadow: '0 4px 10px rgba(37, 99, 235, 0.2)'
           }}>Z</div>
-          {(isSidebarHovered || isMobile) && (
-            <span style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.8px', opacity: 1, transition: 'opacity 0.2s' }}>ZIGCRM</span>
+          {isMobile && (
+            <span style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.8px' }}>ZIGCRM</span>
           )}
         </div>
 
         {/* Sidebar Search */}
-        <div style={{ padding: isSidebarHovered || isMobile ? '16px 20px 8px' : '16px 14px 8px' }}>
-          <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: isSidebarHovered || isMobile ? '12px' : '50%', transform: isSidebarHovered || isMobile ? 'translateY(-50%)' : 'translate(-50%, -50%)', top: '50%', color: '#94a3b8' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-              </svg>
-            </span>
-            {(isSidebarHovered || isMobile) && (
-              <input
-                type="text"
-                placeholder="Search menu..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px 10px 38px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border)',
-                  fontSize: '13px',
-                  backgroundColor: '#f8fafc',
-                  outline: 'none',
-                  transition: 'all 0.2s'
-                }}
-              />
+        <div 
+          ref={searchRef}
+          style={{ padding: isMobile ? '16px 20px 8px' : '16px 14px 8px' }} 
+          className={!isMobile ? "sidebar-icon-container" : ""}
+        >
+          <div style={{ position: 'relative', width: '100%' }}>
+            {!isMobile ? (
+              <>
+                <button 
+                  onClick={() => setIsSearchOpen(!isSearchOpen)}
+                  className="sidebar-icon-link"
+                  style={{
+                    width: '100%',
+                    height: '44px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: isSearchOpen ? 'rgba(37, 99, 235, 0.05)' : 'transparent',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    color: isSearchOpen ? 'var(--primary)' : '#94a3b8',
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                  </svg>
+                </button>
+                {!isSearchOpen && <div className="sidebar-tooltip">Search</div>}
+                
+                {isSearchOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    left: '100%',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    marginLeft: '12px',
+                    width: '260px',
+                    backgroundColor: '#fff',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+                    border: '1px solid var(--border)',
+                    zIndex: 1000,
+                    animation: 'slideIn 0.2s ease-out'
+                  }}>
+                    <style>
+                      {`
+                        @keyframes slideIn {
+                          from { opacity: 0; transform: translateY(-50%) translateX(-10px); }
+                          to { opacity: 1; transform: translateY(-50%) translateX(0); }
+                        }
+                      `}
+                    </style>
+                    {/* Small triangle arrow for popover */}
+                    <div style={{
+                      position: 'absolute',
+                      left: '-6px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      borderStyle: 'solid',
+                      borderWidth: '6px 6px 6px 0',
+                      borderColor: 'transparent var(--border) transparent transparent',
+                    }}>
+                      <div style={{
+                        position: 'absolute',
+                        left: '1px',
+                        top: '-6px',
+                        borderStyle: 'solid',
+                        borderWidth: '6px 6px 6px 0',
+                        borderColor: 'transparent #fff transparent transparent',
+                      }} />
+                    </div>
+                    
+                    <div style={{ marginBottom: '8px', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Search Menu
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Type to search..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      autoFocus
+                      style={{
+                        width: '100%',
+                        padding: '12px 14px',
+                        borderRadius: '8px',
+                        border: '2px solid var(--primary-light)',
+                        fontSize: '14px',
+                        backgroundColor: '#fff',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                        transition: 'border-color 0.2s',
+                        color: 'var(--text-main)'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                      onBlur={(e) => e.target.style.borderColor = 'var(--primary-light)'}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <span style={{ position: 'absolute', left: '12px', transform: 'translateY(-50%)', top: '50%', color: '#94a3b8' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search menu..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px 10px 38px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border)',
+                    fontSize: '13px',
+                    backgroundColor: '#f8fafc',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s'
+                  }}
+                />
+              </>
             )}
           </div>
         </div>
 
-        <nav style={{ flex: 1, padding: '12px 0 24px', display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto' }}>
+        <nav style={{ flex: 1, padding: '12px 0 24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {filteredNav.map((item) => {
             const isActive = location.pathname === item.path;
-            const showLabels = isSidebarHovered || isMobile;
+            const showLabels = isMobile;
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => isMobile && setIsMobileMenuOpen(false)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: showLabels ? 'flex-start' : 'center',
-                  padding: showLabels ? '12px 24px' : '12px 0',
-                  color: isActive ? 'var(--primary)' : 'var(--text-muted)',
-                  backgroundColor: isActive ? 'rgba(37, 99, 235, 0.05)' : 'transparent',
-                  fontWeight: isActive ? '700' : '600',
-                  fontSize: '14px',
-                  transition: 'all 0.2s',
-                  textDecoration: 'none',
-                  borderLeft: showLabels ? `4px solid ${isActive ? 'var(--primary)' : 'transparent'}` : 'none',
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseOver={(e) => !isActive && (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                onMouseOut={(e) => !isActive && (e.currentTarget.style.backgroundColor = 'transparent')}
-                title={!showLabels ? item.label : ''}
-              >
-                <span style={{
-                  marginRight: showLabels ? '14px' : '0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  color: isActive ? 'var(--primary)' : '#94a3b8',
-                  flexShrink: 0
-                }}>
-                  {item.icon}
-                </span>
-                {showLabels && <span>{item.label}</span>}
-              </Link>
+              <div key={item.path} className={!isMobile ? "sidebar-icon-container" : ""} style={{ padding: showLabels ? '0 16px' : '0 12px' }}>
+                <Link
+                  to={item.path}
+                  onClick={() => isMobile && setIsMobileMenuOpen(false)}
+                  className="sidebar-icon-link"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: showLabels ? 'flex-start' : 'center',
+                    padding: showLabels ? '12px 16px' : '12px 0',
+                    color: isActive ? 'var(--primary)' : 'var(--text-muted)',
+                    backgroundColor: isActive ? 'rgba(37, 99, 235, 0.05)' : 'transparent',
+                    fontWeight: isActive ? '700' : '600',
+                    fontSize: '14px',
+                    textDecoration: 'none',
+                    borderRadius: '8px',
+                    borderLeft: showLabels ? `4px solid ${isActive ? 'var(--primary)' : 'transparent'}` : 'none',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <span style={{
+                    marginRight: showLabels ? '14px' : '0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    color: isActive ? 'var(--primary)' : '#94a3b8',
+                    flexShrink: 0
+                  }}>
+                    {item.icon}
+                  </span>
+                  {showLabels && <span>{item.label}</span>}
+                </Link>
+                {!isMobile && <div className="sidebar-tooltip">{item.label}</div>}
+              </div>
             );
           })}
         </nav>
 
         {/* Sidebar Sign Out */}
-        <div style={{ padding: isSidebarHovered || isMobile ? '16px 20px' : '16px 14px', borderTop: '1px solid var(--border)' }}>
+        <div style={{ padding: isMobile ? '16px 20px' : '16px 12px', borderTop: '1px solid var(--border)' }} className={!isMobile ? "sidebar-icon-container" : ""}>
           <button
             onClick={() => setShowLogoutConfirm(true)}
+            className="sidebar-icon-link"
             style={{
               width: '100%',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: isSidebarHovered || isMobile ? 'flex-start' : 'center',
-              padding: '12px',
-              borderRadius: '10px',
+              justifyContent: isMobile ? 'flex-start' : 'center',
+              padding: isMobile ? '12px' : '12px 0',
+              borderRadius: '8px',
               color: 'var(--danger)',
-              border: (isSidebarHovered || isMobile) ? '1px solid #fee2e2' : 'none',
-              backgroundColor: (isSidebarHovered || isMobile) ? '#fff5f5' : 'transparent',
+              border: isMobile ? '1px solid #fee2e2' : 'none',
+              backgroundColor: isMobile ? '#fff5f5' : 'transparent',
               fontSize: '14px',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.2s',
               whiteSpace: 'nowrap'
             }}
           >
-            <span style={{ marginRight: isSidebarHovered || isMobile ? '10px' : '0', flexShrink: 0 }}>
+            <span style={{ marginRight: isMobile ? '10px' : '0', flexShrink: 0 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
               </svg>
             </span>
-            {(isSidebarHovered || isMobile) && <span>Sign Out</span>}
+            {isMobile && <span>Sign Out</span>}
           </button>
+          {!isMobile && <div className="sidebar-tooltip">Sign Out</div>}
         </div>
       </aside>
 
