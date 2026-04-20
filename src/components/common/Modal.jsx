@@ -117,23 +117,66 @@ export const Button = ({ children, onClick, type = 'primary', size = 'md', disab
   );
 };
 
-export const Input = ({ label, ...props }) => {
+export const Input = ({ label, error, touched, required, ...props }) => {
   return (
     <div style={{ marginBottom: '16px' }}>
-      {label && <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>{label}</label>}
+      {label && (
+        <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+          {label} {required && <span style={{ color: 'var(--danger)' }}>*</span>}
+        </label>
+      )}
       <input 
         style={{
           width: '100%',
           padding: '10px 12px',
           borderRadius: 'var(--radius)',
-          border: '1px solid var(--border)',
+          border: `1px solid ${touched && error ? 'var(--danger)' : 'var(--border)'}`,
           fontSize: '14px',
-          outline: 'none'
+          outline: 'none',
+          backgroundColor: '#fff',
+          transition: 'border-color 0.2s'
         }}
-        onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-        onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+        onFocus={(e) => {
+          if (!(touched && error)) e.target.style.borderColor = 'var(--primary)';
+        }}
+        onBlur={(e) => {
+          if (!(touched && error)) e.target.style.borderColor = 'var(--border)';
+        }}
         {...props}
       />
+      {touched && error && (
+        <div style={{ color: 'var(--danger)', fontSize: '11px', marginTop: '4px', fontWeight: '500' }}>{error}</div>
+      )}
+    </div>
+  );
+};
+
+export const Select = ({ label, error, touched, required, children, ...props }) => {
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      {label && (
+        <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+          {label} {required && <span style={{ color: 'var(--danger)' }}>*</span>}
+        </label>
+      )}
+      <select 
+        style={{
+          width: '100%',
+          padding: '10px 12px',
+          borderRadius: 'var(--radius)',
+          border: `1px solid ${touched && error ? 'var(--danger)' : 'var(--border)'}`,
+          fontSize: '14px',
+          outline: 'none',
+          backgroundColor: '#fff',
+          transition: 'border-color 0.2s'
+        }}
+        {...props}
+      >
+        {children}
+      </select>
+      {touched && error && (
+        <div style={{ color: 'var(--danger)', fontSize: '11px', marginTop: '4px', fontWeight: '500' }}>{error}</div>
+      )}
     </div>
   );
 };

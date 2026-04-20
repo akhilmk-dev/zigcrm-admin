@@ -6,6 +6,8 @@ const api = axios.create({
     withCredentials: true // Important for sending/receiving HttpOnly cookies (refresh token)
 });
 
+export const FILE_BASE_URL = 'http://localhost:5010';
+
 // Flag to track preventing infinite loops on refresh failures
 let isRefreshing = false;
 let refreshSubscribers = [];

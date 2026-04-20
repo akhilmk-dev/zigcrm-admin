@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input } from '../components/common/Modal';
@@ -25,7 +27,28 @@ export default function Roles() {
 
   // ─── New Role Modal ───────────────────────────────────────────────────────────
   const [isNewRoleModalOpen, setIsNewRoleModalOpen] = useState(false);
-  const [newRole, setNewRole] = useState({ role_name: '', description: '' });
+
+  const formik = useFormik({
+    initialValues: {
+      role_name: '',
+      description: ''
+    },
+    validationSchema: Yup.object({
+      role_name: Yup.string().required('Role name is required').min(3, 'Min 3 characters'),
+      description: Yup.string().max(200, 'Max 200 characters')
+    }),
+    onSubmit: async (values) => {
+      try {
+        await api.post('/roles', values);
+        fetchRoles();
+        setIsNewRoleModalOpen(false);
+        formik.resetForm();
+      } catch (err) {
+        console.error('Create Role Error:', err);
+        alert(err.response?.data?.error || 'Failed to create role');
+      }
+    }
+  });
 
   // ─── Debounce ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -80,20 +103,6 @@ export default function Roles() {
       await api.post(`/roles/${selectedRole.id}/permissions`, { permissionIds: newPerms });
     } catch (err) {
       console.error('Save Permissions Error:', err);
-    }
-  };
-
-  // ─── Create Role ──────────────────────────────────────────────────────────────
-  const handleCreateRole = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('/roles', newRole);
-      fetchRoles();
-      setIsNewRoleModalOpen(false);
-      setNewRole({ role_name: '', description: '' });
-    } catch (err) {
-      console.error('Create Role Error:', err);
-      alert(err.response?.data?.error || 'Failed to create role');
     }
   };
 
@@ -290,26 +299,38 @@ export default function Roles() {
         title="Create Unified Role"
         footer={<>
           <Button type="secondary" onClick={() => setIsNewRoleModalOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateRole}>Create Role</Button>
+          <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
+            {formik.isSubmitting ? 'Creating...' : 'Create Role'}
+          </Button>
         </>}
       >
         <div style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: '#fefce8', border: '1px solid #fde047', fontSize: '13px', color: '#854d0e', marginBottom: '16px' }}>
           💡 Start the name with <strong>tenant-</strong> (e.g. <code>tenant-sales</code>) if this role is intended for client staff.
         </div>
 
-        <Input
-          label="Role Name"
-          placeholder="e.g. manager or tenant-operator"
-          value={newRole.role_name}
-          onChange={(e) => setNewRole({ ...newRole, role_name: e.target.value })}
-          required
-        />
-        <Input
-          label="Description"
-          placeholder="Brief description of what this role can do"
-          value={newRole.description}
-          onChange={(e) => setNewRole({ ...newRole, description: e.target.value })}
-        />
+        <form onSubmit={formik.handleSubmit}>
+          <Input
+            label="Role Name"
+            name="role_name"
+            placeholder="e.g. manager or tenant-operator"
+            value={formik.values.role_name}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.errors.role_name}
+            touched={formik.touched.role_name}
+            required
+          />
+          <Input
+            label="Description"
+            name="description"
+            placeholder="Brief description of what this role can do"
+            value={formik.values.description}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.errors.description}
+            touched={formik.touched.description}
+          />
+        </form>
       </Modal>
     </div>
   );

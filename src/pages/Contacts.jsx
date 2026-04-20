@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input } from '../components/common/Modal';
+import { Modal, Button, Input, Select } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
 
 export default function Contacts() {
@@ -24,26 +26,46 @@ export default function Contacts() {
   const [selectedTenantId, setSelectedTenantId] = useState('');
   const [tenantUsers, setTenantUsers] = useState([]);
 
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-    company_name: '',
-    job_title: '',
-    source: '',
-    tags: '',
-    status: 'lead',
-    tenant_id: '',
-    assigned_to: ''
-  });
-
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
 
+  const formik = useFormik({
+    initialValues: {
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone: '',
+      company_name: '',
+      job_title: '',
+      source: '',
+      tags: '',
+      status: 'lead',
+      tenant_id: '',
+      assigned_to: ''
+    },
+    validationSchema: Yup.object({
+      first_name: Yup.string().required('First name is required'),
+      tenant_id: Yup.string().required('Company assignment is required'),
+      email: Yup.string().email('Invalid email address')
+    }),
+    onSubmit: async (values) => {
+      try {
+        if (editingContact) {
+          await api.patch(`/contacts/${editingContact.id}`, values);
+        } else {
+          await api.post('/contacts', values);
+        }
+        fetchData();
+        handleCloseModal();
+      } catch (err) {
+        console.error("Save Contact Error:", err);
+      }
+    }
+  });
+
   // Fetch users for assignment when tenant selection changes
   useEffect(() => {
-    const tid = formData.tenant_id || loggedInUser?.tenantId;
+    const tid = formik.values.tenant_id || loggedInUser?.tenantId;
     if (tid) {
       api.get(`/users?tenant_id=${tid}&scope=tenant&limit=100`)
         .then(res => setTenantUsers(res.data.data || []))
@@ -51,7 +73,7 @@ export default function Contacts() {
     } else {
       setTenantUsers([]);
     }
-  }, [formData.tenant_id]);
+  }, [formik.values.tenant_id]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -73,7 +95,6 @@ export default function Contacts() {
         isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: { data: [] } })
       ]);
       
-      // Response is now { data, totalCount, page, limit }
       setContacts(contactsRes.data.data || []);
       setTotalCount(contactsRes.data.totalCount || 0);
 
@@ -85,7 +106,6 @@ export default function Contacts() {
     }
   };
 
-  // Trigger fetch on filter/page change
   useEffect(() => {
     fetchData();
   }, [selectedTenantId, page, debouncedSearch]);
@@ -102,7 +122,7 @@ export default function Contacts() {
   const handleOpenModal = (contact = null) => {
     if (contact) {
       setEditingContact(contact);
-      setFormData({
+      formik.setValues({
         first_name: contact.first_name,
         last_name: contact.last_name || '',
         email: contact.email || '',
@@ -117,18 +137,20 @@ export default function Contacts() {
       });
     } else {
       setEditingContact(null);
-      setFormData({ 
-          first_name: '', 
-          last_name: '', 
-          email: '', 
-          phone: '', 
-          company_name: '', 
-          job_title: '',
-          source: '',
-          tags: '',
-          status: 'lead',
-          tenant_id: isGlobalAdmin ? selectedTenantId : (loggedInUser?.tenantId || ''),
-          assigned_to: ''
+      formik.resetForm({
+        values: {
+            first_name: '', 
+            last_name: '', 
+            email: '', 
+            phone: '', 
+            company_name: '', 
+            job_title: '',
+            source: '',
+            tags: '',
+            status: 'lead',
+            tenant_id: isGlobalAdmin ? selectedTenantId : (loggedInUser?.tenantId || ''),
+            assigned_to: ''
+        }
       });
     }
     setIsModalOpen(true);
@@ -137,21 +159,6 @@ export default function Contacts() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingContact(null);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingContact) {
-        await api.patch(`/contacts/${editingContact.id}`, formData);
-      } else {
-        await api.post('/contacts', formData);
-      }
-      fetchData();
-      handleCloseModal();
-    } catch (err) {
-      console.error("Save Contact Error:", err);
-    }
   };
 
   const handleDelete = async (id) => {
@@ -304,68 +311,132 @@ export default function Contacts() {
         title={editingContact ? 'Edit Contact' : 'New Contact'}
         footer={<>
           <Button type="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button onClick={handleSubmit}>{editingContact ? 'Save Changes' : 'Create Contact'}</Button>
+          <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
+            {editingContact ? (formik.isSubmitting ? 'Saving...' : 'Save Changes') : (formik.isSubmitting ? 'Creating...' : 'Create Contact')}
+          </Button>
         </>}
       >
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={formik.handleSubmit}>
           {isGlobalAdmin && (
-            <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Assign to Company</label>
-                <select 
-                  value={formData.tenant_id}
-                  onChange={(e) => setFormData({...formData, tenant_id: e.target.value})}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff' }}
-                  required
-                >
-                  <option value="">Select a Company</option>
-                  {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
-                </select>
-            </div>
+            <Select
+                label="Assign to Company"
+                name="tenant_id"
+                value={formik.values.tenant_id}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.errors.tenant_id}
+                touched={formik.touched.tenant_id}
+                required
+            >
+                <option value="">Select a Company</option>
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+            </Select>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input label="First Name" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} required />
-            <Input label="Last Name" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} />
+            <Input 
+                label="First Name" 
+                name="first_name"
+                placeholder="John"
+                value={formik.values.first_name} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+                error={formik.errors.first_name}
+                touched={formik.touched.first_name}
+                required 
+            />
+            <Input 
+                label="Last Name" 
+                name="last_name"
+                placeholder="Doe"
+                value={formik.values.last_name} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-            <Input label="Phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+            <Input 
+                label="Email" 
+                type="email" 
+                name="email"
+                placeholder="john.doe@example.com"
+                value={formik.values.email} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+                error={formik.errors.email}
+                touched={formik.touched.email}
+            />
+            <Input 
+                label="Phone" 
+                name="phone"
+                placeholder="+1 (555) 000-0000"
+                value={formik.values.phone} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input label="Workplace Name" value={formData.company_name} onChange={(e) => setFormData({...formData, company_name: e.target.value})} />
-            <Input label="Job Title" value={formData.job_title} onChange={(e) => setFormData({...formData, job_title: e.target.value})} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-             <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Assigned To</label>
-                <select 
-                  value={formData.assigned_to}
-                  onChange={(e) => setFormData({...formData, assigned_to: e.target.value})}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff' }}
-                >
-                  <option value="">Unassigned</option>
-                  {tenantUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.roles?.role_name})</option>)}
-                </select>
-             </div>
-             <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Lead Status</label>
-                <select 
-                  value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontSize: '14px', backgroundColor: '#fff', outline: 'none' }}
-                >
-                  <option value="lead">Lead</option>
-                  <option value="active">Active Customer</option>
-                  <option value="lost">Lost</option>
-                </select>
-             </div>
+            <Input 
+                label="Workplace Name" 
+                name="company_name"
+                placeholder="Acme Corp"
+                value={formik.values.company_name} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
+            <Input 
+                label="Job Title" 
+                name="job_title"
+                placeholder="Software Engineer"
+                value={formik.values.job_title} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input label="Source" placeholder="e.g. LinkedIn, Referral" value={formData.source} onChange={(e) => setFormData({...formData, source: e.target.value})} />
-            <Input label="Tags" placeholder="e.g. VIP, Tech" value={formData.tags} onChange={(e) => setFormData({...formData, tags: e.target.value})} />
+            <Select
+                label="Assigned To"
+                name="assigned_to"
+                value={formik.values.assigned_to}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+            >
+                <option value="">Unassigned</option>
+                {tenantUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.roles?.role_name})</option>)}
+            </Select>
+
+            <Select
+                label="Lead Status"
+                name="status"
+                value={formik.values.status}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+            >
+                <option value="lead">Lead</option>
+                <option value="active">Active Customer</option>
+                <option value="lost">Lost</option>
+            </Select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input 
+                label="Source" 
+                name="source"
+                placeholder="e.g. LinkedIn, Referral" 
+                value={formik.values.source} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
+            <Input 
+                label="Tags" 
+                name="tags"
+                placeholder="e.g. VIP, Tech" 
+                value={formik.values.tags} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
           </div>
         </form>
       </Modal>
