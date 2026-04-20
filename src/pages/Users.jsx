@@ -216,7 +216,8 @@ export default function Users() {
     if (viewScope === 'tenant') {
         return r.role_name.startsWith('tenant-');
     } else {
-        return !r.role_name.startsWith('tenant-');
+        // Exclude tenant- prefixed roles AND the literal "Tenant" role for platform admins
+        return !r.role_name.startsWith('tenant-') && r.role_name !== 'Tenant';
     }
   });
 
