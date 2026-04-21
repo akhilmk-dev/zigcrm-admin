@@ -4,13 +4,17 @@ import * as Yup from 'yup';
 import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select } from '../components/common/Modal';
+import { usePermission } from '../hooks/usePermission';
 
 export default function Tenants() {
+  const { user } = usePermission();
   const [tenants, setTenants] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
+
+  const isPlatformAdmin = user?.isSuperAdmin || user?.isAdmin;
 
   // Pagination, Search, and Filter states
   const [page, setPage] = useState(1);
@@ -19,6 +23,26 @@ export default function Tenants() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  if (!isPlatformAdmin) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        padding: '80px 20px',
+        textAlign: 'center' 
+      }}>
+        <div style={{ fontSize: '64px', marginBottom: '24px' }}>🔒</div>
+        <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>Access Denied</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '16px', maxWidth: '400px', lineHeight: '1.6' }}>
+          This area is restricted to Platform Administrators. If you believe this is an error, please contact your system provider.
+        </p>
+        <Button style={{ marginTop: '32px' }} onClick={() => window.location.href = '/'}>Return to Dashboard</Button>
+      </div>
+    );
+  }
 
   const formik = useFormik({
     initialValues: {

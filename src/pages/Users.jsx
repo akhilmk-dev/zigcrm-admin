@@ -12,6 +12,27 @@ export default function Users() {
   const isSuperAdmin = loggedInUser?.isSuperAdmin;
   const isAdmin = loggedInUser?.isAdmin;
   const isGlobalAdmin = isSuperAdmin || isAdmin;
+  const isPlatformAdmin = isGlobalAdmin;
+
+  if (!isPlatformAdmin && !hasPermission('users.manage')) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        padding: '80px 20px',
+        textAlign: 'center' 
+      }}>
+        <div style={{ fontSize: '64px', marginBottom: '24px' }}>🔒</div>
+        <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>Access Denied</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '16px', maxWidth: '400px', lineHeight: '1.6' }}>
+          This area is restricted to Platform Administrators. If you believe this is an error, please contact your system provider.
+        </p>
+        <Button style={{ marginTop: '32px' }} onClick={() => window.location.href = '/'}>Return to Dashboard</Button>
+      </div>
+    );
+  }
 
   // ─── List State ──────────────────────────────────────────────────────────────
   const [users, setUsers] = useState([]);

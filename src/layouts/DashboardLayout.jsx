@@ -60,7 +60,7 @@ export default function DashboardLayout() {
       )
     },
     {
-      label: 'Tenants', path: '/tenants', permission: 'tenants.manage', icon: (
+      label: 'Tenants', path: '/tenants', requirePlatformAdmin: true, icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 21h18" /><path d="M9 8h1" /><path d="M9 12h1" /><path d="M9 16h1" /><path d="M14 8h1" /><path d="M14 12h1" /><path d="M14 16h1" />
           <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" />
@@ -76,7 +76,7 @@ export default function DashboardLayout() {
       )
     },
     {
-      label: 'Roles', path: '/roles', requireSuperAdmin: true, icon: (
+      label: 'Roles', path: '/roles', permission: 'roles.manage', icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
         </svg>
@@ -110,7 +110,9 @@ export default function DashboardLayout() {
   const filteredNav = navItems.filter(item => {
     let isVisible = true;
     if (item.requireSuperAdmin) isVisible = user?.isSuperAdmin;
+    else if (item.requirePlatformAdmin) isVisible = user?.isSuperAdmin || user?.isAdmin;
     else if (item.permission) isVisible = hasPermission(item.permission);
+    
     if (!isVisible) return false;
     if (searchQuery) return item.label.toLowerCase().includes(searchQuery.toLowerCase());
     return true;

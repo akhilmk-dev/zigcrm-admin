@@ -226,6 +226,11 @@ export default function Contacts() {
         render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
     { 
+      header: 'Assignee', 
+      key: 'assigned_to',
+      render: (row) => row.assigned_to_user?.name || 'Unassigned'
+    },
+    { 
       header: 'Status', 
       key: 'status',
       render: (row) => {

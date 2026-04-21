@@ -14,6 +14,7 @@ export default function Deals() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState(null);
+  const [staff, setStaff] = useState([]);
   
   // Search & Pagination states
   const [search, setSearch] = useState('');
@@ -35,12 +36,14 @@ export default function Deals() {
       stage: 'prospecting',
       contact_id: '',
       status: 'open',
-      tenant_id: ''
+      tenant_id: '',
+      assigned_to: ''
     },
     validationSchema: Yup.object({
       deal_name: Yup.string().required('Deal name is required'),
       value: Yup.number().min(0, 'Value must be positive').required('Deal value is required'),
-      tenant_id: Yup.string().required('Company assignment is required')
+      tenant_id: Yup.string().required('Company assignment is required'),
+      assigned_to: Yup.string().nullable()
     }),
     onSubmit: async (values) => {
       try {
@@ -82,10 +85,11 @@ export default function Deals() {
 
       if (isGlobalAdmin) setTenants(tenantsRes.data || []);
 
-      // Fetch contacts for the specific tenant or current tenant
+      // Fetch contacts and staff for the specific tenant or current tenant
       const tid = formik.values.tenant_id || selectedTenantId || loggedInUser.tenantId;
       if (tid) {
          api.get(`/contacts?tenant_id=${tid}&limit=100`).then(res => setContacts(res.data.data || []));
+         api.get(`/users?tenant_id=${tid}`).then(res => setStaff(res.data.data || []));
       }
 
     } catch (err) {
@@ -99,10 +103,11 @@ export default function Deals() {
     fetchData();
   }, [selectedTenantId, page, debouncedSearch]);
 
-  // If tenant changes in form, refresh contacts list
+  // If tenant changes in form, refresh contacts and staff list
   useEffect(() => {
     if (formik.values.tenant_id) {
        api.get(`/contacts?tenant_id=${formik.values.tenant_id}&limit=100`).then(res => setContacts(res.data.data || []));
+       api.get(`/users?tenant_id=${formik.values.tenant_id}`).then(res => setStaff(res.data.data || []));
     }
   }, [formik.values.tenant_id]);
 
@@ -124,7 +129,8 @@ export default function Deals() {
         stage: deal.stage,
         contact_id: deal.contact_id || '',
         status: deal.status,
-        tenant_id: deal.tenant_id || ''
+        tenant_id: deal.tenant_id || '',
+        assigned_to: deal.assigned_to || ''
       });
     } else {
       setEditingDeal(null);
@@ -135,7 +141,8 @@ export default function Deals() {
             stage: 'prospecting', 
             contact_id: '', 
             status: 'open',
-            tenant_id: isGlobalAdmin ? selectedTenantId : (loggedInUser.tenantId || '')
+            tenant_id: isGlobalAdmin ? selectedTenantId : (loggedInUser.tenantId || ''),
+            assigned_to: ''
         }
       });
     }
@@ -185,6 +192,11 @@ export default function Deals() {
         key: 'tenant_name',
         render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
+    { 
+      header: 'Assignee', 
+      key: 'assigned_to',
+      render: (row) => row.assigned_to_user?.name || 'Unassigned'
+    },
     { 
       header: 'Status', 
       key: 'status',
@@ -355,6 +367,17 @@ export default function Deals() {
           >
             <option value="">Select a contact</option>
             {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
+          </Select>
+
+          <Select
+            label="Assigned To"
+            name="assigned_to"
+            value={formik.values.assigned_to}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+          >
+            <option value="">Unassigned</option>
+            {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
