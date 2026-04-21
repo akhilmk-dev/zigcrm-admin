@@ -22,20 +22,17 @@ export default function Tenants() {
 
   const formik = useFormik({
     initialValues: {
-      tenant_name: '',
-      company_email: '',
-      status: 'active',
       plan_id: '',
       name: '',
       email: '',
+      status: 'active',
       password: '',
       re_password: '',
       owner_id: ''
     },
     validationSchema: Yup.object({
-      tenant_name: Yup.string().required('Company name is required'),
+      name: Yup.string().required('Company / Owner Name is required'),
       email: Yup.string().email('Invalid email').required('Owner email is required'),
-      name: Yup.string().required('Owner name is required'),
       plan_id: Yup.string().required('Subscription plan is required'),
       status: Yup.string().required('Status is required'),
       password: Yup.string().when('isEditing', {
@@ -101,12 +98,10 @@ export default function Tenants() {
     if (tenant) {
       setEditingTenant(tenant);
       formik.setValues({
-        tenant_name: tenant.tenant_name,
-        company_email: tenant.company_email || '',
-        status: tenant.status,
         plan_id: tenant.plan_id || '',
         name: tenant.owner_name || '',
         email: tenant.owner_email || '',
+        status: tenant.owner_status || tenant.status || 'active',
         password: '',
         re_password: '',
         owner_id: tenant.owner_id || ''
@@ -115,12 +110,10 @@ export default function Tenants() {
       setEditingTenant(null);
       formik.resetForm({
         values: {
-          tenant_name: '',
-          company_email: '',
-          status: 'active',
           plan_id: plans.find(p => p.plan_name === 'Free Tier')?.id || '',
           name: '',
           email: '',
+          status: 'active',
           password: '',
           re_password: '',
           owner_id: ''
@@ -148,9 +141,9 @@ export default function Tenants() {
 
   const columns = [
     {
-      header: 'Company Name',
+      header: 'Company / Owner Name',
       render: (row) => (
-        <div style={{ fontWeight: '600' }}>{row.tenant_name}</div>
+        <div style={{ fontWeight: '600' }}>{row.owner_name}</div>
       )
     },
     {
@@ -159,13 +152,12 @@ export default function Tenants() {
         <Badge type="info">{row.plan_name}</Badge>
       )
     },
-    { header: 'Email', key: 'company_email' },
-    { header: 'Country', key: 'country' },
+    { header: 'Email', key: 'owner_email' },
     {
       header: 'Status',
       render: (row) => {
-        const types = { active: 'success', trial: 'warning', suspended: 'danger', inactive: 'secondary' };
-        return <Badge type={types[row.status]}>{row.status}</Badge>;
+        const types = { active: 'success', suspended: 'danger', inactive: 'secondary' };
+        return <Badge type={types[row.owner_status || 'inactive']}>{row.owner_status || 'inactive'}</Badge>;
       }
     },
     {
@@ -215,7 +207,6 @@ export default function Tenants() {
             <option value="">All Statuses</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
-            <option value="trial">Trial</option>
             <option value="suspended">Suspended</option>
           </select>
         </div>
@@ -285,18 +276,7 @@ export default function Tenants() {
         }
       >
         <form onSubmit={formik.handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input
-              label="Company Name"
-              name="tenant_name"
-              placeholder="Acme Inc."
-              value={formik.values.tenant_name}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.tenant_name}
-              touched={formik.touched.tenant_name}
-              required
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '16px' }}>
             <Select
               label="Subscription Plan"
               name="plan_id"
@@ -314,13 +294,12 @@ export default function Tenants() {
             </Select>
           </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px' }}>Owner Account (Master)</h3>
+          <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px' }}>Company / Owner Details</h3>
 
           <Input
-            label="Owner Name"
+            label="Company / Owner Name"
             name="name"
-            placeholder="John Doe"
+            placeholder="Acme Inc. / John Doe"
             value={formik.values.name}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
@@ -378,7 +357,6 @@ export default function Tenants() {
             required
           >
             <option value="active">Active</option>
-            <option value="trial">Trial</option>
             <option value="inactive">Inactive</option>
             <option value="suspended">Suspended</option>
           </Select>
