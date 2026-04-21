@@ -74,13 +74,13 @@ export default function Deals() {
 
       const [dealsRes, tenantsRes] = await Promise.all([
         api.get(`/deals?${queryParams.toString()}`),
-        isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: { data: [] } })
+        isGlobalAdmin ? api.get('/tenants/selection') : Promise.resolve({ data: [] })
       ]);
       
       setDeals(dealsRes.data.data || []);
       setTotalCount(dealsRes.data.totalCount || 0);
 
-      if (isGlobalAdmin) setTenants(tenantsRes.data.data || []);
+      if (isGlobalAdmin) setTenants(tenantsRes.data || []);
 
       // Fetch contacts for the specific tenant or current tenant
       const tid = formik.values.tenant_id || selectedTenantId || loggedInUser.tenantId;
@@ -183,7 +183,7 @@ export default function Deals() {
     ...(isGlobalAdmin ? [{
         header: 'Owner Company',
         key: 'tenant_name',
-        render: (row) => <Badge type="primary">{row.tenants?.tenant_name || 'Individual'}</Badge>
+        render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
     { 
       header: 'Status', 
@@ -232,7 +232,7 @@ export default function Deals() {
                 style={{ marginLeft: '12px', padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '14px', outline: 'none', backgroundColor: '#fff' }}
               >
                 <option value="">All Companies (Global View)</option>
-                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
           )}
@@ -317,7 +317,7 @@ export default function Deals() {
                 required
             >
                 <option value="">Select a Company</option>
-                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </Select>
           )}
 

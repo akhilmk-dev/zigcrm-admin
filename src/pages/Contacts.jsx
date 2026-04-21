@@ -92,13 +92,13 @@ export default function Contacts() {
 
       const [contactsRes, tenantsRes] = await Promise.all([
         api.get(`/contacts?${queryParams.toString()}`),
-        isGlobalAdmin ? api.get('/tenants') : Promise.resolve({ data: { data: [] } })
+        isGlobalAdmin ? api.get('/tenants/selection') : Promise.resolve({ data: [] })
       ]);
       
       setContacts(contactsRes.data.data || []);
       setTotalCount(contactsRes.data.totalCount || 0);
 
-      if (isGlobalAdmin) setTenants(tenantsRes.data.data || []);
+      if (isGlobalAdmin) setTenants(tenantsRes.data || []);
     } catch (err) {
       console.error("Fetch Contacts Error:", err);
     } finally {
@@ -195,7 +195,7 @@ export default function Contacts() {
     ...(isGlobalAdmin ? [{
         header: 'Owner Company',
         key: 'tenant_name',
-        render: (row) => <Badge type="primary">{row.tenants?.tenant_name || 'Individual'}</Badge>
+        render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
     { 
       header: 'Status', 
@@ -244,7 +244,7 @@ export default function Contacts() {
                 style={{ marginLeft: '12px', padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '14px', outline: 'none', backgroundColor: '#fff' }}
               >
                 <option value="">All Companies (Global View)</option>
-                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
           )}
@@ -329,7 +329,7 @@ export default function Contacts() {
                 required
             >
                 <option value="">Select a Company</option>
-                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </Select>
           )}
 

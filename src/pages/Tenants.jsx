@@ -25,6 +25,8 @@ export default function Tenants() {
       plan_id: '',
       name: '',
       email: '',
+      phone: '',
+      country: '',
       status: 'active',
       password: '',
       re_password: '',
@@ -33,6 +35,8 @@ export default function Tenants() {
     validationSchema: Yup.object({
       name: Yup.string().required('Company / Owner Name is required'),
       email: Yup.string().email('Invalid email').required('Owner email is required'),
+      phone: Yup.string().matches(/^[0-9+]+$/, 'Invalid phone number').required('Phone number is required'),
+      country: Yup.string().required('Country is required'),
       plan_id: Yup.string().required('Subscription plan is required'),
       status: Yup.string().required('Status is required'),
       password: Yup.string().when('isEditing', {
@@ -101,6 +105,8 @@ export default function Tenants() {
         plan_id: tenant.plan_id || '',
         name: tenant.owner_name || '',
         email: tenant.owner_email || '',
+        phone: tenant.owner_phone || '',
+        country: tenant.country || '',
         status: tenant.owner_status || tenant.status || 'active',
         password: '',
         re_password: '',
@@ -113,6 +119,8 @@ export default function Tenants() {
           plan_id: plans.find(p => p.plan_name === 'Free Tier')?.id || '',
           name: '',
           email: '',
+          phone: '',
+          country: '',
           status: 'active',
           password: '',
           re_password: '',
@@ -308,16 +316,41 @@ export default function Tenants() {
             required
           />
 
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input
+              label="Owner Email"
+              name="email"
+              type="email"
+              placeholder="owner@acme.com"
+              value={formik.values.email}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.email}
+              touched={formik.touched.email}
+              required
+            />
+            <Input
+              label="Phone Number"
+              name="phone"
+              placeholder="+1 234 567 890"
+              value={formik.values.phone}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.phone}
+              touched={formik.touched.phone}
+              required
+            />
+          </div>
+
           <Input
-            label="Owner Email"
-            name="email"
-            type="email"
-            placeholder="owner@acme.com"
-            value={formik.values.email}
+            label="Country"
+            name="country"
+            placeholder="e.g. United States"
+            value={formik.values.country}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            error={formik.errors.email}
-            touched={formik.touched.email}
+            error={formik.errors.country}
+            touched={formik.touched.country}
             required
           />
 
