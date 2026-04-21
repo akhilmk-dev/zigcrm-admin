@@ -5,6 +5,7 @@ import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select } from '../components/common/Modal';
+import RichTextEditor from '../components/RichTextEditor';
 
 export default function ContactDetail() {
   const { id } = useParams();
@@ -12,6 +13,7 @@ export default function ContactDetail() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('notes');
+  const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [isSubmittingNote, setIsSubmittingNote] = useState(false);
   
@@ -80,8 +82,10 @@ export default function ContactDetail() {
       await api.post('/notes', {
         contact_id: id,
         tenant_id: contact.tenant_id,
+        title: noteTitle,
         content: noteContent
       });
+      setNoteTitle('');
       setNoteContent('');
       fetchDetail(); // Refresh to show new note
     } catch (err) {
@@ -215,31 +219,47 @@ export default function ContactDetail() {
             {activeTab === 'notes' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                 {/* Note Creation */}
-                <form onSubmit={handleAddNote} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <textarea 
-                    placeholder="Add a note or update for this contact..."
+                <div style={{ 
+                  backgroundColor: '#fff', 
+                  borderRadius: '16px', 
+                  border: '1px solid var(--border)',
+                  padding: '24px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                }}>
+                  <div style={{ marginBottom: '20px' }}>
+                    <input 
+                      placeholder="Note Title..."
+                      value={noteTitle}
+                      onChange={(e) => setNoteTitle(e.target.value)}
+                      style={{
+                        width: '100%',
+                        fontSize: '22px',
+                        fontWeight: '700',
+                        border: 'none',
+                        outline: 'none',
+                        color: 'var(--text-main)',
+                        backgroundColor: 'transparent'
+                      }}
+                    />
+                    <div style={{ height: '1px', backgroundColor: 'var(--border)', marginTop: '8px', width: '60px' }} />
+                  </div>
+                  
+                  <RichTextEditor 
                     value={noteContent}
-                    onChange={(e) => setNoteContent(e.target.value)}
-                    style={{
-                      width: '100%',
-                      minHeight: '100px',
-                      padding: '16px',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border)',
-                      fontSize: '14px',
-                      outline: 'none',
-                      resize: 'vertical',
-                      transition: 'border-color 0.2s'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-                    onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                    onChange={setNoteContent}
+                    placeholder="Start architectural thinking..."
                   />
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button type="primary" disabled={isSubmittingNote || !noteContent.trim()}>
-                      {isSubmittingNote ? 'Saving...' : 'Add Note'}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                    <Button 
+                      type="primary" 
+                      onClick={handleAddNote}
+                      disabled={isSubmittingNote || !noteContent.trim() || noteContent === '<p><br></p>'}
+                    >
+                      {isSubmittingNote ? 'Saving...' : 'Save Note'}
                     </Button>
                   </div>
-                </form>
+                </div>
 
                 {/* Notes Feed */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -249,27 +269,53 @@ export default function ContactDetail() {
                     </div>
                   ) : notes.map(note => (
                     <div key={note.id} style={{ 
-                      padding: '20px', 
-                      borderRadius: '12px', 
-                      backgroundColor: 'var(--bg-main)', 
+                      padding: '24px', 
+                      borderRadius: '16px', 
+                      backgroundColor: '#fff', 
                       border: '1px solid var(--border)',
-                      position: 'relative'
+                      position: 'relative',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ fontWeight: '700', fontSize: '13px' }}>{note.author_name}</div>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{new Date(note.created_at).toLocaleString()}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ 
+                            width: '32px', 
+                            height: '32px', 
+                            borderRadius: '50%', 
+                            backgroundColor: 'var(--primary-light)', 
+                            color: 'var(--primary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '14px',
+                            fontWeight: '700'
+                          }}>
+                            {note.author_name?.[0] || 'U'}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>{note.author_name}</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{new Date(note.created_at).toLocaleString()}</div>
+                          </div>
                         </div>
                         <button 
                           onClick={() => handleDeleteNote(note.id)}
-                          style={{ border: 'none', background: 'none', color: 'var(--danger)', fontSize: '12px', cursor: 'pointer', opacity: 0.6 }}
+                          style={{ border: 'none', background: 'none', color: 'var(--danger)', fontSize: '12px', cursor: 'pointer', opacity: 0.4 }}
                         >
                           Delete
                         </button>
                       </div>
-                      <div style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>
-                        {note.content}
-                      </div>
+
+                      {note.title && (
+                        <h4 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>
+                          {note.title}
+                        </h4>
+                      )}
+
+                      <div 
+                        className="note-html-content"
+                        style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--text-main)' }}
+                        dangerouslySetInnerHTML={{ __html: note.content }}
+                      />
                     </div>
                   ))}
                 </div>
