@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import api from '../api/axiosConfig';
+import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
@@ -42,6 +42,7 @@ export default function Users() {
       role_id: '',
       target_tenant_id: '',
       status: 'active',
+      profile_image_url: '',
     },
     validationSchema: Yup.object({
       name: Yup.string().required('Full name is required'),
@@ -66,6 +67,7 @@ export default function Users() {
           role_id: values.role_id,
           target_tenant_id: values.target_tenant_id || loggedInUser?.tenantId,
           status: values.status,
+          profile_image_url: values.profile_image_url,
         };
 
         if (values.password) payload.password = values.password;
@@ -146,6 +148,7 @@ export default function Users() {
         role_id: user.role_id || '',
         target_tenant_id: user.tenant_id || '',
         status: user.status || 'active',
+        profile_image_url: user.profile_image_url || '',
       });
     } else {
       setEditingUser(null);
@@ -158,7 +161,8 @@ export default function Users() {
             re_password: '',
             role_id: '', 
             target_tenant_id: defaultTenantId || '',
-            status: 'active'
+            status: 'active',
+            profile_image_url: ''
         }
       });
     }
@@ -184,8 +188,25 @@ export default function Users() {
       key: 'name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), #818cf8)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '13px', flexShrink: 0 }}>
-            {(row.name || 'U')[0].toUpperCase()}
+          <div style={{ 
+            width: '34px', 
+            height: '34px', 
+            borderRadius: '50%', 
+            overflow: 'hidden', 
+            backgroundColor: 'var(--bg-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid var(--border)',
+            flexShrink: 0
+          }}>
+            {row.profile_image_url ? (
+               <img src={`${FILE_BASE_URL}${row.profile_image_url}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+               <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                 {(row.name || 'U')[0].toUpperCase()}
+               </span>
+            )}
           </div>
           <div>
             <p style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '14px' }}>{row.name}</p>
@@ -333,6 +354,47 @@ export default function Users() {
         </>}
       >
         <form onSubmit={formik.handleSubmit}>
+          {/* Profile Image Upload */}
+          <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <div style={{ 
+              width: '90px', 
+              height: '90px', 
+              borderRadius: '20px', 
+              backgroundColor: 'var(--bg-muted)', 
+              border: '2px dashed var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {formik.values.profile_image_url ? (
+                <img src={`${FILE_BASE_URL}${formik.values.profile_image_url}`} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <span style={{ color: 'var(--text-muted)', fontSize: '32px' }}>👤</span>
+              )}
+              <input 
+                type="file" 
+                accept="image/*"
+                style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                onChange={async (e) => {
+                  const file = e.currentTarget.files[0];
+                  if (file) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    try {
+                      const res = await api.post('/upload', formData);
+                      formik.setFieldValue('profile_image_url', res.data.url);
+                    } catch (err) {
+                      console.error("Upload failed", err);
+                    }
+                  }
+                }}
+              />
+            </div>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '500' }}>Click to upload user avatar</p>
+          </div>
+
           <Input 
             label="Full Name" 
             name="name"

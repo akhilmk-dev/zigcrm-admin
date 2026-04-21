@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import api from '../api/axiosConfig';
+import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
@@ -36,12 +36,14 @@ export default function Contacts() {
       email: '',
       phone: '',
       company_name: '',
+      profession: '',
       job_title: '',
       source: '',
       tags: '',
       status: 'lead',
       tenant_id: '',
-      assigned_to: ''
+      assigned_to: '',
+      profile_image_url: ''
     },
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
@@ -133,7 +135,9 @@ export default function Contacts() {
         tags: contact.tags || '',
         status: contact.status,
         tenant_id: contact.tenant_id || '',
-        assigned_to: contact.assigned_to || ''
+        assigned_to: contact.assigned_to || '',
+        profile_image_url: contact.profile_image_url || '',
+        profession: contact.profession || ''
       });
     } else {
       setEditingContact(null);
@@ -149,7 +153,9 @@ export default function Contacts() {
             tags: '',
             status: 'lead',
             tenant_id: isGlobalAdmin ? selectedTenantId : (loggedInUser?.tenantId || ''),
-            assigned_to: ''
+            assigned_to: '',
+            profile_image_url: '',
+            profession: ''
         }
       });
     }
@@ -173,24 +179,46 @@ export default function Contacts() {
       header: 'Name', 
       key: 'name',
       render: (row) => (
-        <Link 
-          to={`/contacts/${row.id}`}
-          style={{ 
-            fontWeight: '600', 
-            color: 'var(--primary)', 
-            textDecoration: 'none',
-            transition: 'color 0.2s',
-            cursor: 'pointer'
-          }}
-          onMouseEnter={(e) => e.target.style.color = 'var(--primary-hover)'}
-          onMouseLeave={(e) => e.target.style.color = 'var(--primary)'}
-        >
-          {row.first_name} {row.last_name}
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ 
+            width: '36px', 
+            height: '36px', 
+            borderRadius: '50%', 
+            overflow: 'hidden', 
+            backgroundColor: 'var(--bg-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid var(--border)'
+          }}>
+            {row.profile_image_url ? (
+               <img src={`${FILE_BASE_URL}${row.profile_image_url}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+               <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                 {row.first_name?.[0]}{row.last_name?.[0]}
+               </span>
+            )}
+          </div>
+          <Link 
+            to={`/contacts/${row.id}`}
+            style={{ 
+              fontWeight: '600', 
+              color: 'var(--primary)', 
+              textDecoration: 'none',
+              transition: 'color 0.2s',
+              cursor: 'pointer'
+            }}
+            onMouseEnter={(e) => e.target.style.color = 'var(--primary-hover)'}
+            onMouseLeave={(e) => e.target.style.color = 'var(--primary)'}
+          >
+            {row.first_name} {row.last_name}
+          </Link>
+        </div>
       )
     },
     { header: 'Email', key: 'email' },
     { header: 'Workplace', key: 'company_name' },
+    { header: 'Profession', key: 'profession', render: (row) => row.profession || '—' },
     // Show Company column for Global Admins
     ...(isGlobalAdmin ? [{
         header: 'Owner Company',
@@ -264,7 +292,7 @@ export default function Contacts() {
           </span>
           <input
             type="text"
-            placeholder="Search name, email, company..."
+            placeholder="Search name, email, workplace, profession..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
@@ -317,6 +345,47 @@ export default function Contacts() {
         </>}
       >
         <form onSubmit={formik.handleSubmit}>
+          {/* Profile Image Upload */}
+          <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <div style={{ 
+              width: '100px', 
+              height: '100px', 
+              borderRadius: '24px', 
+              backgroundColor: 'var(--bg-muted)', 
+              border: '2px dashed var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {formik.values.profile_image_url ? (
+                <img src={`${FILE_BASE_URL}${formik.values.profile_image_url}`} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <span style={{ color: 'var(--text-muted)', fontSize: '24px' }}>👤</span>
+              )}
+              <input 
+                type="file" 
+                accept="image/*"
+                style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                onChange={async (e) => {
+                  const file = e.currentTarget.files[0];
+                  if (file) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    try {
+                      const res = await api.post('/upload', formData);
+                      formik.setFieldValue('profile_image_url', res.data.url);
+                    } catch (err) {
+                      console.error("Upload failed", err);
+                    }
+                  }
+                }}
+              />
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '500' }}>Click avatar to upload profile picture</p>
+          </div>
+
           {isGlobalAdmin && (
             <Select
                 label="Assign to Company"
@@ -386,10 +455,10 @@ export default function Contacts() {
                 onBlur={formik.handleBlur}
             />
             <Input 
-                label="Job Title" 
-                name="job_title"
-                placeholder="Software Engineer"
-                value={formik.values.job_title} 
+                label="Profession" 
+                name="profession"
+                placeholder="e.g. Attorney, Realtor"
+                value={formik.values.profession} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
             />
@@ -407,6 +476,17 @@ export default function Contacts() {
                 {tenantUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.roles?.role_name})</option>)}
             </Select>
 
+            <Input 
+                label="Job Title" 
+                name="job_title"
+                placeholder="e.g. CEO, Sales VP"
+                value={formik.values.job_title} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Select
                 label="Lead Status"
                 name="status"
@@ -417,6 +497,7 @@ export default function Contacts() {
                 <option value="lead">Lead</option>
                 <option value="active">Active Customer</option>
                 <option value="lost">Lost</option>
+                <option value="vip">VIP</option>
             </Select>
           </div>
 

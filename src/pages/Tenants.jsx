@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import api from '../api/axiosConfig';
+import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select } from '../components/common/Modal';
 
@@ -30,7 +30,8 @@ export default function Tenants() {
       status: 'active',
       password: '',
       re_password: '',
-      owner_id: ''
+      owner_id: '',
+      profile_image_url: ''
     },
     validationSchema: Yup.object({
       name: Yup.string().required('Company / Owner Name is required'),
@@ -110,7 +111,8 @@ export default function Tenants() {
         status: tenant.owner_status || tenant.status || 'active',
         password: '',
         re_password: '',
-        owner_id: tenant.owner_id || ''
+        owner_id: tenant.owner_id || '',
+        profile_image_url: tenant.owner_profile_image || ''
       });
     } else {
       setEditingTenant(null);
@@ -124,7 +126,8 @@ export default function Tenants() {
           status: 'active',
           password: '',
           re_password: '',
-          owner_id: ''
+          owner_id: '',
+          profile_image_url: ''
         }
       });
     }
@@ -151,7 +154,29 @@ export default function Tenants() {
     {
       header: 'Company / Owner Name',
       render: (row) => (
-        <div style={{ fontWeight: '600' }}>{row.owner_name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ 
+            width: '32px', 
+            height: '32px', 
+            borderRadius: '8px', 
+            overflow: 'hidden', 
+            backgroundColor: 'var(--bg-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid var(--border)',
+            flexShrink: 0
+          }}>
+            {row.owner_profile_image ? (
+               <img src={`${FILE_BASE_URL}${row.owner_profile_image}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+               <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                 {(row.owner_name || 'T')[0].toUpperCase()}
+               </span>
+            )}
+          </div>
+          <div style={{ fontWeight: '600' }}>{row.owner_name}</div>
+        </div>
       )
     },
     {
@@ -284,6 +309,47 @@ export default function Tenants() {
         }
       >
         <form onSubmit={formik.handleSubmit}>
+          {/* Owner Profile Image Upload */}
+          <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <div style={{ 
+              width: '90px', 
+              height: '90px', 
+              borderRadius: '20px', 
+              backgroundColor: 'var(--bg-muted)', 
+              border: '2px dashed var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              {formik.values.profile_image_url ? (
+                <img src={`${FILE_BASE_URL}${formik.values.profile_image_url}`} alt="Owner Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <span style={{ color: 'var(--text-muted)', fontSize: '32px' }}>🏢</span>
+              )}
+              <input 
+                type="file" 
+                accept="image/*"
+                style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                onChange={async (e) => {
+                  const file = e.currentTarget.files[0];
+                  if (file) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    try {
+                      const res = await api.post('/upload', formData);
+                      formik.setFieldValue('profile_image_url', res.data.url);
+                    } catch (err) {
+                      console.error("Upload failed", err);
+                    }
+                  }
+                }}
+              />
+            </div>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '500' }}>Click to upload owner profile picture</p>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '16px' }}>
             <Select
               label="Subscription Plan"
