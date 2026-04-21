@@ -94,7 +94,7 @@ export default function Users() {
   // ─── Load Tenants (once, for Global Admins) ──────────────────────────────────
   useEffect(() => {
     if (isGlobalAdmin) {
-      api.get('/tenants').then(res => setTenants(res.data.data || [])).catch(() => {});
+      api.get('/tenants/selection').then(res => setTenants(res.data || [])).catch(() => {});
     }
   }, [isGlobalAdmin]);
 
@@ -277,7 +277,7 @@ export default function Users() {
               style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
             >
               <option value="">All Companies</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+              {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           )}
         </div>
@@ -396,7 +396,7 @@ export default function Users() {
                 required
             >
                 <option value="">— Select a Company —</option>
-                {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+                {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </Select>
           )}
 
