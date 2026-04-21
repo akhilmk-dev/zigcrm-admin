@@ -24,16 +24,25 @@ export default function Tenants() {
     initialValues: {
       tenant_name: '',
       company_email: '',
-      phone: '',
-      country: '',
       status: 'active',
-      plan_id: ''
+      plan_id: '',
+      name: '',
+      email: '',
+      password: '',
+      re_password: '',
+      owner_id: ''
     },
     validationSchema: Yup.object({
       tenant_name: Yup.string().required('Company name is required'),
-      company_email: Yup.string().email('Invalid email').required('Email is required'),
+      email: Yup.string().email('Invalid email').required('Owner email is required'),
+      name: Yup.string().required('Owner name is required'),
       plan_id: Yup.string().required('Subscription plan is required'),
-      status: Yup.string().required('Status is required')
+      status: Yup.string().required('Status is required'),
+      password: Yup.string().when('isEditing', {
+          is: () => !editingTenant,
+          then: () => Yup.string().required('Password is required').min(6, 'Min 6 characters')
+      }),
+      re_password: Yup.string().oneOf([Yup.ref('password'), null], 'Passwords must match')
     }),
     onSubmit: async (values) => {
       try {
@@ -94,10 +103,13 @@ export default function Tenants() {
       formik.setValues({
         tenant_name: tenant.tenant_name,
         company_email: tenant.company_email || '',
-        phone: tenant.phone || '',
-        country: tenant.country || '',
         status: tenant.status,
-        plan_id: tenant.plan_id || ''
+        plan_id: tenant.plan_id || '',
+        name: tenant.owner_name || '',
+        email: tenant.owner_email || '',
+        password: '',
+        re_password: '',
+        owner_id: tenant.owner_id || ''
       });
     } else {
       setEditingTenant(null);
@@ -105,10 +117,13 @@ export default function Tenants() {
         values: {
           tenant_name: '',
           company_email: '',
-          phone: '',
-          country: '',
           status: 'active',
-          plan_id: plans.find(p => p.plan_name === 'Free Tier')?.id || ''
+          plan_id: plans.find(p => p.plan_name === 'Free Tier')?.id || '',
+          name: '',
+          email: '',
+          password: '',
+          re_password: '',
+          owner_id: ''
         }
       });
     }
@@ -270,63 +285,87 @@ export default function Tenants() {
         }
       >
         <form onSubmit={formik.handleSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input
+              label="Company Name"
+              name="tenant_name"
+              placeholder="Acme Inc."
+              value={formik.values.tenant_name}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.tenant_name}
+              touched={formik.touched.tenant_name}
+              required
+            />
+            <Select
+              label="Subscription Plan"
+              name="plan_id"
+              value={formik.values.plan_id}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.plan_id}
+              touched={formik.touched.plan_id}
+              required
+            >
+              <option value="">Select Plan</option>
+              {plans.map(p => (
+                <option key={p.id} value={p.id}>{p.plan_name} (${p.price})</option>
+              ))}
+            </Select>
+          </div>
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
+          <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px' }}>Owner Account (Master)</h3>
+
           <Input
-            label="Company Name"
-            name="tenant_name"
-            placeholder="Acme Inc."
-            value={formik.values.tenant_name}
+            label="Owner Name"
+            name="name"
+            placeholder="John Doe"
+            value={formik.values.name}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            error={formik.errors.tenant_name}
-            touched={formik.touched.tenant_name}
+            error={formik.errors.name}
+            touched={formik.touched.name}
             required
           />
 
-          <Select
-            label="Subscription Plan"
-            name="plan_id"
-            value={formik.values.plan_id}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            error={formik.errors.plan_id}
-            touched={formik.touched.plan_id}
-            required
-          >
-            <option value="">Select Plan</option>
-            {plans.map(p => (
-              <option key={p.id} value={p.id}>{p.plan_name} (${p.price})</option>
-            ))}
-          </Select>
-
           <Input
-            label="Company Email"
-            name="company_email"
+            label="Owner Email"
+            name="email"
             type="email"
-            placeholder="admin@acme.com"
-            value={formik.values.company_email}
+            placeholder="owner@acme.com"
+            value={formik.values.email}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            error={formik.errors.company_email}
-            touched={formik.touched.company_email}
+            error={formik.errors.email}
+            touched={formik.touched.email}
             required
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Input
-              label="Phone"
-              name="phone"
-              placeholder="+1..."
-              value={formik.values.phone}
+              label={editingTenant ? "New Password (optional)" : "Password"}
+              name="password"
+              type="password"
+              placeholder="••••••••"
+              value={formik.values.password}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
+              error={formik.errors.password}
+              touched={formik.touched.password}
+              required={!editingTenant}
             />
             <Input
-              label="Country"
-              name="country"
-              placeholder="USA"
-              value={formik.values.country}
+              label="Confirm Password"
+              name="re_password"
+              type="password"
+              placeholder="••••••••"
+              value={formik.values.re_password}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
+              error={formik.errors.re_password}
+              touched={formik.touched.re_password}
+              required={!editingTenant}
             />
           </div>
 

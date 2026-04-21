@@ -38,6 +38,7 @@ export default function Users() {
       name: '',
       email: '',
       password: '',
+      re_password: '',
       role_id: '',
       target_tenant_id: '',
       status: 'active',
@@ -49,6 +50,7 @@ export default function Users() {
           is: () => !editingUser,
           then: () => Yup.string().required('Password is required').min(6, 'Min 6 characters')
       }),
+      re_password: Yup.string().oneOf([Yup.ref('password'), null], 'Passwords must match'),
       role_id: Yup.string().required('Role is required'),
       target_tenant_id: Yup.string().when('viewScope', {
           is: () => viewScope === 'tenant' && isGlobalAdmin,
@@ -140,6 +142,7 @@ export default function Users() {
         name: user.name,
         email: user.email,
         password: '',
+        re_password: '',
         role_id: user.role_id || '',
         target_tenant_id: user.tenant_id || '',
         status: user.status || 'active',
@@ -152,6 +155,7 @@ export default function Users() {
             name: '', 
             email: '', 
             password: '', 
+            re_password: '',
             role_id: '', 
             target_tenant_id: defaultTenantId || '',
             status: 'active'
@@ -202,7 +206,7 @@ export default function Users() {
     ...(isGlobalAdmin && viewScope === 'tenant' ? [{
       header: 'Company',
       key: 'company',
-      render: (row) => <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{row.tenants?.tenant_name || '—'}</span>
+      render: (row) => <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{row.tenant_name || '—'}</span>
     }] : []),
     {
       header: 'Status',
@@ -352,18 +356,32 @@ export default function Users() {
             touched={formik.touched.email}
             required 
           />
-          <Input
-            label={editingUser ? 'Reset Password (blank = no change)' : 'Temporary Password'}
-            name="password"
-            type="password" 
-            placeholder="••••••••"
-            value={formik.values.password}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            error={formik.errors.password}
-            touched={formik.touched.password}
-            required={!editingUser}
-          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input
+              label={editingUser ? 'Reset Password (blank = no change)' : 'Temporary Password'}
+              name="password"
+              type="password" 
+              placeholder="••••••••"
+              value={formik.values.password}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.password}
+              touched={formik.touched.password}
+              required={!editingUser}
+            />
+            <Input
+              label="Confirm Password"
+              name="re_password"
+              type="password" 
+              placeholder="••••••••"
+              value={formik.values.re_password}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.re_password}
+              touched={formik.touched.re_password}
+              required={!editingUser}
+            />
+          </div>
 
           {/* Company Selector (For Global Admins when viewScope is tenant) */}
           {isGlobalAdmin && viewScope === 'tenant' && (
