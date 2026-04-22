@@ -217,3 +217,24 @@ export const Select = ({ label, error, touched, required, children, ...props }) 
     </div>
   );
 };
+export const ConfirmModal = ({ isOpen, onClose, onConfirm, title = 'Confirm Action', message = 'Are you sure you want to proceed?', confirmLabel = 'Confirm', cancelLabel = 'Cancel', type = 'danger' }) => {
+  if (!isOpen) return null;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      footer={
+        <>
+          <Button type="secondary" onClick={onClose}>{cancelLabel}</Button>
+          <Button type={type === 'danger' ? 'danger' : 'primary'} onClick={onConfirm}>{confirmLabel}</Button>
+        </>
+      }
+    >
+      <div style={{ fontSize: '15px', color: 'var(--text-main)', lineHeight: '1.5' }}>
+        {message}
+      </div>
+    </Modal>
+  );
+};

@@ -6,6 +6,8 @@ import api from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select } from '../components/common/Modal';
 import RichTextEditor from '../components/RichTextEditor';
+import NoteEditor from '../components/NoteEditor';
+import NoteItem from '../components/NoteItem';
 
 export default function ContactDetail() {
   const { id } = useParams();
@@ -13,9 +15,8 @@ export default function ContactDetail() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('notes');
-  const [noteTitle, setNoteTitle] = useState('');
-  const [noteContent, setNoteContent] = useState('');
   const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [expandedNoteId, setExpandedNoteId] = useState(null);
   
   // Edit Modal States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -77,28 +78,6 @@ export default function ContactDetail() {
     fetchDetail();
   }, [id]);
 
-  const handleAddNote = async (e) => {
-    e.preventDefault();
-    if (!noteContent.trim()) return;
-    
-    setIsSubmittingNote(true);
-    try {
-      await api.post('/notes', {
-        contact_id: id,
-        tenant_id: contact.tenant_id,
-        title: noteTitle,
-        content: noteContent
-      });
-      setNoteTitle('');
-      setNoteContent('');
-      fetchDetail(); // Refresh to show new note
-    } catch (err) {
-      console.error("Add note error", err);
-    } finally {
-      setIsSubmittingNote(false);
-    }
-  };
-
   const handleOpenEditModal = () => {
     if (!data?.contact) return;
     const { contact } = data;
@@ -130,7 +109,7 @@ export default function ContactDetail() {
     }
   };
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading contact details...</div>;
+  if (loading) return <ContactDetailSkeleton />;
   if (!data) return null;
   const contact = data.contact || {};
   const tasks = data.tasks || [];
@@ -146,56 +125,61 @@ export default function ContactDetail() {
         <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>{contact.first_name} {contact.last_name}</span>
       </div>
 
-      {/* Header Profile Section */}
-      <div style={{ 
-        backgroundColor: '#fff', 
-        borderRadius: '16px', 
-        padding: '32px', 
-        border: '1px solid var(--border)',
-        marginBottom: '32px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <div style={{ 
-            width: '80px', 
-            height: '80px', 
-            borderRadius: '50%', 
-            backgroundColor: 'var(--primary-light)', 
-            color: 'var(--primary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '32px',
-            fontWeight: 'bold'
-          }}>
-            {contact.first_name[0]}{contact.last_name?.[0] || ''}
-          </div>
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
-              {contact.first_name} {contact.last_name}
-            </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
-              <Badge type={contact.status === 'active' ? 'success' : contact.status === 'lost' ? 'danger' : 'warning'}>
-                {contact.status.toUpperCase()}
-              </Badge>
-              <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>•</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>{contact.company_name || 'Individual'}</span>
-            </div>
-          </div>
-        </div>
-         <div style={{ display: 'flex', gap: '12px' }}>
-           <Button type="secondary" onClick={handleOpenEditModal}>Edit Details</Button>
-           <Button type="danger" onClick={() => { if(window.confirm("Delete contact?")) { api.delete(`/contacts/${id}`).then(() => navigate('/contacts')) } }}>Delete</Button>
-        </div>
-      </div>
-
       {/* Main Content Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '32px', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) 2.5fr', gap: '32px', alignItems: 'start' }}>
         
         {/* Left Col: Detailed Info */}
         <aside style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Profile Card */}
+          <div style={{ 
+            backgroundColor: '#fff', 
+            borderRadius: '16px', 
+            padding: '32px', 
+            border: '1px solid var(--border)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center'
+          }}>
+            <div style={{ 
+              width: '100px', 
+              height: '100px', 
+              borderRadius: '50%', 
+              backgroundColor: 'var(--primary-light)', 
+              color: 'var(--primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '40px',
+              fontWeight: 'bold',
+              marginBottom: '20px',
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.15)'
+            }}>
+              {contact.first_name[0]}{contact.last_name?.[0] || ''}
+            </div>
+            <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', margin: '0 0 12px 0', letterSpacing: '-0.5px' }}>
+              {contact.first_name} {contact.last_name}
+            </h1>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <Badge type={contact.status === 'active' ? 'success' : contact.status === 'lost' ? 'danger' : 'warning'}>
+                  {contact.status.toUpperCase()}
+                </Badge>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>{contact.company_name || 'Individual'}</span>
+              </div>
+              {contact.tenants?.owner?.name && (
+                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Owner: {contact.tenants.owner.name}
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%' }}>
+              <Button type="secondary" size="sm" onClick={handleOpenEditModal} style={{ width: '100%' }}>Edit</Button>
+              <Button type="danger" size="sm" onClick={() => { if(window.confirm("Delete contact?")) { api.delete(`/contacts/${id}`).then(() => navigate('/contacts')) } }} style={{ width: '100%' }}>Delete</Button>
+            </div>
+          </div>
+
           <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', padding: '24px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: 'var(--text-main)' }}>Contact Information</h3>
             
@@ -205,7 +189,7 @@ export default function ContactDetail() {
               <InfoRow label="Profession" value={contact.profession} icon="🎓" />
               <InfoRow label="Job Title" value={contact.job_title} icon="👔" />
               <InfoRow label="Source" value={contact.source} icon="📍" />
-              <InfoRow label="Company" value={contact.tenants?.tenant_name} icon="🏢" isBadge />
+              <InfoRow label="Owner Company" value={contact.tenants?.owner?.name} icon="🏢" isBadge />
               <InfoRow label="Tags" value={contact.tags} icon="🏷️" />
               <InfoRow label="Joined" value={new Date(contact.created_at).toLocaleDateString()} icon="📅" />
             </div>
@@ -224,106 +208,30 @@ export default function ContactDetail() {
           <div style={{ padding: '32px', flex: 1 }}>
             {activeTab === 'notes' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                {/* Note Creation */}
-                <div style={{ 
-                  backgroundColor: '#fff', 
-                  borderRadius: '16px', 
-                  border: '1px solid var(--border)',
-                  padding: '24px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-                }}>
-                  <div style={{ marginBottom: '20px' }}>
-                    <input 
-                      placeholder="Note Title..."
-                      value={noteTitle}
-                      onChange={(e) => setNoteTitle(e.target.value)}
-                      style={{
-                        width: '100%',
-                        fontSize: '22px',
-                        fontWeight: '700',
-                        border: 'none',
-                        outline: 'none',
-                        color: 'var(--text-main)',
-                        backgroundColor: 'transparent'
-                      }}
-                    />
-                    <div style={{ height: '1px', backgroundColor: 'var(--border)', marginTop: '8px', width: '60px' }} />
-                  </div>
-                  
-                  <RichTextEditor 
-                    value={noteContent}
-                    onChange={setNoteContent}
-                    placeholder="Start architectural thinking..."
-                  />
+                <NoteEditor 
+                  contactId={id} 
+                  tenantId={contact.tenant_id} 
+                  onSave={fetchDetail} 
+                />
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                    <Button 
-                      type="primary" 
-                      onClick={handleAddNote}
-                      disabled={isSubmittingNote || !noteContent.trim() || noteContent === '<p><br></p>'}
-                    >
-                      {isSubmittingNote ? 'Saving...' : 'Save Note'}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Notes Feed */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {notes.length === 0 ? (
-                    <div style={{ textAlign: 'center', py: '40px', color: 'var(--text-muted)' }}>
-                      No notes yet. Start the conversation!
+                    <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', backgroundColor: 'var(--bg-main)', borderRadius: '16px', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📝</div>
+                      <div style={{ fontSize: '16px', fontWeight: '600' }}>No notes yet</div>
+                      <div style={{ fontSize: '14px', marginTop: '4px' }}>Start the conversation by adding a note above.</div>
                     </div>
-                  ) : notes.map(note => (
-                    <div key={note.id} style={{ 
-                      padding: '24px', 
-                      borderRadius: '16px', 
-                      backgroundColor: '#fff', 
-                      border: '1px solid var(--border)',
-                      position: 'relative',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ 
-                            width: '32px', 
-                            height: '32px', 
-                            borderRadius: '50%', 
-                            backgroundColor: 'var(--primary-light)', 
-                            color: 'var(--primary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '14px',
-                            fontWeight: '700'
-                          }}>
-                            {note.author_name?.[0] || 'U'}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>{note.author_name}</div>
-                            <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{new Date(note.created_at).toLocaleString()}</div>
-                          </div>
-                        </div>
-                        <button 
-                          onClick={() => handleDeleteNote(note.id)}
-                          style={{ border: 'none', background: 'none', color: 'var(--danger)', fontSize: '12px', cursor: 'pointer', opacity: 0.4 }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-
-                      {note.title && (
-                        <h4 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>
-                          {note.title}
-                        </h4>
-                      )}
-
-                      <div 
-                        className="note-html-content"
-                        style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--text-main)' }}
-                        dangerouslySetInnerHTML={{ __html: note.content }}
+                  ) : (
+                    notes.map((note) => (
+                      <NoteItem 
+                        key={note.id} 
+                        note={note} 
+                        onDelete={handleDeleteNote}
+                        isExpanded={expandedNoteId === note.id}
+                        onToggle={() => setExpandedNoteId(expandedNoteId === note.id ? null : note.id)}
                       />
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -550,6 +458,84 @@ function TabItem({ children, active, onClick }) {
       }}
     >
       {children}
+    </div>
+  );
+}
+
+function ContactDetailSkeleton() {
+  return (
+    <div style={{ padding: '40px' }}>
+      <style>{`
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .skeleton {
+          background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+          border-radius: 8px;
+        }
+      `}</style>
+
+      {/* Breadcrumbs Skeleton */}
+      <div className="skeleton" style={{ width: '200px', height: '20px', marginBottom: '24px' }} />
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) 2.5fr', gap: '32px' }}>
+        {/* Left Column Skeleton */}
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '16px', padding: '32px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="skeleton" style={{ width: '100px', height: '100px', borderRadius: '50%', marginBottom: '20px' }} />
+            <div className="skeleton" style={{ width: '150px', height: '24px', marginBottom: '12px' }} />
+            <div className="skeleton" style={{ width: '100px', height: '18px', marginBottom: '24px' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', width: '100%' }}>
+              <div className="skeleton" style={{ height: '36px' }} />
+              <div className="skeleton" style={{ height: '36px' }} />
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: '#fff', borderRadius: '16px', padding: '24px', border: '1px solid var(--border)' }}>
+            <div className="skeleton" style={{ width: '120px', height: '20px', marginBottom: '20px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} style={{ display: 'flex', gap: '12px' }}>
+                  <div className="skeleton" style={{ width: '20px', height: '20px' }} />
+                  <div style={{ flex: 1 }}>
+                    <div className="skeleton" style={{ width: '60px', height: '10px', marginBottom: '4px' }} />
+                    <div className="skeleton" style={{ width: '100px', height: '14px' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* Right Column Skeleton */}
+        <main style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 24px', gap: '24px' }}>
+            <div className="skeleton" style={{ width: '100px', height: '48px', borderRadius: '0' }} />
+            <div className="skeleton" style={{ width: '100px', height: '48px', borderRadius: '0' }} />
+            <div className="skeleton" style={{ width: '100px', height: '48px', borderRadius: '0' }} />
+          </div>
+          <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            {/* Note Creation Skeleton */}
+            <div style={{ padding: '24px', border: '1px solid var(--border)', borderRadius: '16px' }}>
+              <div className="skeleton" style={{ width: '200px', height: '24px', marginBottom: '20px' }} />
+              <div className="skeleton" style={{ width: '100%', height: '150px', marginBottom: '20px' }} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div className="skeleton" style={{ width: '100px', height: '40px' }} />
+              </div>
+            </div>
+
+            {/* Note Items Skeleton */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[1, 2, 3].map(i => (
+                <div key={i} className="skeleton" style={{ height: '70px', borderRadius: '12px' }} />
+              ))}
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

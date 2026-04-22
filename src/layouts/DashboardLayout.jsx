@@ -482,13 +482,34 @@ export default function DashboardLayout() {
             <div style={{ display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Pages</span>
               <span style={{ color: 'var(--border)', fontSize: '14px' }}>/</span>
-              <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '600' }}>
-                {navItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {(() => {
+                  const path = location.pathname;
+                  if (path.startsWith('/contacts/') && path.split('/').length === 3) {
+                    return (
+                      <>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Contact</span>
+                        <span style={{ color: 'var(--border)', fontSize: '14px' }}>/</span>
+                        <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '600' }}>Contact detail</span>
+                      </>
+                    );
+                  }
+                  const navItem = navItems.find(i => i.path === path);
+                  return (
+                    <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '600' }}>
+                      {navItem?.label || 'Dashboard'}
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
             {isMobile && (
               <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-main)' }}>
-                {navItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
+                {(() => {
+                  const path = location.pathname;
+                  if (path.startsWith('/contacts/') && path.split('/').length === 3) return 'Contact detail';
+                  return navItems.find(i => i.path === path)?.label || 'Dashboard';
+                })()}
               </span>
             )}
           </div>
