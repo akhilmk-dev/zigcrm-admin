@@ -247,7 +247,13 @@ export default function Tasks() {
       render: (row) => (
         <div>
           <div style={{ fontWeight: '600' }}>{row.title}</div>
-          {row.description && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{row.description}</div>}
+          {row.description && (
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              {row.description.split(/\s+/).length > 5 
+                ? row.description.split(/\s+/).slice(0, 5).join(' ') + '...' 
+                : row.description}
+            </div>
+          )}
         </div>
       )
     },

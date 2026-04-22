@@ -3,7 +3,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select } from '../components/common/Modal';
+import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
 import { toast } from 'react-hot-toast';
 
@@ -54,6 +54,8 @@ export default function Users() {
   // ─── Modal State ─────────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [passwordConfirmOpen, setPasswordConfirmOpen] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const formik = useFormik({
     initialValues: {
@@ -69,15 +71,20 @@ export default function Users() {
     validationSchema: Yup.object({
       name: Yup.string().required('Full name is required'),
       email: Yup.string().email('Invalid email address').required('Email is required'),
-      password: Yup.string().when('isEditing', {
-          is: () => !editingUser,
-          then: () => Yup.string().required('Password is required').min(6, 'Min 6 characters')
-      }),
-      re_password: Yup.string().oneOf([Yup.ref('password'), null], 'Passwords must match'),
+      password: editingUser
+        ? Yup.string().min(6, 'Password must be at least 6 characters')
+        : Yup.string().required('Password is required').min(6, 'Password must be at least 6 characters'),
+      re_password: Yup.string()
+        .oneOf([Yup.ref('password'), null], 'Passwords must match')
+        .when('password', {
+            is: (val) => val && val.length > 0,
+            then: (schema) => schema.required('Please confirm your new password'),
+            otherwise: (schema) => schema.notRequired()
+        }),
       role_id: Yup.string().required('Role is required'),
       target_tenant_id: Yup.string().when('viewScope', {
           is: () => viewScope === 'tenant' && isGlobalAdmin,
-          then: () => Yup.string().required('Company assignment is required')
+          then: (schema) => schema.required('Company assignment is required')
       })
     }),
     onSubmit: async (values) => {
@@ -202,6 +209,38 @@ export default function Users() {
       fetchUsers();
     } catch (err) {
       console.error('Status Update Error:', err);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!formik.values.password) {
+      toast.error('Please enter a new password');
+      return;
+    }
+    if (formik.values.password !== formik.values.re_password) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    if (formik.values.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setPasswordConfirmOpen(true);
+  };
+
+  const confirmPasswordUpdate = async () => {
+    setIsUpdatingPassword(true);
+    try {
+      await api.patch(`/users/${editingUser.id}`, { password: formik.values.password });
+      toast.success('Password updated successfully');
+      formik.setFieldValue('password', '');
+      formik.setFieldValue('re_password', '');
+      setPasswordConfirmOpen(false);
+    } catch (err) {
+      console.error('Password Update Error:', err);
+      toast.error(err.response?.data?.error || 'Failed to update password');
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -442,32 +481,7 @@ export default function Users() {
             touched={formik.touched.email}
             required 
           />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input
-              label={editingUser ? 'Reset Password (blank = no change)' : 'Temporary Password'}
-              name="password"
-              type="password" 
-              placeholder="••••••••"
-              value={formik.values.password}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.password}
-              touched={formik.touched.password}
-              required={!editingUser}
-            />
-            <Input
-              label="Confirm Password"
-              name="re_password"
-              type="password" 
-              placeholder="••••••••"
-              value={formik.values.re_password}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.re_password}
-              touched={formik.touched.re_password}
-              required={!editingUser}
-            />
-          </div>
+          {/* Role and Company details moved up, Passwords moved down */}
 
           {/* Company Selector (For Global Admins when viewScope is tenant) */}
           {isGlobalAdmin && viewScope === 'tenant' && (
@@ -520,8 +534,73 @@ export default function Users() {
             <option value="inactive">Inactive</option>
             <option value="suspended">Suspended</option>
           </Select>
+
+          {/* Password Section - Bottom Placement + Conditional Rendering */}
+          {(!editingUser || hasPermission('users.change_password')) && (
+            <div style={{ 
+              marginTop: '24px', 
+              padding: '20px', 
+              backgroundColor: '#f8fafc', 
+              borderRadius: '16px',
+              border: '1px solid var(--border)' 
+            }}>
+              <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {editingUser ? '🔐 Security & Password' : '🔑 Initial Access'}
+              </h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <Input
+                  label={editingUser ? 'New Password' : 'Temporary Password'}
+                  name="password"
+                  type="password" 
+                  placeholder="••••••••"
+                  value={formik.values.password}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  error={formik.errors.password}
+                  touched={formik.touched.password}
+                  required={!editingUser}
+                />
+                <Input
+                  label="Confirm Password"
+                  name="re_password"
+                  type="password" 
+                  placeholder="••••••••"
+                  value={formik.values.re_password}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  error={formik.errors.re_password}
+                  touched={formik.touched.re_password}
+                  required={!editingUser}
+                />
+              </div>
+
+              {editingUser && (
+                <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button 
+                    type="secondary" 
+                    size="sm" 
+                    onClick={(e) => { e.preventDefault(); handlePasswordChange(); }}
+                    style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                  >
+                    Change Password
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={passwordConfirmOpen}
+        onClose={() => setPasswordConfirmOpen(false)}
+        onConfirm={confirmPasswordUpdate}
+        title="Confirm Password Change"
+        message="Are you sure you want to change this user's password? The user will need to use the new password for their next login."
+        confirmText={isUpdatingPassword ? "Updating..." : "Yes, Change Password"}
+        confirmType="danger"
+      />
     </div>
   );
 }
