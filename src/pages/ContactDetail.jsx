@@ -35,12 +35,16 @@ export default function ContactDetail() {
       source: '',
       tags: '',
       status: 'lead',
-      tenant_id: ''
+      tenant_id: '',
+      profession: ''
     },
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
-      email: Yup.string().email('Invalid email address')
+      email: Yup.string().email('Invalid email address'),
+      phone: Yup.string().required('Phone number is required'),
+      company_name: Yup.string().required('Workplace name is required'),
+      profession: Yup.string().required('Profession is required')
     }),
     onSubmit: async (values) => {
       try {
@@ -108,7 +112,8 @@ export default function ContactDetail() {
       source: contact.source || '',
       tags: contact.tags || '',
       status: contact.status,
-      tenant_id: contact.tenant_id || ''
+      tenant_id: contact.tenant_id || '',
+      profession: contact.profession || ''
     });
     
     if (isGlobalAdmin) {
@@ -195,8 +200,9 @@ export default function ContactDetail() {
             <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: 'var(--text-main)' }}>Contact Information</h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <InfoRow label="Email" value={contact.email} icon="✉️" />
+               <InfoRow label="Email" value={contact.email} icon="✉️" />
               <InfoRow label="Phone" value={contact.phone} icon="📞" />
+              <InfoRow label="Profession" value={contact.profession} icon="🎓" />
               <InfoRow label="Job Title" value={contact.job_title} icon="👔" />
               <InfoRow label="Source" value={contact.source} icon="📍" />
               <InfoRow label="Company" value={contact.tenants?.tenant_name} icon="🏢" isBadge />
@@ -435,6 +441,9 @@ export default function ContactDetail() {
                 value={formik.values.phone} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
+                error={formik.errors.phone}
+                touched={formik.touched.phone}
+                required
             />
           </div>
 
@@ -446,7 +455,24 @@ export default function ContactDetail() {
                 value={formik.values.company_name} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
+                error={formik.errors.company_name}
+                touched={formik.touched.company_name}
+                required
             />
+            <Input 
+                label="Profession" 
+                name="profession"
+                placeholder="e.g. Attorney, Realtor"
+                value={formik.values.profession} 
+                onChange={formik.handleChange} 
+                onBlur={formik.handleBlur}
+                error={formik.errors.profession}
+                touched={formik.touched.profession}
+                required
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Input 
                 label="Job Title" 
                 name="job_title"
@@ -455,9 +481,6 @@ export default function ContactDetail() {
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
             />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Select
                 label="Lead Status"
                 name="status"
@@ -469,6 +492,9 @@ export default function ContactDetail() {
                 <option value="active">Active Customer</option>
                 <option value="lost">Lost</option>
             </Select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Input 
                 label="Source" 
                 name="source"
@@ -477,15 +503,15 @@ export default function ContactDetail() {
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
             />
+            <Input 
+              label="Tags" 
+              name="tags"
+              placeholder="e.g. VIP, Prospect"
+              value={formik.values.tags} 
+              onChange={formik.handleChange} 
+              onBlur={formik.handleBlur}
+            />
           </div>
-          <Input 
-            label="Tags" 
-            name="tags"
-            placeholder="e.g. VIP, Prospect"
-            value={formik.values.tags} 
-            onChange={formik.handleChange} 
-            onBlur={formik.handleBlur}
-          />
         </form>
       </Modal>
     </div>

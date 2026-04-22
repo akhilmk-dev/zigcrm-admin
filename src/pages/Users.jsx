@@ -67,7 +67,7 @@ export default function Users() {
     },
     validationSchema: Yup.object({
       name: Yup.string().required('Full name is required'),
-      email: Yup.string().email('Invalid email').required('Email is required'),
+      email: Yup.string().email('Invalid email address').required('Email is required'),
       password: Yup.string().when('isEditing', {
           is: () => !editingUser,
           then: () => Yup.string().required('Password is required').min(6, 'Min 6 characters')

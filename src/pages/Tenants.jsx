@@ -59,7 +59,7 @@ export default function Tenants() {
     },
     validationSchema: Yup.object({
       name: Yup.string().required('Company / Owner Name is required'),
-      email: Yup.string().email('Invalid email').required('Owner email is required'),
+      email: Yup.string().email('Invalid email address').required('Owner email is required'),
       phone: Yup.string().matches(/^[0-9+]+$/, 'Invalid phone number').required('Phone number is required'),
       country: Yup.string().required('Country is required'),
       plan_id: Yup.string().required('Subscription plan is required'),

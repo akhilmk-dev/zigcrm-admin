@@ -48,7 +48,10 @@ export default function Contacts() {
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
-      email: Yup.string().email('Invalid email address')
+      email: Yup.string().email('Invalid email address'),
+      phone: Yup.string().required('Phone number is required'),
+      company_name: Yup.string().required('Workplace name is required'),
+      profession: Yup.string().required('Profession is required')
     }),
     onSubmit: async (values) => {
       try {
@@ -61,6 +64,7 @@ export default function Contacts() {
         handleCloseModal();
       } catch (err) {
         console.error("Save Contact Error:", err);
+        alert(err.response?.data?.error || "Error saving contact");
       }
     }
   });
@@ -447,6 +451,9 @@ export default function Contacts() {
                 value={formik.values.phone} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
+                error={formik.errors.phone}
+                touched={formik.touched.phone}
+                required
             />
           </div>
           
@@ -458,6 +465,9 @@ export default function Contacts() {
                 value={formik.values.company_name} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
+                error={formik.errors.company_name}
+                touched={formik.touched.company_name}
+                required
             />
             <Input 
                 label="Profession" 
@@ -466,6 +476,9 @@ export default function Contacts() {
                 value={formik.values.profession} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
+                error={formik.errors.profession}
+                touched={formik.touched.profession}
+                required
             />
           </div>
 
