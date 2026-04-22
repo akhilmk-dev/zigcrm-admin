@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Button } from '../components/common/Modal';
@@ -96,7 +97,7 @@ export default function Plans() {
           <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Subscription Plans</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Define global pricing tiers and feature restrictions for all tenants.</p>
         </div>
-        <Button onClick={() => alert("Plan customization coming soon!")}>
+        <Button onClick={() => toast.info("Plan customization coming soon!")}>
           + Create New Tier
         </Button>
       </div>
@@ -110,7 +111,7 @@ export default function Plans() {
         currentPage={1}
         onPageChange={() => {}}
         actions={(row) => (
-          <Button type="secondary" size="sm" onClick={() => alert("Edit functionality coming soon!")}>
+          <Button type="secondary" size="sm" onClick={() => toast.info("Edit functionality coming soon!")}>
             Configure Features
           </Button>
         )}

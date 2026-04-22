@@ -18,10 +18,10 @@ export default function NoteItem({ note, onDelete, isExpanded, onToggle }) {
     <div style={{ 
       backgroundColor: '#fff', 
       borderRadius: '12px', 
-      border: '1px solid var(--border)',
+      border: '1px solid #e2e8f0',
       overflow: 'hidden',
       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      boxShadow: isExpanded ? '0 10px 25px -5px rgba(0, 0, 0, 0.05)' : 'none',
+      boxShadow: isExpanded ? '0 15px 35px -5px rgba(0, 0, 0, 0.08)' : '0 2px 8px -2px rgba(0,0,0,0.02)',
       marginBottom: '12px'
     }}>
       <ConfirmModal 

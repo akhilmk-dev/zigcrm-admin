@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
 
 // Create a custom axios instance
 const api = axios.create({
@@ -33,21 +34,18 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle 401 and Refresh Token
+// Response Interceptor: Handle Errors and Refresh Token
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // You can add success toasts here if desired
+        return response;
+    },
     async (error) => {
         const originalRequest = error.config;
         
-        // Return immediately if it's not a 401 Auth error, or if request is the refresh or login endpoint itself
-        if (error.response?.status !== 401 || originalRequest.url === '/auth/refresh' || originalRequest.url === '/auth/login') {
-            return Promise.reject(error);
-        }
-
-        // Only try to refresh once
-        if (!originalRequest._retry) {
+        // Handle 401 and Refresh Token
+        if (error.response?.status === 401 && originalRequest.url !== '/auth/refresh' && originalRequest.url !== '/auth/login' && !originalRequest._retry) {
             if (isRefreshing) {
-                // If currently refreshing, wait and try again
                 return new Promise(function(resolve) {
                     subscribeTokenRefresh(token => {
                         originalRequest.headers['Authorization'] = 'Bearer ' + token;
@@ -60,37 +58,28 @@ api.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                // Hit the backend to process the HttpOnly refresh token
                 const { data } = await axios.post('http://localhost:5010/api/auth/refresh', {}, { withCredentials: true });
-                
                 const newAccessToken = data.accessToken;
-                
-                // Save new token
                 localStorage.setItem('accessToken', newAccessToken);
-                
                 isRefreshing = false;
                 onRefreshed(newAccessToken);
-
-                // Re-try the original failing request
                 originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
                 return api(originalRequest);
-
             } catch (err) {
-                // Completely failed to refresh (Refresh Token Expired too)
                 isRefreshing = false;
-                console.error("Session expired completely. Force Logout.");
-                
-                // Clear local storage completely
                 localStorage.clear();
-                
-                // Tell backend to clear the http-only cookie too
                 await axios.post('http://localhost:5010/api/auth/logout', {}, { withCredentials: true }).catch(() => {});
-
-                // Force UI Navigation to Login (Window location is safest pure-JS fallback outside of React Router context)
                 window.location.href = '/login';
-                
                 return Promise.reject(err);
             }
+        }
+
+        // Global Error Toasting (excluding 401 which is handled above)
+        if (error.response && error.response.status !== 401) {
+            const message = error.response.data?.error || error.response.data?.message || 'An unexpected error occurred';
+            toast.error(message);
+        } else if (!error.response) {
+            toast.error('Network error. Please check your connection.');
         }
 
         return Promise.reject(error);

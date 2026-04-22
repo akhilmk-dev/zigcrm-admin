@@ -2,8 +2,9 @@ import React, { useState, useRef } from 'react';
 import RichTextEditor from './RichTextEditor';
 import { Button } from './common/Modal';
 import api from '../api/axiosConfig';
+import { toast } from 'react-hot-toast';
 
-export default function NoteEditor({ contactId, tenantId, onSave }) {
+export default function NoteEditor({ contactId, tenantId, onSave, style = {} }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [attachments, setAttachments] = useState([]);
@@ -27,7 +28,6 @@ export default function NoteEditor({ contactId, tenantId, onSave }) {
       setAttachments([...attachments, ...response.data.files]);
     } catch (err) {
       console.error("Upload error", err);
-      alert("Failed to upload files");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -54,10 +54,10 @@ export default function NoteEditor({ contactId, tenantId, onSave }) {
       setTitle('');
       setContent('');
       setAttachments([]);
+      toast.success('Note saved successfully');
       if (onSave) onSave();
     } catch (err) {
       console.error("Save note error", err);
-      alert("Failed to save note");
     } finally {
       setIsSaving(false);
     }
@@ -128,7 +128,8 @@ export default function NoteEditor({ contactId, tenantId, onSave }) {
       border: '1px solid var(--border)',
       padding: '24px',
       boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
-      transition: 'all 0.3s ease'
+      transition: 'all 0.3s ease',
+      ...style
     }}>
       <div style={{ marginBottom: '20px' }}>
         <input 

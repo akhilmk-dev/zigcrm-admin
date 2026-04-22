@@ -85,7 +85,7 @@ export default function DashboardLayout() {
     {
       label: 'Contacts', path: '/contacts', permission: 'contacts.read', icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M16 2H8C6.9 2 6 2.9 6 4V20C6 21.1 6.9 22 8 22H16C17.1 22 18 21.1 18 20V4C18 2.9 17.1 2" />
+          <path d="M16 2H8C6.9 2 6 2.9 6 4V20C6 21.1 6.9 22 8 22H16C17.1 22 18 21.1 18 20V4C18 2.9 17.1 2 16 2Z" />
           <line x1="12" y1="18" x2="12.01" y2="18" /><path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
         </svg>
       )

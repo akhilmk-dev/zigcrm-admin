@@ -3,8 +3,9 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select } from '../components/common/Modal';
+import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
+import { toast } from 'react-hot-toast';
 
 export default function Tasks() {
   const { hasPermission } = usePermission();
@@ -14,9 +15,11 @@ export default function Tasks() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [staff, setStaff] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [taskToDelete, setTaskToDelete] = useState(null);
   
   // Search & Pagination states
   const [search, setSearch] = useState('');
@@ -39,6 +42,7 @@ export default function Tasks() {
       status: 'pending',
       priority: 'medium',
       assigned_to: '',
+      contact_id: '',
       document_url: '',
       tenant_id: ''
     },
@@ -54,8 +58,10 @@ export default function Tasks() {
       try {
         if (editingTask) {
           await api.patch(`/tasks/${editingTask.id}`, values);
+          toast.success('Task updated successfully');
         } else {
           await api.post('/tasks', values);
+          toast.success('Task created successfully');
         }
         fetchData();
         handleCloseModal();
@@ -90,11 +96,15 @@ export default function Tasks() {
 
       if (isGlobalAdmin) setTenants(tenantsRes.data || []);
       
-      // Fetch staff for the current tenant or chosen tenant
+      // Fetch staff and contacts for the current tenant or chosen tenant
       const tid = selectedTenantId || loggedInUser.tenantId;
       if (tid) {
-        const staffRes = await api.get(`/users?tenant_id=${tid}`);
+        const [staffRes, contactsRes] = await Promise.all([
+          api.get(`/users?tenant_id=${tid}`),
+          api.get(`/contacts?tenant_id=${tid}&limit=1000`)
+        ]);
         setStaff(staffRes.data.data || []);
+        setContacts(contactsRes.data.data || []);
       }
     } catch (err) {
       console.error("Fetch Tasks Error:", err);
@@ -107,12 +117,21 @@ export default function Tasks() {
     fetchData();
   }, [selectedTenantId, page, debouncedSearch]);
 
-  // Fetch staff when formik tenant_id changes (for creation by Super Admin)
+  // Fetch staff and contacts when formik tenant_id changes (for creation by Super Admin)
   useEffect(() => {
     if (formik.values.tenant_id) {
-       api.get(`/users?tenant_id=${formik.values.tenant_id}`)
-         .then(res => setStaff(res.data.data || []))
-         .catch(console.error);
+       formik.setFieldValue('contact_id', ''); // Reset contact when tenant changes
+       setContacts([]); // Clear current list while loading new one
+       Promise.all([
+         api.get(`/users?tenant_id=${formik.values.tenant_id}`),
+         api.get(`/contacts?tenant_id=${formik.values.tenant_id}&limit=1000`)
+       ]).then(([staffRes, contactsRes]) => {
+         setStaff(staffRes.data.data || []);
+         setContacts(contactsRes.data.data || []);
+       }).catch(console.error);
+    } else {
+       setStaff([]);
+       setContacts([]);
     }
   }, [formik.values.tenant_id]);
 
@@ -135,6 +154,7 @@ export default function Tasks() {
         status: task.status,
         priority: task.priority || 'medium',
         assigned_to: task.assigned_to || '',
+        contact_id: task.contact_id || '',
         document_url: task.document_url || '',
         tenant_id: task.tenant_id || ''
       });
@@ -148,6 +168,7 @@ export default function Tasks() {
             status: 'pending',
             priority: 'medium',
             assigned_to: '',
+            contact_id: '',
             document_url: '',
             tenant_id: isGlobalAdmin ? selectedTenantId : (loggedInUser.tenantId || '')
         }
@@ -198,18 +219,24 @@ export default function Tasks() {
       });
       formik.setFieldValue('document_url', res.data.url);
       setUploadedFileName(res.data.fileName || file.name);
+      toast.success('Document uploaded');
     } catch (err) {
       console.error("Upload Error:", err);
-      alert("Failed to upload document");
     } finally {
       setUploading(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Delete this task?")) {
-      await api.delete(`/tasks/${id}`);
+  const handleDelete = async () => {
+    if (!taskToDelete) return;
+    try {
+      await api.delete(`/tasks/${taskToDelete}`);
+      toast.success('Task deleted successfully');
       fetchData();
+    } catch (err) {
+      console.error("Delete Task Error:", err);
+    } finally {
+      setTaskToDelete(null);
     }
   };
 
@@ -255,6 +282,21 @@ export default function Tasks() {
       header: 'Assignee', 
       key: 'assigned_to',
       render: (row) => row.assigned_to_user?.name || 'Unassigned'
+    },
+    {
+      header: 'Contact / Partner',
+      key: 'contact_name',
+      render: (row) => (
+        <div style={{ fontSize: '13px' }}>
+          {row.contact_first_name ? (
+            <span style={{ fontWeight: '600', color: 'var(--primary)' }}>
+              {row.contact_first_name} {row.contact_last_name}
+            </span>
+          ) : (
+            <span style={{ color: 'var(--text-muted)' }}>—</span>
+          )}
+        </div>
+      )
     },
     { 
       header: 'Doc', 
@@ -363,7 +405,7 @@ export default function Tasks() {
               <Button type="secondary" size="sm" onClick={() => handleOpenModal(row)}>Edit</Button>
             )}
             {hasPermission('tasks.delete') && (
-              <Button type="ghost" size="sm" onClick={() => handleDelete(row.id)}>
+              <Button type="ghost" size="sm" onClick={() => setTaskToDelete(row.id)}>
                 <span style={{ color: 'var(--danger)' }}>Delete</span>
               </Button>
             )}
@@ -480,6 +522,19 @@ export default function Tasks() {
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
+            </Select>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <Select
+                label="Contact / Partner"
+                name="contact_id"
+                value={formik.values.contact_id}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+            >
+                <option value="">Select Contact</option>
+                {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name} ({c.company_name})</option>)}
             </Select>
           </div>
 
@@ -605,6 +660,14 @@ export default function Tasks() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal 
+        isOpen={!!taskToDelete}
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={handleDelete}
+        title="Delete Task"
+        message="Are you sure you want to delete this task?"
+      />
     </div>
   );
 }

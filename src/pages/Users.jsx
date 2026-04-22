@@ -5,6 +5,7 @@ import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
+import { toast } from 'react-hot-toast';
 
 export default function Users() {
   const { hasPermission, user: loggedInUser } = usePermission();
@@ -95,15 +96,16 @@ export default function Users() {
 
         if (editingUser) {
           await api.patch(`/users/${editingUser.id}`, payload);
+          toast.success('User updated successfully');
         } else {
           await api.post('/users', payload);
+          toast.success('User created successfully');
         }
 
         handleCloseModal();
         fetchUsers();
       } catch (err) {
         console.error('Save User Error:', err);
-        alert(err.response?.data?.error || 'Failed to save user');
       }
     }
   });
@@ -196,6 +198,7 @@ export default function Users() {
     const newStatus = user.status === 'active' ? 'suspended' : 'active';
     try {
       await api.patch(`/users/${user.id}/status`, { status: newStatus });
+      toast.success(`User account ${newStatus === 'active' ? 'activated' : 'suspended'}`);
       fetchUsers();
     } catch (err) {
       console.error('Status Update Error:', err);

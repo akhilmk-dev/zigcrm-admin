@@ -13,11 +13,14 @@ import Profile from './pages/Profile';
 import Plans from './pages/Plans';
 import ContactDetail from './pages/ContactDetail';
 
+import { Toaster } from 'react-hot-toast';
+
 function App() {
   const isAuthenticated = !!localStorage.getItem('accessToken');
 
   return (
     <Router>
+      <Toaster position="top-right" reverseOrder={false} />
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
         

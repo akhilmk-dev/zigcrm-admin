@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api, { FILE_BASE_URL } from '../api/axiosConfig';
+import { toast } from 'react-hot-toast';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
@@ -57,14 +58,15 @@ export default function Contacts() {
       try {
         if (editingContact) {
           await api.patch(`/contacts/${editingContact.id}`, values);
+          toast.success('Contact updated successfully');
         } else {
           await api.post('/contacts', values);
+          toast.success('Contact created successfully');
         }
         fetchData();
         handleCloseModal();
       } catch (err) {
         console.error("Save Contact Error:", err);
-        alert(err.response?.data?.error || "Error saving contact");
       }
     }
   });

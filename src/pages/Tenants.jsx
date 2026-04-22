@@ -3,8 +3,9 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select } from '../components/common/Modal';
+import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
+import { toast } from 'react-hot-toast';
 
 export default function Tenants() {
   const { user } = usePermission();
@@ -13,6 +14,7 @@ export default function Tenants() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
+  const [tenantToDelete, setTenantToDelete] = useState(null);
 
   const isPlatformAdmin = user?.isSuperAdmin || user?.isAdmin;
 
@@ -74,14 +76,15 @@ export default function Tenants() {
       try {
         if (editingTenant) {
           await api.patch(`/tenants/${editingTenant.id}`, values);
+          toast.success('Tenant updated successfully');
         } else {
           await api.post('/tenants', values);
+          toast.success('Tenant created successfully');
         }
         fetchTenants();
         handleCloseModal();
       } catch (err) {
         console.error("Failed to save tenant", err);
-        alert(err.response?.data?.error || "Error saving tenant");
       }
     }
   });
@@ -163,14 +166,16 @@ export default function Tenants() {
     setEditingTenant(null);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this tenant? This cannot be undone.")) {
-      try {
-        await api.delete(`/tenants/${id}`);
-        fetchTenants();
-      } catch (err) {
-        console.error("Failed to delete tenant", err);
-      }
+  const handleDelete = async () => {
+    if (!tenantToDelete) return;
+    try {
+      await api.delete(`/tenants/${tenantToDelete}`);
+      toast.success('Tenant deleted successfully');
+      fetchTenants();
+    } catch (err) {
+      console.error("Failed to delete tenant", err);
+    } finally {
+      setTenantToDelete(null);
     }
   };
 
@@ -312,7 +317,7 @@ export default function Tenants() {
         actions={(row) => (
           <>
             <Button type="secondary" size="sm" onClick={() => handleOpenModal(row)}>Edit</Button>
-            <Button type="ghost" size="sm" onClick={() => handleDelete(row.id)}>
+            <Button type="ghost" size="sm" onClick={() => setTenantToDelete(row.id)}>
               <span style={{ color: 'var(--danger)' }}>Delete</span>
             </Button>
           </>
@@ -485,6 +490,14 @@ export default function Tenants() {
           </Select>
         </form>
       </Modal>
+
+      <ConfirmModal 
+        isOpen={!!tenantToDelete}
+        onClose={() => setTenantToDelete(null)}
+        onConfirm={handleDelete}
+        title="Delete Tenant"
+        message="Are you sure you want to delete this tenant? This action will permanently remove all associated data."
+      />
     </div>
   );
 }
