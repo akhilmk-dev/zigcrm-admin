@@ -12,6 +12,7 @@ import Tasks from './pages/Tasks';
 import Profile from './pages/Profile';
 import Plans from './pages/Plans';
 import ContactDetail from './pages/ContactDetail';
+import ForgotPassword from './pages/ForgotPassword';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -23,6 +24,7 @@ function App() {
       <Toaster position="top-right" reverseOrder={false} />
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         
         {/* Protected Routes Setup */}
         <Route path="/" element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>

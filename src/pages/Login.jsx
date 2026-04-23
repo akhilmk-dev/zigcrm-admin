@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { Link } from 'react-router-dom';
 import api from '../api/axiosConfig';
 
 export default function Login() {
@@ -223,7 +224,7 @@ export default function Login() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
               <label style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>Password</label>
-              <a href="#" style={{ fontSize: '14px', fontWeight: '600', color: 'var(--primary)', textDecoration: 'none' }}>Forgot password?</a>
+              <Link to="/forgot-password" style={{ fontSize: '14px', fontWeight: '600', color: 'var(--primary)', textDecoration: 'none' }}>Forgot password?</Link>
             </div>
             <div style={{ position: 'relative' }}>
               <input
