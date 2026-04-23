@@ -3,8 +3,9 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input } from '../components/common/Modal';
+import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
+import { toast } from 'react-hot-toast';
 
 export default function Roles() {
   const { user: loggedInUser } = usePermission();
@@ -24,6 +25,7 @@ export default function Roles() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [isPermsModalOpen, setIsPermsModalOpen] = useState(false);
   const [rolePerms, setRolePerms] = useState([]);
+  const [roleToDelete, setRoleToDelete] = useState(null);
 
   // ─── New Role Modal ───────────────────────────────────────────────────────────
   const [isNewRoleModalOpen, setIsNewRoleModalOpen] = useState(false);
@@ -40,12 +42,12 @@ export default function Roles() {
     onSubmit: async (values) => {
       try {
         await api.post('/roles', values);
+        toast.success('Role created successfully');
         fetchRoles();
         setIsNewRoleModalOpen(false);
         formik.resetForm();
       } catch (err) {
         console.error('Create Role Error:', err);
-        alert(err.response?.data?.error || 'Failed to create role');
       }
     }
   });
@@ -101,20 +103,23 @@ export default function Roles() {
 
     try {
       await api.post(`/roles/${selectedRole.id}/permissions`, { permissionIds: newPerms });
+      toast.success('Permissions updated');
     } catch (err) {
       console.error('Save Permissions Error:', err);
     }
   };
 
   // ─── Delete Role ──────────────────────────────────────────────────────────────
-  const handleDeleteRole = async (roleId) => {
-    if (!window.confirm('Are you sure you want to delete this role?')) return;
+  const handleDeleteRole = async () => {
+    if (!roleToDelete) return;
     try {
-      await api.delete(`/roles/${roleId}`);
+      await api.delete(`/roles/${roleToDelete}`);
+      toast.success('Role deleted successfully');
       fetchRoles();
     } catch (err) {
       console.error('Delete Role Error:', err);
-      alert(err.response?.data?.error || 'Failed to delete role');
+    } finally {
+      setRoleToDelete(null);
     }
   };
 
@@ -212,7 +217,7 @@ export default function Roles() {
               Edit Permissions
             </Button>
             {!row.is_system_role && (
-              <Button type="ghost" size="sm" onClick={() => handleDeleteRole(row.id)}>
+              <Button type="ghost" size="sm" onClick={() => setRoleToDelete(row.id)}>
                 <span style={{ color: 'var(--danger)' }}>Delete</span>
               </Button>
             )}
@@ -332,6 +337,14 @@ export default function Roles() {
           />
         </form>
       </Modal>
+
+      <ConfirmModal 
+        isOpen={!!roleToDelete}
+        onClose={() => setRoleToDelete(null)}
+        onConfirm={handleDeleteRole}
+        title="Delete Role"
+        message="Are you sure you want to delete this role? This might affect users assigned to it."
+      />
     </div>
   );
 }

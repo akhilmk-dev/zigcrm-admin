@@ -3,14 +3,20 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select } from '../components/common/Modal';
+import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
+import { usePermission } from '../hooks/usePermission';
+import { toast } from 'react-hot-toast';
 
 export default function Tenants() {
+  const { user } = usePermission();
   const [tenants, setTenants] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
+  const [tenantToDelete, setTenantToDelete] = useState(null);
+
+  const isPlatformAdmin = user?.isSuperAdmin || user?.isAdmin;
 
   // Pagination, Search, and Filter states
   const [page, setPage] = useState(1);
@@ -19,6 +25,26 @@ export default function Tenants() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  if (!isPlatformAdmin) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        padding: '80px 20px',
+        textAlign: 'center' 
+      }}>
+        <div style={{ fontSize: '64px', marginBottom: '24px' }}>🔒</div>
+        <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>Access Denied</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '16px', maxWidth: '400px', lineHeight: '1.6' }}>
+          This area is restricted to Platform Administrators. If you believe this is an error, please contact your system provider.
+        </p>
+        <Button style={{ marginTop: '32px' }} onClick={() => window.location.href = '/'}>Return to Dashboard</Button>
+      </div>
+    );
+  }
 
   const formik = useFormik({
     initialValues: {
@@ -35,7 +61,7 @@ export default function Tenants() {
     },
     validationSchema: Yup.object({
       name: Yup.string().required('Company / Owner Name is required'),
-      email: Yup.string().email('Invalid email').required('Owner email is required'),
+      email: Yup.string().email('Invalid email address').required('Owner email is required'),
       phone: Yup.string().matches(/^[0-9+]+$/, 'Invalid phone number').required('Phone number is required'),
       country: Yup.string().required('Country is required'),
       plan_id: Yup.string().required('Subscription plan is required'),
@@ -50,14 +76,15 @@ export default function Tenants() {
       try {
         if (editingTenant) {
           await api.patch(`/tenants/${editingTenant.id}`, values);
+          toast.success('Tenant updated successfully');
         } else {
           await api.post('/tenants', values);
+          toast.success('Tenant created successfully');
         }
         fetchTenants();
         handleCloseModal();
       } catch (err) {
         console.error("Failed to save tenant", err);
-        alert(err.response?.data?.error || "Error saving tenant");
       }
     }
   });
@@ -139,14 +166,16 @@ export default function Tenants() {
     setEditingTenant(null);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this tenant? This cannot be undone.")) {
-      try {
-        await api.delete(`/tenants/${id}`);
-        fetchTenants();
-      } catch (err) {
-        console.error("Failed to delete tenant", err);
-      }
+  const handleDelete = async () => {
+    if (!tenantToDelete) return;
+    try {
+      await api.delete(`/tenants/${tenantToDelete}`);
+      toast.success('Tenant deleted successfully');
+      fetchTenants();
+    } catch (err) {
+      console.error("Failed to delete tenant", err);
+    } finally {
+      setTenantToDelete(null);
     }
   };
 
@@ -288,7 +317,7 @@ export default function Tenants() {
         actions={(row) => (
           <>
             <Button type="secondary" size="sm" onClick={() => handleOpenModal(row)}>Edit</Button>
-            <Button type="ghost" size="sm" onClick={() => handleDelete(row.id)}>
+            <Button type="ghost" size="sm" onClick={() => setTenantToDelete(row.id)}>
               <span style={{ color: 'var(--danger)' }}>Delete</span>
             </Button>
           </>
@@ -461,6 +490,14 @@ export default function Tenants() {
           </Select>
         </form>
       </Modal>
+
+      <ConfirmModal 
+        isOpen={!!tenantToDelete}
+        onClose={() => setTenantToDelete(null)}
+        onConfirm={handleDelete}
+        title="Delete Tenant"
+        message="Are you sure you want to delete this tenant? This action will permanently remove all associated data."
+      />
     </div>
   );
 }

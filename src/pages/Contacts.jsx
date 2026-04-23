@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api, { FILE_BASE_URL } from '../api/axiosConfig';
+import { toast } from 'react-hot-toast';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
@@ -48,14 +49,19 @@ export default function Contacts() {
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
-      email: Yup.string().email('Invalid email address')
+      email: Yup.string().email('Invalid email address'),
+      phone: Yup.string().required('Phone number is required'),
+      company_name: Yup.string().required('Workplace name is required'),
+      profession: Yup.string().required('Profession is required')
     }),
     onSubmit: async (values) => {
       try {
         if (editingContact) {
           await api.patch(`/contacts/${editingContact.id}`, values);
+          toast.success('Contact updated successfully');
         } else {
           await api.post('/contacts', values);
+          toast.success('Contact created successfully');
         }
         fetchData();
         handleCloseModal();
@@ -225,6 +231,11 @@ export default function Contacts() {
         key: 'tenant_name',
         render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
+    { 
+      header: 'Assignee', 
+      key: 'assigned_to',
+      render: (row) => row.assigned_to_user?.name || 'Unassigned'
+    },
     { 
       header: 'Status', 
       key: 'status',
@@ -442,6 +453,9 @@ export default function Contacts() {
                 value={formik.values.phone} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
+                error={formik.errors.phone}
+                touched={formik.touched.phone}
+                required
             />
           </div>
           
@@ -453,6 +467,9 @@ export default function Contacts() {
                 value={formik.values.company_name} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
+                error={formik.errors.company_name}
+                touched={formik.touched.company_name}
+                required
             />
             <Input 
                 label="Profession" 
@@ -461,6 +478,9 @@ export default function Contacts() {
                 value={formik.values.profession} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
+                error={formik.errors.profession}
+                touched={formik.touched.profession}
+                required
             />
           </div>
 

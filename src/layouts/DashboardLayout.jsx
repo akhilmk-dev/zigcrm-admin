@@ -60,7 +60,7 @@ export default function DashboardLayout() {
       )
     },
     {
-      label: 'Tenants', path: '/tenants', permission: 'tenants.manage', icon: (
+      label: 'Tenants', path: '/tenants', requirePlatformAdmin: true, icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 21h18" /><path d="M9 8h1" /><path d="M9 12h1" /><path d="M9 16h1" /><path d="M14 8h1" /><path d="M14 12h1" /><path d="M14 16h1" />
           <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16" />
@@ -76,7 +76,7 @@ export default function DashboardLayout() {
       )
     },
     {
-      label: 'Roles', path: '/roles', requireSuperAdmin: true, icon: (
+      label: 'Roles', path: '/roles', permission: 'roles.manage', icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
         </svg>
@@ -85,7 +85,7 @@ export default function DashboardLayout() {
     {
       label: 'Contacts', path: '/contacts', permission: 'contacts.read', icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M16 2H8C6.9 2 6 2.9 6 4V20C6 21.1 6.9 22 8 22H16C17.1 22 18 21.1 18 20V4C18 2.9 17.1 2" />
+          <path d="M16 2H8C6.9 2 6 2.9 6 4V20C6 21.1 6.9 22 8 22H16C17.1 22 18 21.1 18 20V4C18 2.9 17.1 2 16 2Z" />
           <line x1="12" y1="18" x2="12.01" y2="18" /><path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
         </svg>
       )
@@ -110,7 +110,9 @@ export default function DashboardLayout() {
   const filteredNav = navItems.filter(item => {
     let isVisible = true;
     if (item.requireSuperAdmin) isVisible = user?.isSuperAdmin;
+    else if (item.requirePlatformAdmin) isVisible = user?.isSuperAdmin || user?.isAdmin;
     else if (item.permission) isVisible = hasPermission(item.permission);
+    
     if (!isVisible) return false;
     if (searchQuery) return item.label.toLowerCase().includes(searchQuery.toLowerCase());
     return true;
@@ -480,13 +482,34 @@ export default function DashboardLayout() {
             <div style={{ display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Pages</span>
               <span style={{ color: 'var(--border)', fontSize: '14px' }}>/</span>
-              <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '600' }}>
-                {navItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {(() => {
+                  const path = location.pathname;
+                  if (path.startsWith('/contacts/') && path.split('/').length === 3) {
+                    return (
+                      <>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Contact</span>
+                        <span style={{ color: 'var(--border)', fontSize: '14px' }}>/</span>
+                        <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '600' }}>Contact detail</span>
+                      </>
+                    );
+                  }
+                  const navItem = navItems.find(i => i.path === path);
+                  return (
+                    <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '600' }}>
+                      {navItem?.label || 'Dashboard'}
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
             {isMobile && (
               <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-main)' }}>
-                {navItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
+                {(() => {
+                  const path = location.pathname;
+                  if (path.startsWith('/contacts/') && path.split('/').length === 3) return 'Contact detail';
+                  return navItems.find(i => i.path === path)?.label || 'Dashboard';
+                })()}
               </span>
             )}
           </div>
