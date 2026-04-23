@@ -57,6 +57,10 @@ export default function Users() {
   const [passwordConfirmOpen, setPasswordConfirmOpen] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
+  const [userToToggle, setUserToToggle] = useState(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
   const formik = useFormik({
     initialValues: {
       name: '',
@@ -201,14 +205,25 @@ export default function Users() {
 
   const handleCloseModal = () => { setIsModalOpen(false); setEditingUser(null); };
 
-  const toggleStatus = async (user) => {
-    const newStatus = user.status === 'active' ? 'suspended' : 'active';
+  const toggleStatus = (user) => {
+    setUserToToggle(user);
+    setStatusConfirmOpen(true);
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!userToToggle) return;
+    setIsUpdatingStatus(true);
+    const newStatus = userToToggle.status === 'active' ? 'suspended' : 'active';
     try {
-      await api.patch(`/users/${user.id}/status`, { status: newStatus });
+      await api.patch(`/users/${userToToggle.id}/status`, { status: newStatus });
       toast.success(`User account ${newStatus === 'active' ? 'activated' : 'suspended'}`);
       fetchUsers();
+      setStatusConfirmOpen(false);
     } catch (err) {
       console.error('Status Update Error:', err);
+      toast.error(err.response?.data?.error || 'Failed to update status');
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -600,6 +615,16 @@ export default function Users() {
         message="Are you sure you want to change this user's password? The user will need to use the new password for their next login."
         confirmText={isUpdatingPassword ? "Updating..." : "Yes, Change Password"}
         confirmType="danger"
+      />
+
+      <ConfirmModal
+        isOpen={statusConfirmOpen}
+        onClose={() => setStatusConfirmOpen(false)}
+        onConfirm={handleConfirmStatusChange}
+        title={`Confirm Account ${userToToggle?.status === 'active' ? 'Suspension' : 'Activation'}`}
+        message={`Are you sure you want to ${userToToggle?.status === 'active' ? 'suspend' : 'activate'} this user account (${userToToggle?.email})?`}
+        confirmText={isUpdatingStatus ? "Updating..." : `Yes, ${userToToggle?.status === 'active' ? 'Suspend' : 'Activate'}`}
+        confirmType={userToToggle?.status === 'active' ? "danger" : "primary"}
       />
     </div>
   );

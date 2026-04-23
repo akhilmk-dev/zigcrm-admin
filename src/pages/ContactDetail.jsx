@@ -4,7 +4,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select } from '../components/common/Modal';
+import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import RichTextEditor from '../components/RichTextEditor';
 import NoteEditor from '../components/NoteEditor';
 import NoteItem from '../components/NoteItem';
@@ -25,6 +25,7 @@ export default function ContactDetail() {
   const [viewingTask, setViewingTask] = useState(null);
   const [viewingDeal, setViewingDeal] = useState(null);
   const [tenants, setTenants] = useState([]);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [taskPage, setTaskPage] = useState(1);
   const [dealPage, setDealPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -84,6 +85,17 @@ export default function ContactDetail() {
   useEffect(() => {
     fetchDetail();
   }, [id]);
+
+  const handleConfirmDelete = async () => {
+    try {
+      await api.delete(`/contacts/${id}`);
+      toast.success('Contact deleted successfully');
+      navigate('/contacts');
+    } catch (err) {
+      console.error("Delete contact error", err);
+      toast.error('Failed to delete contact');
+    }
+  };
 
   const handleOpenEditModal = () => {
     if (!data?.contact) return;
@@ -183,7 +195,7 @@ export default function ContactDetail() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%' }}>
               <Button type="secondary" size="sm" onClick={handleOpenEditModal} style={{ width: '100%' }}>Edit</Button>
-              <Button type="danger" size="sm" onClick={() => { if(window.confirm("Delete contact?")) { api.delete(`/contacts/${id}`).then(() => navigate('/contacts')) } }} style={{ width: '100%' }}>Delete</Button>
+              <Button type="danger" size="sm" onClick={() => setIsDeleteModalOpen(true)} style={{ width: '100%' }}>Delete</Button>
             </div>
           </div>
 
@@ -752,6 +764,16 @@ export default function ContactDetail() {
           </div>
         )}
       </Modal>
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Contact"
+        message={`Are you sure you want to delete ${contact.first_name} ${contact.last_name}? This will permanently remove the contact and all associated data.`}
+        confirmText="Yes, Delete"
+        confirmType="danger"
+      />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import * as Yup from 'yup';
 import api, { FILE_BASE_URL } from '../api/axiosConfig';
 import { toast } from 'react-hot-toast';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select } from '../components/common/Modal';
+import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
 
 export default function Contacts() {
@@ -26,6 +26,9 @@ export default function Contacts() {
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
   const [tenantUsers, setTenantUsers] = useState([]);
+  
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState(null);
 
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
@@ -173,10 +176,21 @@ export default function Contacts() {
     setEditingContact(null);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Delete this contact?")) {
-      await api.delete(`/contacts/${id}`);
+  const handleDelete = (contact) => {
+    setContactToDelete(contact);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!contactToDelete) return;
+    try {
+      await api.delete(`/contacts/${contactToDelete.id}`);
+      toast.success('Contact deleted successfully');
       fetchData();
+      setDeleteConfirmOpen(false);
+    } catch (err) {
+      console.error("Delete Contact Error:", err);
+      toast.error('Failed to delete contact');
     }
   };
 
@@ -336,7 +350,7 @@ export default function Contacts() {
               <Button type="secondary" size="sm" onClick={() => handleOpenModal(row)}>Edit</Button>
             )}
             {hasPermission('contacts.delete') && (
-              <Button type="ghost" size="sm" onClick={() => handleDelete(row.id)}>
+              <Button type="ghost" size="sm" onClick={() => handleDelete(row)}>
                 <span style={{ color: 'var(--danger)' }}>Delete</span>
               </Button>
             )}
@@ -541,6 +555,16 @@ export default function Contacts() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Contact"
+        message={`Are you sure you want to delete ${contactToDelete?.first_name} ${contactToDelete?.last_name}? This action cannot be undone.`}
+        confirmText="Yes, Delete"
+        confirmType="danger"
+      />
     </div>
   );
 }
