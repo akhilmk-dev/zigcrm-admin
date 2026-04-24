@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import api, { FILE_BASE_URL } from '../api/axiosConfig';
+import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
@@ -309,7 +309,7 @@ export default function Tasks() {
       key: 'document_url',
       render: (row) => row.document_url ? (
         <a 
-          href={`${FILE_BASE_URL}${row.document_url}`} 
+          href={getFileUrl(row.document_url)} 
           target="_blank" 
           rel="noopener noreferrer" 
           style={{ textDecoration: 'none', fontSize: '18px' }}
@@ -623,7 +623,7 @@ export default function Tasks() {
                   )}
                   <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '12px' }}>
                     <a 
-                      href={`${FILE_BASE_URL}${formik.values.document_url}`} 
+                      href={getFileUrl(formik.values.document_url)} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}

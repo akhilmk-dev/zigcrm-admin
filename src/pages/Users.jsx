@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import api, { FILE_BASE_URL } from '../api/axiosConfig';
+import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
@@ -279,7 +279,7 @@ export default function Users() {
             flexShrink: 0
           }}>
             {row.profile_image_url ? (
-               <img src={`${FILE_BASE_URL}${row.profile_image_url}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+               <img src={getFileUrl(row.profile_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
                <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
                  {(row.name || 'U')[0].toUpperCase()}
@@ -447,7 +447,7 @@ export default function Users() {
               overflow: 'hidden'
             }}>
               {formik.values.profile_image_url ? (
-                <img src={`${FILE_BASE_URL}${formik.values.profile_image_url}`} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                 <img src={getFileUrl(formik.values.profile_image_url)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <span style={{ color: 'var(--text-muted)', fontSize: '32px' }}>👤</span>
               )}

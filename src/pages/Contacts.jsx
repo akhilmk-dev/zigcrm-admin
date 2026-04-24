@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import api, { FILE_BASE_URL } from '../api/axiosConfig';
+import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { toast } from 'react-hot-toast';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
@@ -212,7 +212,7 @@ export default function Contacts() {
             border: '1px solid var(--border)'
           }}>
             {row.profile_image_url ? (
-               <img src={`${FILE_BASE_URL}${row.profile_image_url}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+               <img src={getFileUrl(row.profile_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
                <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
                  {row.first_name?.[0]}{row.last_name?.[0]}
@@ -385,7 +385,7 @@ export default function Contacts() {
               overflow: 'hidden'
             }}>
               {formik.values.profile_image_url ? (
-                <img src={`${FILE_BASE_URL}${formik.values.profile_image_url}`} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                 <img src={getFileUrl(formik.values.profile_image_url)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <span style={{ color: 'var(--text-muted)', fontSize: '24px' }}>👤</span>
               )}
