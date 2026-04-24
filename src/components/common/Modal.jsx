@@ -76,7 +76,7 @@ export const Modal = ({ isOpen, onClose, title, children, footer }) => {
   );
 };
 
-export const Button = ({ children, onClick, type = 'primary', size = 'md', disabled = false, danger = false }) => {
+export const Button = ({ children, onClick, type = 'primary', size = 'md', disabled = false, htmlType = 'submit' }) => {
   const baseStyles = {
     borderRadius: 'var(--radius)',
     fontWeight: '600',
@@ -108,6 +108,7 @@ export const Button = ({ children, onClick, type = 'primary', size = 'md', disab
 
   return (
     <button 
+      type={htmlType}
       onClick={!disabled ? onClick : undefined}
       style={{ ...baseStyles, ...selectedType, ...selectedSize }}
       disabled={disabled}

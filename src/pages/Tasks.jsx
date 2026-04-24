@@ -147,6 +147,13 @@ export default function Tasks() {
   const handleOpenModal = (task = null) => {
     if (task) {
       setEditingTask(task);
+      // Extract filename from URL if it exists
+      if (task.document_url) {
+        const parts = task.document_url.split('/');
+        setUploadedFileName(parts[parts.length - 1]);
+      } else {
+        setUploadedFileName('');
+      }
       formik.setValues({
         title: task.title,
         description: task.description || '',
@@ -219,11 +226,16 @@ export default function Tasks() {
       });
       formik.setFieldValue('document_url', res.data.url);
       setUploadedFileName(res.data.fileName || file.name);
-      toast.success('Document uploaded');
+      toast.success('Document uploaded successfully');
     } catch (err) {
       console.error("Upload Error:", err);
+      const errorMsg = err.response?.data?.error || 'Failed to upload document';
+      toast.error(errorMsg);
     } finally {
       setUploading(false);
+      // Reset input value so the same file can be selected again if needed
+      const fileInput = document.getElementById('file-upload');
+      if (fileInput) fileInput.value = '';
     }
   };
 
@@ -642,6 +654,7 @@ export default function Tasks() {
                     <Button 
                       size="sm" 
                       type="ghost"
+                      htmlType="button"
                       onClick={(e) => { e.stopPropagation(); document.getElementById('file-upload').click(); }}
                     >
                       Change File
