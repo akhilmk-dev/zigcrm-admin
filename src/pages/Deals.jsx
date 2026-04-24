@@ -3,7 +3,8 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select } from '../components/common/Modal';
+import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
+import { toast } from 'react-hot-toast';
 import { usePermission } from '../hooks/usePermission';
 
 export default function Deals() {
@@ -25,6 +26,9 @@ export default function Deals() {
 
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [dealToDelete, setDealToDelete] = useState(null);
 
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
@@ -154,10 +158,21 @@ export default function Deals() {
     setEditingDeal(null);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Delete this deal?")) {
-      await api.delete(`/deals/${id}`);
+  const handleDelete = (deal) => {
+    setDealToDelete(deal);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!dealToDelete) return;
+    try {
+      await api.delete(`/deals/${dealToDelete.id}`);
+      toast.success('Deal deleted successfully');
       fetchData();
+      setDeleteConfirmOpen(false);
+    } catch (err) {
+      console.error("Delete Deal Error:", err);
+      toast.error('Failed to delete deal');
     }
   };
 
@@ -297,7 +312,7 @@ export default function Deals() {
               <Button type="secondary" size="sm" onClick={() => handleOpenModal(row)}>Edit</Button>
             )}
             {hasPermission('deals.delete') && (
-              <Button type="ghost" size="sm" onClick={() => handleDelete(row.id)}>
+              <Button type="ghost" size="sm" onClick={() => handleDelete(row)}>
                 <span style={{ color: 'var(--danger)' }}>Delete</span>
               </Button>
             )}
@@ -409,6 +424,16 @@ export default function Deals() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Deal"
+        message={`Are you sure you want to delete the deal "${dealToDelete?.deal_name}"? This action cannot be undone.`}
+        confirmText="Yes, Delete"
+        confirmType="danger"
+      />
     </div>
   );
 }
