@@ -1,9 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --primary-light: #eff6ff;
+  --primary: #22c55e;
+  --primary-hover: #16a34a;
+  --primary-light: #dcfce7;
   --secondary: #64748b;
   --bg-main: #f8fafc;
   --bg-card: #ffffff;
@@ -67,4 +67,17 @@ input, select, textarea {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Skeleton Loader */
+@keyframes shimmer {
+  0% { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: 8px;
 }
