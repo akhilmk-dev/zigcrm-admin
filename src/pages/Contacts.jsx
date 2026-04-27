@@ -52,7 +52,7 @@ export default function Contacts() {
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
-      email: Yup.string().email('Invalid email address'),
+      email: Yup.string().email('Invalid email address').required('Email is required'),
       phone: Yup.string().required('Phone number is required'),
       company_name: Yup.string().required('Workplace name is required'),
       profession: Yup.string().required('Profession is required')
@@ -267,23 +267,36 @@ export default function Contacts() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Contacts</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Keep track of your prospects and customer relations.</p>
+          <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Contacts</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Keep track of your prospects and customer relations.</p>
         </div>
         {hasPermission('contacts.create') && (
           <Button onClick={() => handleOpenModal()}>+ Add Contact</Button>
         )}
       </div>
 
-      {/* Filters & Search Row */}
+      {/* Sticky Filters & Search Row */}
       <div style={{ 
-        marginBottom: '24px', 
-        display: 'flex', 
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        position: 'sticky', 
+        top: 'var(--header-height)', 
+        zIndex: 40, 
+        backgroundColor: 'var(--bg-main)', 
+        paddingTop: '8px',
+        paddingBottom: '16px',
+        margin: '0 -24px 16px -24px',
+        paddingLeft: '24px',
+        paddingRight: '24px',
+        borderBottom: '1px solid var(--border)'
       }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {isGlobalAdmin && (
             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -311,9 +324,14 @@ export default function Contacts() {
             top: '50%', 
             transform: 'translateY(-50%)', 
             color: 'var(--text-muted)',
-            fontSize: '14px'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}>
-            🔍
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
           </span>
           <input
             type="text"
@@ -335,6 +353,7 @@ export default function Contacts() {
           />
         </div>
       </div>
+    </div>
 
       <DataTable 
         columns={columns} 
@@ -459,6 +478,7 @@ export default function Contacts() {
                 onBlur={formik.handleBlur}
                 error={formik.errors.email}
                 touched={formik.touched.email}
+                required
             />
             <Input 
                 label="Phone" 

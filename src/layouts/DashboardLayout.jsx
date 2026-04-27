@@ -53,9 +53,8 @@ export default function DashboardLayout() {
   const navItems = [
     {
       label: 'Dashboard', path: '/', icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-          <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
         </svg>
       )
     },
@@ -69,9 +68,8 @@ export default function DashboardLayout() {
     },
     {
       label: 'Users', path: '/users', permission: 'users.manage', icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-          <path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
         </svg>
       )
     },
@@ -84,24 +82,23 @@ export default function DashboardLayout() {
     },
     {
       label: 'Contacts', path: '/contacts', permission: 'contacts.read', icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M16 2H8C6.9 2 6 2.9 6 4V20C6 21.1 6.9 22 8 22H16C17.1 22 18 21.1 18 20V4C18 2.9 17.1 2 16 2Z" />
-          <line x1="12" y1="18" x2="12.01" y2="18" /><path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </svg>
       )
     },
     {
       label: 'Deals', path: '/deals', permission: 'deals.read', icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
         </svg>
       )
     },
     {
       label: 'Tasks', path: '/tasks', permission: 'tasks.read', icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m9 11 3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 5v14" /><path d="M5 12h14" /><rect x="3" y="3" width="18" height="18" rx="2" />
         </svg>
       )
     },
@@ -135,10 +132,10 @@ export default function DashboardLayout() {
             left: 100%;
             top: 50%;
             transform: translateY(-50%);
-            background-color: var(--text-main);
-            color: #fff;
+            background-color: #fff;
+            color: var(--text-main);
             padding: 8px 14px;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-size: 13px;
             font-weight: 600;
             margin-left: 14px;
@@ -148,7 +145,7 @@ export default function DashboardLayout() {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1000;
             pointer-events: none;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            box-shadow: var(--shadow-lg);
           }
           .sidebar-tooltip::before {
             content: '';
@@ -158,7 +155,7 @@ export default function DashboardLayout() {
             transform: translateY(-50%);
             border-style: solid;
             border-width: 6px 7px 6px 0;
-            border-color: transparent var(--text-main) transparent transparent;
+            border-color: transparent #fff transparent transparent;
           }
           .sidebar-icon-container:hover .sidebar-tooltip {
             opacity: 1;
@@ -166,11 +163,14 @@ export default function DashboardLayout() {
             transform: translateY(-50%) translateX(2px);
           }
           .sidebar-icon-link {
-            transition: all 0.2s;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
           }
           .sidebar-icon-link:hover {
-            background-color: var(--primary-light) !important;
-            color: var(--primary) !important;
+            background-color: rgba(255, 255, 255, 0.1) !important;
+            color: #fff !important;
+          }
+          .sidebar-icon-link:hover svg {
+            color: #fff !important;
           }
         `}
       </style>
@@ -193,8 +193,8 @@ export default function DashboardLayout() {
       <aside
         style={{
           width: sidebarWidth,
-          backgroundColor: '#fff',
-          borderRight: '1px solid var(--border)',
+          backgroundColor: '#223458',
+          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
           display: 'flex',
           flexDirection: 'column',
           position: 'fixed',
@@ -202,7 +202,7 @@ export default function DashboardLayout() {
           height: '100vh',
           zIndex: 100,
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: (isMobile && isMobileMenuOpen) ? '10px 0 30px rgba(0,0,0,0.05)' : 'none',
+          boxShadow: (isMobile && isMobileMenuOpen) ? '10px 0 30px rgba(0,0,0,0.2)' : 'none',
           overflowX: 'visible'
         }}
       >
@@ -212,26 +212,27 @@ export default function DashboardLayout() {
           alignItems: 'center',
           justifyContent: isMobile ? 'flex-start' : 'center',
           padding: isMobile ? '0 24px' : '0',
-          borderBottom: '1px solid var(--border)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
           whiteSpace: 'nowrap'
         }}>
           <div style={{
-            width: '32px',
-            height: '32px',
+            width: '36px',
+            height: '36px',
             backgroundColor: 'var(--primary)',
-            borderRadius: '8px',
+            borderRadius: 'var(--radius-sm)',
             marginRight: isMobile ? '12px' : '0',
             flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
+            fontFamily: 'var(--font-headline)',
             fontWeight: '900',
-            fontSize: '18px',
-            boxShadow: '0 4px 10px rgba(37, 99, 235, 0.2)'
+            fontSize: '20px',
+            boxShadow: '0 4px 14px rgba(6, 200, 93, 0.25)'
           }}>Z</div>
           {isMobile && (
-            <span style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.8px' }}>ZIGCRM</span>
+            <span style={{ fontSize: '18px', fontWeight: '800', color: '#fff', letterSpacing: '-0.8px' }}>ZIGCRM</span>
           )}
         </div>
 
@@ -260,7 +261,7 @@ export default function DashboardLayout() {
                     color: isSearchOpen ? 'var(--primary)' : '#94a3b8',
                   }}
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
                   </svg>
                 </button>
@@ -322,24 +323,31 @@ export default function DashboardLayout() {
                       style={{
                         width: '100%',
                         padding: '12px 14px',
-                        borderRadius: '8px',
+                        borderRadius: 'var(--radius-sm)',
                         border: '2px solid var(--primary-light)',
                         fontSize: '14px',
+                        fontFamily: 'var(--font-body)',
                         backgroundColor: '#fff',
                         outline: 'none',
                         boxSizing: 'border-box',
-                        transition: 'border-color 0.2s',
+                        transition: 'all 0.2s',
                         color: 'var(--text-main)'
                       }}
-                      onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-                      onBlur={(e) => e.target.style.borderColor = 'var(--primary-light)'}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = 'var(--primary)';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(6, 200, 93, 0.1)';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = 'var(--primary-light)';
+                        e.target.style.boxShadow = 'none';
+                      }}
                     />
                   </div>
                 )}
               </>
             ) : (
               <>
-                <span style={{ position: 'absolute', left: '12px', transform: 'translateY(-50%)', top: '50%', color: '#94a3b8' }}>
+                <span style={{ position: 'absolute', left: '12px', transform: 'translateY(-50%)', top: '50%', color: 'rgba(255, 255, 255, 0.5)' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
                   </svg>
@@ -353,12 +361,13 @@ export default function DashboardLayout() {
                     width: '100%',
                     padding: '10px 12px 10px 38px',
                     borderRadius: '10px',
-                    border: '1px solid var(--border)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
                     fontSize: '13px',
-                    backgroundColor: '#f8fafc',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
                     outline: 'none',
                     boxSizing: 'border-box',
-                    transition: 'all 0.2s'
+                    transition: 'all 0.2s',
+                    color: '#fff'
                   }}
                 />
               </>
@@ -381,12 +390,12 @@ export default function DashboardLayout() {
                     alignItems: 'center',
                     justifyContent: showLabels ? 'flex-start' : 'center',
                     padding: showLabels ? '12px 16px' : '12px 0',
-                    color: isActive ? 'var(--primary)' : 'var(--text-muted)',
-                    backgroundColor: isActive ? 'rgba(37, 99, 235, 0.05)' : 'transparent',
+                    color: isActive ? '#fff' : 'rgba(255, 255, 255, 0.6)',
+                    backgroundColor: isActive ? 'var(--primary)' : 'transparent',
                     fontWeight: isActive ? '700' : '600',
                     fontSize: '14px',
                     textDecoration: 'none',
-                    borderRadius: '8px',
+                    borderRadius: 'var(--radius-sm)',
                     borderLeft: showLabels ? `4px solid ${isActive ? 'var(--primary)' : 'transparent'}` : 'none',
                     whiteSpace: 'nowrap'
                   }}
@@ -395,7 +404,7 @@ export default function DashboardLayout() {
                     marginRight: showLabels ? '14px' : '0',
                     display: 'flex',
                     alignItems: 'center',
-                    color: isActive ? 'var(--primary)' : '#94a3b8',
+                    color: isActive ? '#fff' : 'rgba(255, 255, 255, 0.5)',
                     flexShrink: 0
                   }}>
                     {item.icon}
@@ -447,12 +456,13 @@ export default function DashboardLayout() {
         display: 'flex',
         flexDirection: 'column',
         transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        width: '100%'
+        width: '100%',
+        minWidth: 0
       }}>
         <header style={{
           height: 'var(--header-height)',
-          backgroundColor: '#fff',
-          borderBottom: '1px solid var(--border)',
+          backgroundColor: '#223458',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -468,8 +478,9 @@ export default function DashboardLayout() {
                 style={{
                   padding: '8px',
                   borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  backgroundColor: '#fff',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  backgroundColor: 'transparent',
+                  color: '#fff',
                   display: 'flex',
                   alignItems: 'center'
                 }}
@@ -496,7 +507,7 @@ export default function DashboardLayout() {
                   }
                   const navItem = navItems.find(i => i.path === path);
                   return (
-                    <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '600' }}>
+                    <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>
                       {navItem?.label || 'Dashboard'}
                     </span>
                   );
@@ -504,7 +515,7 @@ export default function DashboardLayout() {
               </div>
             </div>
             {isMobile && (
-              <span style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-main)' }}>
+              <span style={{ fontSize: '15px', fontWeight: '700', color: '#fff' }}>
                 {(() => {
                   const path = location.pathname;
                   if (path.startsWith('/contacts/') && path.split('/').length === 3) return 'Contact detail';
@@ -539,19 +550,19 @@ export default function DashboardLayout() {
                   gap: '10px',
                   padding: '6px 12px',
                   borderRadius: '30px',
-                  border: '1px solid var(--border)',
-                  backgroundColor: '#fff',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
                   cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  boxShadow: isProfileOpen ? '0 0 0 3px rgba(37, 99, 235, 0.1)' : 'none'
+                  transition: 'all 0.25s',
+                  boxShadow: isProfileOpen ? '0 0 0 4px rgba(255, 255, 255, 0.1)' : 'none'
                 }}
               >
                 <div style={{
                   width: '28px',
                   height: '28px',
                   borderRadius: '50%',
-                  backgroundColor: '#f1f5f9',
-                  color: 'var(--text-muted)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  color: '#fff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -564,10 +575,10 @@ export default function DashboardLayout() {
                 </div>
                 {!isMobile && (
                   <>
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-main)' }}>{displayName}</span>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{displayName}</span>
                     <svg
                       width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-                      style={{ transform: isProfileOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'var(--text-muted)' }}
+                      style={{ transform: isProfileOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'rgba(255, 255, 255, 0.6)' }}
                     >
                       <path d="m6 9 6 6 6-6" />
                     </svg>
@@ -651,7 +662,7 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main style={{ padding: isMobile ? '20px' : '32px', flex: 1 }}>
+        <main style={{ padding: isMobile ? '16px' : '24px', flex: 1 }}>
           <Outlet />
         </main>
       </div>

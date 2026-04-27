@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "deploy": "npm run build && npx wrangler pages deploy dist --project-name zigcrm-admin --branch main",
     "lint": "eslint .",
     "preview": "vite preview"
   },

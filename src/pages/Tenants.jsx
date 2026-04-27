@@ -230,23 +230,36 @@ export default function Tenants() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Tenants</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Manage all registered platform companies and their status.</p>
+          <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Tenants</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Manage all registered platform companies and their status.</p>
         </div>
         <Button onClick={() => handleOpenModal()}>
           <span>+</span> Add Tenant
         </Button>
       </div>
 
-      {/* Filters & Search Row */}
-      <div style={{
-        marginBottom: '24px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-end'
+      {/* Sticky Filters & Search Row */}
+      <div style={{ 
+        position: 'sticky', 
+        top: 'var(--header-height)', 
+        zIndex: 40, 
+        backgroundColor: 'var(--bg-main)', 
+        paddingTop: '8px',
+        paddingBottom: '16px',
+        margin: '0 -24px 16px -24px',
+        paddingLeft: '24px',
+        paddingRight: '24px',
+        borderBottom: '1px solid var(--border)'
       }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
         {/* Status Filter */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Filter by Status:</span>
@@ -275,15 +288,20 @@ export default function Tenants() {
 
         {/* Search Bar */}
         <div style={{ position: 'relative', width: '320px' }}>
-          <span style={{
-            position: 'absolute',
-            left: '12px',
-            top: '50%',
-            transform: 'translateY(-50%)',
+          <span style={{ 
+            position: 'absolute', 
+            left: '12px', 
+            top: '50%', 
+            transform: 'translateY(-50%)', 
             color: 'var(--text-muted)',
-            fontSize: '14px'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}>
-            🔍
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
           </span>
           <input
             type="text"
@@ -305,6 +323,7 @@ export default function Tenants() {
           />
         </div>
       </div>
+    </div>
 
       <DataTable
         columns={columns}

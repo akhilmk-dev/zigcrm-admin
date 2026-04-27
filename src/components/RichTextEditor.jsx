@@ -171,8 +171,8 @@ const ToolbarButton = ({ onClick, active, children, style = {}, title }) => (
 export default function RichTextEditor({ value, onChange, placeholder, extraToolbarContent }) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      Underline,
+      StarterKit.configure(),
+      Underline.configure(),
       TextStyle.extend({
         addAttributes() {
           return {
@@ -187,7 +187,7 @@ export default function RichTextEditor({ value, onChange, placeholder, extraTool
           };
         },
       }),
-      Color,
+      Color.configure(),
       Highlight.configure({
         multicolor: true,
       }),
