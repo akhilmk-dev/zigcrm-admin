@@ -12,7 +12,7 @@ export default function DashboardLayout() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
-  const [globalCategory, setGlobalCategory] = useState('tenants');
+  const [globalCategory, setGlobalCategory] = useState((user?.isSuperAdmin || user?.isAdmin) ? 'tenants' : 'contacts');
   const [searchParams, setSearchParams] = useSearchParams();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -39,10 +39,14 @@ export default function DashboardLayout() {
     }
 
     const path = location.pathname.split('/')[1];
-    if (['tenants', 'deals', 'users'].includes(path)) {
+    const validCategories = (user?.isSuperAdmin || user?.isAdmin) 
+      ? ['tenants', 'deals', 'users'] 
+      : ['contacts', 'deals', 'tasks'];
+      
+    if (validCategories.includes(path)) {
       setGlobalCategory(path);
     }
-  }, [searchParams, location.pathname]);
+  }, [searchParams, location.pathname, user]);
 
   const handleLogout = async () => {
     try {
@@ -543,8 +547,8 @@ export default function DashboardLayout() {
             )}
           </div>
 
-          {/* Global Search Bar (Admin Only) */}
-          {(user?.isSuperAdmin || user?.isAdmin) && !isMobile && (
+          {/* Global Search Bar */}
+          {(user?.isSuperAdmin || user?.isAdmin || user?.tenantId) && !isMobile && (
               <div style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -574,9 +578,19 @@ export default function DashboardLayout() {
                           letterSpacing: '0.02em'
                       }}
                   >
-                      <option value="tenants" style={{ color: '#000' }}>Tenants</option>
-                      <option value="deals" style={{ color: '#000' }}>Deals</option>
-                      <option value="users" style={{ color: '#000' }}>Users</option>
+                      {(user?.isSuperAdmin || user?.isAdmin) ? (
+                        <>
+                          <option value="tenants" style={{ color: '#000' }}>Tenants</option>
+                          <option value="deals" style={{ color: '#000' }}>Deals</option>
+                          <option value="users" style={{ color: '#000' }}>Users</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="contacts" style={{ color: '#000' }}>Contacts</option>
+                          <option value="deals" style={{ color: '#000' }}>Deals</option>
+                          <option value="tasks" style={{ color: '#000' }}>Tasks</option>
+                        </>
+                      )}
                   </select>
                   <input 
                       type="text"
