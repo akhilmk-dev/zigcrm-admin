@@ -23,6 +23,8 @@ export default function Deals() {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
@@ -73,6 +75,8 @@ export default function Deals() {
       const queryParams = new URLSearchParams();
       queryParams.append('page', page);
       queryParams.append('limit', pageSize);
+      queryParams.append('sortField', sortField);
+      queryParams.append('sortOrder', sortOrder);
 
       if (isGlobalAdmin && selectedTenantId) {
           queryParams.append('tenant_id', selectedTenantId);
@@ -108,7 +112,7 @@ export default function Deals() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTenantId, page, debouncedSearch]);
+  }, [selectedTenantId, page, debouncedSearch, sortField, sortOrder]);
 
   // If tenant changes in form, refresh contacts and staff list
   useEffect(() => {
@@ -187,6 +191,7 @@ export default function Deals() {
     { 
       header: 'Deal Name', 
       key: 'deal_name',
+      sortKey: 'deal_name',
       render: (row) => (
         <div style={{ fontWeight: '600' }}>{row.deal_name}</div>
       )
@@ -194,11 +199,13 @@ export default function Deals() {
     { 
       header: 'Value', 
       key: 'value',
+      sortKey: 'value',
       render: (row) => formatCurrency(row.value)
     },
     { 
       header: 'Stage', 
       key: 'stage',
+      sortKey: 'stage',
       render: (row) => {
         const types = { prospecting: 'primary', qualification: 'warning', proposal: 'warning', negotiation: 'warning', closed: 'success' };
         return <Badge type={types[row.stage]}>{row.stage}</Badge>;
@@ -208,16 +215,19 @@ export default function Deals() {
     ...(isGlobalAdmin ? [{
         header: 'Owner Company',
         key: 'tenant_name',
+        sortKey: 'tenant_id',
         render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
     { 
       header: 'Assignee', 
       key: 'assigned_to',
+      sortKey: 'assigned_to_user(name)',
       render: (row) => row.assigned_to_user?.name || 'Unassigned'
     },
     { 
       header: 'Status', 
       key: 'status',
+      sortKey: 'status',
       render: (row) => {
         const types = { open: 'primary', won: 'success', lost: 'danger' };
         return <Badge type={types[row.status]}>{row.status}</Badge>;
@@ -226,6 +236,7 @@ export default function Deals() {
     { 
       header: 'Created', 
       key: 'created_at',
+      sortKey: 'created_at',
       render: (row) => new Date(row.created_at).toLocaleDateString()
     }
   ];
@@ -328,6 +339,12 @@ export default function Deals() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={(field, order) => {
+          setSortField(field);
+          setSortOrder(order);
+        }}
         actions={(row) => (
           <>
             {hasPermission('deals.update') && (

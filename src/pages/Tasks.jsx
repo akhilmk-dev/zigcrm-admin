@@ -27,6 +27,8 @@ export default function Tasks() {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
@@ -77,6 +79,8 @@ export default function Tasks() {
       const queryParams = new URLSearchParams();
       queryParams.append('page', page);
       queryParams.append('limit', pageSize);
+      queryParams.append('sortField', sortField);
+      queryParams.append('sortOrder', sortOrder);
 
       if (isGlobalAdmin && selectedTenantId) {
           queryParams.append('tenant_id', selectedTenantId);
@@ -115,7 +119,7 @@ export default function Tasks() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTenantId, page, debouncedSearch]);
+  }, [selectedTenantId, page, debouncedSearch, sortField, sortOrder]);
 
   // Fetch staff and contacts when formik tenant_id changes (for creation by Super Admin)
   useEffect(() => {
@@ -256,6 +260,7 @@ export default function Tasks() {
     { 
       header: 'Task Title', 
       key: 'title',
+      sortKey: 'title',
       render: (row) => (
         <div>
           <div style={{ fontWeight: '600' }}>{row.title}</div>
@@ -272,17 +277,20 @@ export default function Tasks() {
     { 
       header: 'Due Date', 
       key: 'due_date',
+      sortKey: 'due_date',
       render: (row) => row.due_date ? new Date(row.due_date).toLocaleDateString() : '-'
     },
     // Show Company column for Global Admins
     ...(isGlobalAdmin ? [{
         header: 'Owner Company',
         key: 'tenant_name',
+        sortKey: 'tenant_id',
         render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
     { 
       header: 'Status', 
       key: 'status',
+      sortKey: 'status',
       render: (row) => {
         const types = { pending: 'warning', in_progress: 'primary', completed: 'success', cancelled: 'secondary' };
         return <Badge type={types[row.status]}>{row.status.replace('_', ' ')}</Badge>;
@@ -291,6 +299,7 @@ export default function Tasks() {
     { 
       header: 'Priority', 
       key: 'priority',
+      sortKey: 'priority',
       render: (row) => {
         const types = { low: 'secondary', medium: 'warning', high: 'danger' };
         return <Badge type={types[row.priority || 'medium']}>{row.priority?.toUpperCase() || 'MEDIUM'}</Badge>;
@@ -299,11 +308,13 @@ export default function Tasks() {
     { 
       header: 'Assignee', 
       key: 'assigned_to',
+      sortKey: 'assigned_to_user(name)',
       render: (row) => row.assigned_to_user?.name || 'Unassigned'
     },
     {
       header: 'Contact / Partner',
       key: 'contact_name',
+      sortKey: 'contact(first_name)',
       render: (row) => (
         <div style={{ fontSize: '13px' }}>
           {row.contact_first_name ? (
@@ -334,6 +345,7 @@ export default function Tasks() {
     { 
       header: 'Created', 
       key: 'created_at',
+      sortKey: 'created_at',
       render: (row) => new Date(row.created_at).toLocaleDateString()
     }
   ];
@@ -436,6 +448,12 @@ export default function Tasks() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={(field, order) => {
+          setSortField(field);
+          setSortOrder(order);
+        }}
         actions={(row) => (
           <>
             {hasPermission('tasks.update') && (

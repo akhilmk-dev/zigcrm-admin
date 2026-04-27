@@ -9,6 +9,8 @@ import RichTextEditor from '../components/RichTextEditor';
 import NoteEditor from '../components/NoteEditor';
 import NoteItem from '../components/NoteItem';
 import { toast } from 'react-hot-toast';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import { PhoneInput } from '../components/common/PhoneInput';
 
 export default function ContactDetail() {
   const { id } = useParams();
@@ -59,7 +61,13 @@ export default function ContactDetail() {
       first_name: Yup.string().required('First name is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
       email: Yup.string().email('Invalid email address').required('Email is required'),
-      phone: Yup.string().required('Phone number is required'),
+      phone: Yup.string()
+        .required('Phone number is required')
+        .test('is-valid-phone', 'Invalid phone number for the selected country', (value) => {
+          if (!value) return false;
+          const phoneNumber = parsePhoneNumberFromString(value);
+          return phoneNumber ? phoneNumber.isValid() : false;
+        }),
       company_name: Yup.string().required('Workplace name is required'),
       profession: Yup.string().required('Profession is required')
     }),
@@ -829,10 +837,9 @@ export default function ContactDetail() {
                 touched={formik.touched.email}
                 required
             />
-            <Input 
+            <PhoneInput 
                 label="Phone" 
                 name="phone"
-                placeholder="+1 (555) 000-0000"
                 value={formik.values.phone} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}

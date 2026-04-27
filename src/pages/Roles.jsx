@@ -19,6 +19,8 @@ export default function Roles() {
   const [pageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // ─── Permissions State ───────────────────────────────────────────────────────
   const [allPermissions, setAllPermissions] = useState([]);
@@ -67,7 +69,12 @@ export default function Roles() {
   const fetchRoles = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: pageSize });
+      const params = new URLSearchParams({ 
+        page, 
+        limit: pageSize,
+        sortField,
+        sortOrder
+      });
       if (debouncedSearch) params.append('search', debouncedSearch);
 
       const res = await api.get(`/roles?${params.toString()}`);
@@ -78,7 +85,7 @@ export default function Roles() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, pageSize]);
+  }, [page, debouncedSearch, pageSize, sortField, sortOrder]);
 
   useEffect(() => { fetchRoles(); }, [fetchRoles]);
 
@@ -139,6 +146,7 @@ export default function Roles() {
     {
       header: 'Role Name',
       key: 'role_name',
+      sortKey: 'role_name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontWeight: '600', color: row.role_name.startsWith('tenant-') ? '#0ea5e9' : 'var(--text-main)' }}>
@@ -149,10 +157,16 @@ export default function Roles() {
         </div>
       )
     },
-    { header: 'Description', key: 'description', render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{row.description || '—'}</span> },
+    { 
+      header: 'Description', 
+      key: 'description', 
+      sortKey: 'description',
+      render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{row.description || '—'}</span> 
+    },
     {
       header: 'Created',
       key: 'created_at',
+      sortKey: 'created_at',
       render: (row) => <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{new Date(row.created_at).toLocaleDateString()}</span>
     }
   ];
@@ -232,6 +246,12 @@ export default function Roles() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={(field, order) => {
+          setSortField(field);
+          setSortOrder(order);
+        }}
         actions={(row) => (
           <div style={{ display: 'flex', gap: '8px' }}>
             <Button 

@@ -45,6 +45,8 @@ export default function Users() {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // ─── Dropdown Data ───────────────────────────────────────────────────────────
   const [tenants, setTenants] = useState([]);          // For filter bar + modal
@@ -153,7 +155,12 @@ export default function Users() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: pageSize });
+      const params = new URLSearchParams({ 
+        page, 
+        limit: pageSize,
+        sortField,
+        sortOrder
+      });
       if (isGlobalAdmin) params.append('scope', viewScope);
       if (filterTenantId) params.append('tenant_id', filterTenantId);
       if (debouncedSearch) params.append('search', debouncedSearch);
@@ -166,7 +173,7 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  }, [viewScope, filterTenantId, page, debouncedSearch, isGlobalAdmin, pageSize]);
+  }, [viewScope, filterTenantId, page, debouncedSearch, isGlobalAdmin, pageSize, sortField, sortOrder]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -264,6 +271,7 @@ export default function Users() {
     {
       header: 'Name',
       key: 'name',
+      sortKey: 'name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
@@ -296,6 +304,7 @@ export default function Users() {
     {
       header: 'Role',
       key: 'role',
+      sortKey: 'roles(role_name)',
       render: (row) => (
         <Badge type="primary">
           {row.roles?.role_name || row.role || '—'}
@@ -310,6 +319,7 @@ export default function Users() {
     {
       header: 'Status',
       key: 'status',
+      sortKey: 'status',
       render: (row) => <Badge type={row.status === 'active' ? 'success' : 'danger'}>{row.status}</Badge>
     },
   ];
@@ -430,6 +440,12 @@ export default function Users() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={(field, order) => {
+          setSortField(field);
+          setSortOrder(order);
+        }}
         actions={(row) => (
           <div style={{ display: 'flex', gap: '8px' }}>
             {hasPermission('users.manage') && (

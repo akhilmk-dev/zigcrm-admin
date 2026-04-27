@@ -103,6 +103,9 @@ export const DataTable = ({
   currentPage,
   pageSize,
   onPageChange,
+  sortField,
+  sortOrder,
+  onSort,
   maxHeight = 'calc(100vh - 200px)', // Optimized for Page Scroll -> Table Scroll transition
   containerStyle = {}
 }) => {
@@ -129,6 +132,12 @@ export const DataTable = ({
   // Pagination Text
   const startRange = (currentPage - 1) * pageSize + 1;
   const endRange = Math.min(currentPage * pageSize, totalCount);
+
+  const handleSort = (colKey) => {
+    if (!onSort || !colKey) return;
+    const newOrder = sortField === colKey && sortOrder === 'asc' ? 'desc' : 'asc';
+    onSort(colKey, newOrder);
+  };
 
   return (
     <div style={{ 
@@ -164,9 +173,13 @@ export const DataTable = ({
               }}>
                 <span style={{ fontSize: '11px', color: 'var(--table-text-header)', fontWeight: '800' }}>#</span>
               </th>
-              {columns.map((col, headIdx) => (
+              {columns.map((col, headIdx) => {
+                const isSortable = !!col.sortKey;
+                const isSorted = sortField === col.sortKey;
+                return (
                 <th 
                   key={headIdx} 
+                  onClick={() => isSortable && handleSort(col.sortKey)}
                   style={{ 
                     padding: '12px 20px', 
                     fontSize: '11px', 
@@ -181,15 +194,29 @@ export const DataTable = ({
                     zIndex: 10,
                     borderBottom: '1px solid var(--table-border)',
                     borderLeft: '1px solid var(--table-border)',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    cursor: isSortable ? 'pointer' : 'default'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center' }}>
                     {col.header.toLowerCase().includes('name') || col.header.toLowerCase().includes('owner') ? <UserIcon /> : <TextIcon />}
-                    {col.header}
+                    <span style={{ flex: 1 }}>{col.header}</span>
+                    {isSortable && (
+                      <span style={{ 
+                        marginLeft: '8px', 
+                        opacity: isSorted ? 1 : 0.4,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        fontSize: '12px',
+                        lineHeight: '10px'
+                      }}>
+                        <span style={{ color: isSorted && sortOrder === 'asc' ? 'var(--primary)' : 'inherit' }}>▲</span>
+                        <span style={{ color: isSorted && sortOrder === 'desc' ? 'var(--primary)' : 'inherit' }}>▼</span>
+                      </span>
+                    )}
                   </div>
                 </th>
-              ))}
+              )})}
               {actions && (
                 <th 
                   style={{ 

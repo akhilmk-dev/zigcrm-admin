@@ -6,6 +6,8 @@ import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
 import { toast } from 'react-hot-toast';
+import { countries } from '../constants/countries';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 
 export default function Tenants() {
   const { user } = usePermission();
@@ -25,6 +27,8 @@ export default function Tenants() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   if (!isPlatformAdmin) {
     return (
@@ -62,7 +66,19 @@ export default function Tenants() {
     validationSchema: Yup.object({
       name: Yup.string().required('Company / Owner Name is required'),
       email: Yup.string().email('Invalid email address').required('Owner email is required'),
-      phone: Yup.string().matches(/^[0-9+]+$/, 'Invalid phone number').required('Phone number is required'),
+      phone: Yup.string()
+        .required('Phone number is required')
+        .test('is-valid-phone', 'Invalid phone number for selected country', function(value) {
+          const { country } = this.parent;
+          if (!country || !value) return true;
+          const selectedCountry = countries.find(c => c.name === country);
+          if (!selectedCountry) return true;
+          try {
+            return isValidPhoneNumber(value, selectedCountry.iso);
+          } catch (e) {
+            return false;
+          }
+        }),
       country: Yup.string().required('Country is required'),
       plan_id: Yup.string().required('Subscription plan is required'),
       status: Yup.string().required('Status is required'),
@@ -110,7 +126,9 @@ export default function Tenants() {
         page,
         limit: pageSize,
         search: debouncedSearch,
-        status: statusFilter
+        status: statusFilter,
+        sortField,
+        sortOrder
       });
       const response = await api.get(`/tenants?${params.toString()}`);
       setTenants(response.data.data);
@@ -124,7 +142,7 @@ export default function Tenants() {
 
   useEffect(() => {
     fetchTenants();
-  }, [page, debouncedSearch, statusFilter]);
+  }, [page, debouncedSearch, statusFilter, sortField, sortOrder]);
 
   const handleOpenModal = (tenant = null) => {
     if (tenant) {
@@ -182,6 +200,7 @@ export default function Tenants() {
   const columns = [
     {
       header: 'Company / Owner Name',
+      sortKey: 'owner(name)',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ 
@@ -214,9 +233,10 @@ export default function Tenants() {
         <Badge type="info">{row.plan_name}</Badge>
       )
     },
-    { header: 'Email', key: 'owner_email' },
+    { header: 'Email', key: 'owner_email', sortKey: 'owner(email)' },
     {
       header: 'Status',
+      sortKey: 'owner(status)',
       render: (row) => {
         const types = { active: 'success', suspended: 'danger', inactive: 'secondary' };
         return <Badge type={types[row.owner_status || 'inactive']}>{row.owner_status || 'inactive'}</Badge>;
@@ -224,6 +244,7 @@ export default function Tenants() {
     },
     {
       header: 'Joined',
+      sortKey: 'created_at',
       render: (row) => new Date(row.created_at).toLocaleDateString()
     }
   ];
@@ -333,6 +354,12 @@ export default function Tenants() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={(field, order) => {
+          setSortField(field);
+          setSortOrder(order);
+        }}
         actions={(row) => (
           <>
             <Button type="secondary" size="sm" onClick={() => handleOpenModal(row)}>Edit</Button>
@@ -443,29 +470,47 @@ export default function Tenants() {
               touched={formik.touched.email}
               required
             />
-            <Input
-              label="Phone Number"
-              name="phone"
-              placeholder="+1 234 567 890"
-              value={formik.values.phone}
-              onChange={formik.handleChange}
+            <Select
+              label="Country"
+              name="country"
+              value={formik.values.country}
+              onChange={(e) => {
+                const countryName = e.target.value;
+                const selectedCountry = countries.find(c => c.name === countryName);
+                formik.setFieldValue('country', countryName);
+                
+                if (selectedCountry) {
+                  const currentPhone = formik.values.phone;
+                  // If phone is empty or only contains a previous dial code, update it
+                  const isJustCode = countries.some(c => currentPhone.trim() === c.code);
+                  if (!currentPhone || isJustCode) {
+                    formik.setFieldValue('phone', selectedCountry.code + ' ');
+                  }
+                }
+              }}
               onBlur={formik.handleBlur}
-              error={formik.errors.phone}
-              touched={formik.touched.phone}
+              error={formik.errors.country}
+              touched={formik.touched.country}
               required
-            />
+            >
+              <option value="">Select Country</option>
+              {countries.map(c => (
+                <option key={c.name} value={c.name}>{c.name} ({c.code})</option>
+              ))}
+            </Select>
           </div>
 
           <Input
-            label="Country"
-            name="country"
-            placeholder="e.g. United States"
-            value={formik.values.country}
+            label="Phone Number"
+            name="phone"
+            placeholder="+1 234 567 890"
+            value={formik.values.phone}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            error={formik.errors.country}
-            touched={formik.touched.country}
+            error={formik.errors.phone}
+            touched={formik.touched.phone}
             required
+            helperText="Include country code (e.g. +91 9876543210)"
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>

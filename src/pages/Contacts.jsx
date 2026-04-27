@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 
 export default function Contacts() {
   const { hasPermission } = usePermission();
@@ -22,6 +23,8 @@ export default function Contacts() {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
   
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
@@ -53,7 +56,12 @@ export default function Contacts() {
       first_name: Yup.string().required('First name is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
       email: Yup.string().email('Invalid email address').required('Email is required'),
-      phone: Yup.string().required('Phone number is required'),
+      phone: Yup.string()
+        .required('Phone number is required')
+        .test('is-valid-phone', 'Invalid phone number format (use +countrycode)', (value) => {
+          if (!value) return true;
+          return isValidPhoneNumber(value);
+        }),
       company_name: Yup.string().required('Workplace name is required'),
       profession: Yup.string().required('Profession is required')
     }),
@@ -92,6 +100,8 @@ export default function Contacts() {
       const queryParams = new URLSearchParams();
       queryParams.append('page', page);
       queryParams.append('limit', pageSize);
+      queryParams.append('sortField', sortField);
+      queryParams.append('sortOrder', sortOrder);
 
       if (isGlobalAdmin && selectedTenantId) {
           queryParams.append('tenant_id', selectedTenantId);
@@ -119,7 +129,7 @@ export default function Contacts() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTenantId, page, debouncedSearch]);
+  }, [selectedTenantId, page, debouncedSearch, sortField, sortOrder]);
 
   // Debounce search
   useEffect(() => {
@@ -198,6 +208,7 @@ export default function Contacts() {
     { 
       header: 'Name', 
       key: 'name',
+      sortKey: 'first_name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ 
@@ -236,23 +247,26 @@ export default function Contacts() {
         </div>
       )
     },
-    { header: 'Email', key: 'email' },
-    { header: 'Workplace', key: 'company_name' },
-    { header: 'Profession', key: 'profession', render: (row) => row.profession || '—' },
+    { header: 'Email', key: 'email', sortKey: 'email' },
+    { header: 'Workplace', key: 'company_name', sortKey: 'company_name' },
+    { header: 'Profession', key: 'profession', sortKey: 'profession', render: (row) => row.profession || '—' },
     // Show Company column for Global Admins
     ...(isGlobalAdmin ? [{
         header: 'Owner Company',
         key: 'tenant_name',
+        sortKey: 'tenant_id',
         render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
     { 
       header: 'Assignee', 
       key: 'assigned_to',
+      sortKey: 'assigned_to_user(name)',
       render: (row) => row.assigned_to_user?.name || 'Unassigned'
     },
     { 
       header: 'Status', 
       key: 'status',
+      sortKey: 'status',
       render: (row) => {
         const types = { lead: 'warning', active: 'success', lost: 'danger' };
         return <Badge type={types[row.status]}>{row.status}</Badge>;
@@ -261,6 +275,7 @@ export default function Contacts() {
     { 
       header: 'Created at', 
       key: 'created_at',
+      sortKey: 'created_at',
       render: (row) => new Date(row.created_at).toLocaleDateString()
     }
   ];
@@ -363,6 +378,12 @@ export default function Contacts() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={(field, order) => {
+          setSortField(field);
+          setSortOrder(order);
+        }}
         actions={(row) => (
           <>
             {hasPermission('contacts.update') && (
