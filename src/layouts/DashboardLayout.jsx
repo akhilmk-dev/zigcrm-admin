@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import api from '../api/axiosConfig';
 import { usePermission } from '../hooks/usePermission';
 
@@ -11,6 +11,9 @@ export default function DashboardLayout() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [globalCategory, setGlobalCategory] = useState('tenants');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const dropdownRef = useRef(null);
@@ -25,6 +28,21 @@ export default function DashboardLayout() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Sync global search with URL
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    if (urlSearch !== null) {
+      setGlobalSearch(urlSearch);
+    } else {
+      setGlobalSearch('');
+    }
+
+    const path = location.pathname.split('/')[1];
+    if (['tenants', 'deals', 'users'].includes(path)) {
+      setGlobalCategory(path);
+    }
+  }, [searchParams, location.pathname]);
 
   const handleLogout = async () => {
     try {
@@ -524,6 +542,116 @@ export default function DashboardLayout() {
               </span>
             )}
           </div>
+
+          {/* Global Search Bar (Admin Only) */}
+          {(user?.isSuperAdmin || user?.isAdmin) && !isMobile && (
+              <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  padding: '2px',
+                  width: '380px',
+                  margin: '0 20px',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}>
+                  <select 
+                      value={globalCategory}
+                      onChange={(e) => setGlobalCategory(e.target.value)}
+                      style={{
+                          backgroundColor: 'transparent',
+                          color: '#fff',
+                          border: 'none',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          padding: '0 12px',
+                          outline: 'none',
+                          cursor: 'pointer',
+                          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+                          height: '32px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.02em'
+                      }}
+                  >
+                      <option value="tenants" style={{ color: '#000' }}>Tenants</option>
+                      <option value="deals" style={{ color: '#000' }}>Deals</option>
+                      <option value="users" style={{ color: '#000' }}>Users</option>
+                  </select>
+                  <input 
+                      type="text"
+                      placeholder={`Search ${globalCategory}...`}
+                      value={globalSearch}
+                      onChange={(e) => setGlobalSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                              if (globalSearch.trim()) {
+                                  navigate(`/${globalCategory}?search=${encodeURIComponent(globalSearch)}`);
+                              } else {
+                                  navigate(`/${globalCategory}`);
+                              }
+                          }
+                      }}
+                      style={{
+                          flex: 1,
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          color: '#fff',
+                          padding: '8px 12px',
+                          fontSize: '13px',
+                          outline: 'none',
+                          fontFamily: 'inherit'
+                      }}
+                  />
+                  {globalSearch && (
+                      <button 
+                        onClick={() => {
+                            setGlobalSearch('');
+                            navigate(`/${globalCategory}`);
+                        }}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'rgba(255, 255, 255, 0.4)',
+                            padding: '0 8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                  )}
+                  <button 
+                    onClick={() => {
+                        if (globalSearch.trim()) {
+                            navigate(`/${globalCategory}?search=${encodeURIComponent(globalSearch)}`);
+                        } else {
+                            navigate(`/${globalCategory}`);
+                        }
+                    }}
+                    style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        padding: '0 12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.5)'}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                    </svg>
+                  </button>
+              </div>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {user?.tenantId && !isMobile && (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { useSearchParams } from 'react-router-dom';
 import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
@@ -40,8 +41,9 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [viewScope, setViewScope] = useState('tenant'); // 'platform' | 'tenant'
   const [filterTenantId, setFilterTenantId] = useState('');
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
@@ -176,6 +178,19 @@ export default function Users() {
   }, [viewScope, filterTenantId, page, debouncedSearch, isGlobalAdmin, pageSize, sortField, sortOrder]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  // Handle global search from navbar
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    if (urlSearch !== null) {
+      setSearch(urlSearch);
+      setDebouncedSearch(urlSearch);
+    } else {
+      setSearch('');
+      setDebouncedSearch('');
+    }
+    setPage(1);
+  }, [searchParams]);
 
   // ─── Modal Open/Close ─────────────────────────────────────────────────────────
   const handleOpenModal = (user = null) => {

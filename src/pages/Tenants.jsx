@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { useSearchParams } from 'react-router-dom';
 import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
@@ -24,8 +25,9 @@ export default function Tenants() {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState('');
   const [sortField, setSortField] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
@@ -144,6 +146,19 @@ export default function Tenants() {
     fetchTenants();
   }, [page, debouncedSearch, statusFilter, sortField, sortOrder]);
 
+  // Handle global search from navbar
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    if (urlSearch !== null) {
+      setSearch(urlSearch);
+      setDebouncedSearch(urlSearch);
+    } else {
+      setSearch('');
+      setDebouncedSearch('');
+    }
+    setPage(1);
+  }, [searchParams]);
+
   const handleOpenModal = (tenant = null) => {
     if (tenant) {
       setEditingTenant(tenant);
@@ -200,7 +215,7 @@ export default function Tenants() {
   const columns = [
     {
       header: 'Company / Owner Name',
-      sortKey: 'owner(name)',
+      sortKey: 'owner_name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ 
@@ -233,10 +248,11 @@ export default function Tenants() {
         <Badge type="info">{row.plan_name}</Badge>
       )
     },
-    { header: 'Email', key: 'owner_email', sortKey: 'owner(email)' },
+    { header: 'Email', key: 'owner_email', sortKey: 'owner_email' },
+    { header: 'Country', key: 'country', sortKey: 'country' },
     {
       header: 'Status',
-      sortKey: 'owner(status)',
+      sortKey: 'owner_status',
       render: (row) => {
         const types = { active: 'success', suspended: 'danger', inactive: 'secondary' };
         return <Badge type={types[row.owner_status || 'inactive']}>{row.owner_status || 'inactive'}</Badge>;
