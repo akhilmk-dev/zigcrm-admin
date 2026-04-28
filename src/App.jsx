@@ -13,6 +13,7 @@ import Profile from './pages/Profile';
 import Plans from './pages/Plans';
 import ContactDetail from './pages/ContactDetail';
 import ForgotPassword from './pages/ForgotPassword';
+import NotFound from './pages/NotFound';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -41,7 +42,7 @@ function App() {
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
   );

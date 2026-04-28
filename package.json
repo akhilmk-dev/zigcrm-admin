@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "deploy": "npm run build && npx wrangler pages deploy dist --project-name zigcrm-admin --branch main",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -20,6 +21,7 @@
     "@tiptap/starter-kit": "^3.22.4",
     "axios": "^1.15.0",
     "formik": "^2.4.9",
+    "libphonenumber-js": "^1.12.42",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-hot-toast": "^2.6.0",

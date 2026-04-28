@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import api from '../api/axiosConfig';
+import api, { getFileUrl } from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import RichTextEditor from '../components/RichTextEditor';
 import NoteEditor from '../components/NoteEditor';
 import NoteItem from '../components/NoteItem';
 import { toast } from 'react-hot-toast';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
+import { PhoneInput } from '../components/common/PhoneInput';
 
 export default function ContactDetail() {
   const { id } = useParams();
@@ -30,6 +32,14 @@ export default function ContactDetail() {
   const [dealPage, setDealPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
+  // Add Task/Deal States
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [isAddDealModalOpen, setIsAddDealModalOpen] = useState(false);
+  const [staff, setStaff] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
 
@@ -50,8 +60,14 @@ export default function ContactDetail() {
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
-      email: Yup.string().email('Invalid email address'),
-      phone: Yup.string().required('Phone number is required'),
+      email: Yup.string().email('Invalid email address').required('Email is required'),
+      phone: Yup.string()
+        .required('Phone number is required')
+        .test('is-valid-phone', 'Invalid phone number for the selected country', (value) => {
+          if (!value) return false;
+          const phoneNumber = parsePhoneNumberFromString(value);
+          return phoneNumber ? phoneNumber.isValid() : false;
+        }),
       company_name: Yup.string().required('Workplace name is required'),
       profession: Yup.string().required('Profession is required')
     }),
@@ -67,8 +83,68 @@ export default function ContactDetail() {
     }
   });
 
-  const fetchDetail = async () => {
-    setLoading(true);
+  const addTaskFormik = useFormik({
+    initialValues: {
+      title: '',
+      description: '',
+      due_date: '',
+      status: 'pending',
+      priority: 'medium',
+      assigned_to: '',
+      contact_id: id,
+      document_url: '',
+      tenant_id: ''
+    },
+    validationSchema: Yup.object({
+      title: Yup.string().required('Task title is required'),
+      priority: Yup.string().required('Priority is required')
+    }),
+    onSubmit: async (values) => {
+      try {
+        await api.post('/tasks', values);
+        toast.success('Task created successfully');
+        setIsAddTaskModalOpen(false);
+        addTaskFormik.resetForm();
+        setUploadedFileName('');
+        fetchDetail(true);
+      } catch (err) {
+        console.error("Create Task Error:", err);
+      }
+    }
+  });
+
+  const addDealFormik = useFormik({
+    initialValues: {
+      deal_name: '',
+      value: '',
+      stage: 'prospecting',
+      contact_id: id,
+      status: 'open',
+      tenant_id: '',
+      assigned_to: ''
+    },
+    validationSchema: Yup.object({
+      deal_name: Yup.string().required('Deal name is required'),
+      value: Yup.number()
+        .typeError('Value must be a number')
+        .positive('Value must be greater than 0')
+        .required('Deal value is required')
+    }),
+    onSubmit: async (values) => {
+      try {
+        await api.post('/deals', values);
+        toast.success('Deal created successfully');
+        setIsAddDealModalOpen(false);
+        addDealFormik.resetForm();
+        fetchDetail(true);
+      } catch (err) {
+        console.error("Create Deal Error:", err);
+      }
+    }
+  });
+
+  const fetchDetail = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const response = await api.get(`/contacts/${id}`);
       setData(response.data);
@@ -78,13 +154,25 @@ export default function ContactDetail() {
         navigate('/contacts');
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchDetail();
   }, [id]);
+
+  useEffect(() => {
+    if (data?.contact?.tenant_id) {
+      addTaskFormik.setFieldValue('tenant_id', data.contact.tenant_id);
+      addDealFormik.setFieldValue('tenant_id', data.contact.tenant_id);
+      
+      // Fetch staff for this tenant
+      api.get(`/users?tenant_id=${data.contact.tenant_id}`)
+        .then(res => setStaff(res.data.data || []))
+        .catch(err => console.error("Fetch staff error", err));
+    }
+  }, [data?.contact?.tenant_id]);
 
   const handleConfirmDelete = async () => {
     try {
@@ -124,7 +212,73 @@ export default function ContactDetail() {
   const handleDeleteNote = async (noteId) => {
     if (window.confirm("Delete this note?")) {
       await api.delete(`/notes/${noteId}`);
-      fetchDetail();
+      fetchDetail(true);
+    }
+  };
+
+  const handleOpenAddTask = () => {
+    addTaskFormik.resetForm({
+      values: {
+        ...addTaskFormik.initialValues,
+        tenant_id: data?.contact?.tenant_id || ''
+      }
+    });
+    setUploadedFileName('');
+    setIsAddTaskModalOpen(true);
+  };
+
+  const handleOpenAddDeal = () => {
+    addDealFormik.resetForm({
+      values: {
+        ...addDealFormik.initialValues,
+        tenant_id: data?.contact?.tenant_id || ''
+      }
+    });
+    setIsAddDealModalOpen(true);
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      uploadFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      uploadFile(e.target.files[0]);
+    }
+  };
+
+  const uploadFile = async (file) => {
+    setUploading(true);
+    const uploadData = new FormData();
+    uploadData.append('file', file);
+
+    try {
+      const res = await api.post('/tasks/upload', uploadData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      addTaskFormik.setFieldValue('document_url', res.data.url);
+      setUploadedFileName(res.data.fileName || file.name);
+      toast.success('Document uploaded successfully');
+    } catch (err) {
+      console.error("Upload Error:", err);
+      toast.error('Failed to upload document');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -136,7 +290,65 @@ export default function ContactDetail() {
   const notes = data.notes || [];
 
   return (
-    <div>
+    <div className="contact-detail-container">
+      <style>{`
+        .contact-detail-layout {
+          display: grid;
+          grid-template-columns: minmax(320px, 1fr) 2.5fr;
+          gap: 32px;
+          align-items: start;
+        }
+
+        .contact-tabs-header {
+          display: flex;
+          border-bottom: 1px solid var(--border);
+          padding: 0 24px;
+          overflow-x: auto;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .contact-tabs-header::-webkit-scrollbar {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .contact-detail-layout {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+          
+          .contact-detail-sidebar {
+            order: 1;
+          }
+          
+          .contact-detail-main {
+            order: 2;
+          }
+
+          .contact-tabs-header {
+            padding: 0 16px;
+          }
+
+          .contact-main-content {
+            padding: 20px !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .contact-detail-container {
+            padding: 16px;
+          }
+          
+          .contact-profile-card {
+             padding: 24px !important;
+          }
+
+          .contact-info-card {
+            padding: 16px !important;
+          }
+        }
+      `}</style>
+
       {/* Breadcrumbs & Navigation */}
       <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
         <Link to="/contacts" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Contacts</Link>
@@ -145,12 +357,12 @@ export default function ContactDetail() {
       </div>
 
       {/* Main Content Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) 2.5fr', gap: '32px', alignItems: 'start' }}>
+      <div className="contact-detail-layout">
         
         {/* Left Col: Detailed Info */}
-        <aside style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <aside className="contact-detail-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Profile Card */}
-          <div style={{ 
+          <div className="contact-profile-card" style={{ 
             backgroundColor: '#fff', 
             borderRadius: '16px', 
             padding: '32px', 
@@ -194,12 +406,18 @@ export default function ContactDetail() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%' }}>
-              <Button type="secondary" size="sm" onClick={handleOpenEditModal} style={{ width: '100%' }}>Edit</Button>
-              <Button type="danger" size="sm" onClick={() => setIsDeleteModalOpen(true)} style={{ width: '100%' }}>Delete</Button>
+              <Button type="secondary" size="sm" onClick={handleOpenEditModal} style={{ width: '100%', gap: '6px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                Edit
+              </Button>
+              <Button type="danger" size="sm" onClick={() => setIsDeleteModalOpen(true)} style={{ width: '100%', gap: '6px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Delete
+              </Button>
             </div>
           </div>
 
-          <div style={{ 
+          <div className="contact-info-card" style={{ 
             backgroundColor: '#fff', 
             borderRadius: '16px', 
             padding: '24px', 
@@ -222,15 +440,15 @@ export default function ContactDetail() {
         </aside>
 
         {/* Right Col: Activity/Tabs */}
-        <main style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
+        <main className="contact-detail-main" style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
           {/* Tabs Header */}
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 24px' }}>
+          <div className="contact-tabs-header">
             <TabItem active={activeTab === 'notes'} onClick={() => setActiveTab('notes')}>Timeline & Notes ({notes.length})</TabItem>
             <TabItem active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>Tasks ({tasks.length})</TabItem>
             <TabItem active={activeTab === 'deals'} onClick={() => setActiveTab('deals')}>Deals ({deals.length})</TabItem>
           </div>
 
-          <div style={{ padding: '32px', flex: 1 }}>
+          <div className="contact-main-content" style={{ padding: '32px', flex: 1 }}>
             {activeTab === 'notes' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={{ 
@@ -291,7 +509,7 @@ export default function ContactDetail() {
                       <NoteEditor 
                         contactId={id} 
                         tenantId={contact.tenant_id} 
-                        onSave={fetchDetail} 
+                        onSave={() => fetchDetail(true)} 
                         style={{ border: 'none', boxShadow: 'none', padding: 0 }}
                       />
                     </div>
@@ -381,8 +599,12 @@ export default function ContactDetail() {
 
             {activeTab === 'tasks' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-                   <Button size="sm" onClick={() => navigate('/tasks')}>Manage All Tasks</Button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '8px' }}>
+                   <Button size="sm" type="primary" onClick={handleOpenAddTask} style={{ gap: '6px' }}>
+                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+                     Add Task
+                   </Button>
+                   <Button size="sm" type="secondary" onClick={() => navigate('/tasks')}>Manage All Tasks</Button>
                 </div>
                 {tasks.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No tasks linked to this contact.</div>
@@ -472,6 +694,13 @@ export default function ContactDetail() {
 
             {activeTab === 'deals' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '8px' }}>
+                   <Button size="sm" type="primary" onClick={handleOpenAddDeal} style={{ gap: '6px' }}>
+                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                     Add Deal
+                   </Button>
+                   <Button size="sm" type="secondary" onClick={() => navigate('/deals')}>Manage All Deals</Button>
+                </div>
                 {deals.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No deals associated with this contact.</div>
                 ) : (
@@ -606,11 +835,11 @@ export default function ContactDetail() {
                 onBlur={formik.handleBlur}
                 error={formik.errors.email}
                 touched={formik.touched.email}
+                required
             />
-            <Input 
+            <PhoneInput 
                 label="Phone" 
                 name="phone"
-                placeholder="+1 (555) 000-0000"
                 value={formik.values.phone} 
                 onChange={formik.handleChange} 
                 onBlur={formik.handleBlur}
@@ -716,7 +945,7 @@ export default function ContactDetail() {
               <div style={{ marginTop: '12px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Attached Document</div>
                 <a 
-                  href={`${import.meta.env.VITE_FILE_BASE_URL || 'http://localhost:5010'}${viewingTask.document_url}`} 
+                  href={getFileUrl(viewingTask.document_url)} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'var(--primary)', fontWeight: '600' }}
@@ -774,6 +1003,247 @@ export default function ContactDetail() {
         confirmText="Yes, Delete"
         confirmType="danger"
       />
+
+      {/* Add Task Modal */}
+      <Modal 
+        isOpen={isAddTaskModalOpen} 
+        onClose={() => setIsAddTaskModalOpen(false)} 
+        title="Add New Task"
+        footer={<>
+          <Button type="secondary" onClick={() => setIsAddTaskModalOpen(false)}>Cancel</Button>
+          <Button onClick={addTaskFormik.handleSubmit} disabled={addTaskFormik.isSubmitting}>
+            {addTaskFormik.isSubmitting ? 'Creating...' : 'Create Task'}
+          </Button>
+        </>}
+      >
+        <form onSubmit={addTaskFormik.handleSubmit}>
+          <Input 
+            label="Task Title" 
+            name="title"
+            placeholder="Enter task title"
+            value={addTaskFormik.values.title} 
+            onChange={addTaskFormik.handleChange} 
+            onBlur={addTaskFormik.handleBlur}
+            error={addTaskFormik.errors.title}
+            touched={addTaskFormik.touched.title}
+            required 
+          />
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Description</label>
+            <textarea 
+              name="description"
+              placeholder="Provide a detailed description of the task..."
+              value={addTaskFormik.values.description}
+              onChange={addTaskFormik.handleChange}
+              onBlur={addTaskFormik.handleBlur}
+               style={{
+                width: '100%',
+                padding: '10px 12px',
+                minHeight: '80px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+                fontSize: '14px',
+                backgroundColor: '#fff',
+                outline: 'none',
+                fontFamily: 'inherit'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input 
+                label="Due Date" 
+                type="date" 
+                name="due_date"
+                value={addTaskFormik.values.due_date} 
+                onChange={addTaskFormik.handleChange} 
+                onBlur={addTaskFormik.handleBlur}
+            />
+            
+            <Select
+                label="Priority"
+                name="priority"
+                value={addTaskFormik.values.priority}
+                onChange={addTaskFormik.handleChange}
+                onBlur={addTaskFormik.handleBlur}
+                required
+            >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+            </Select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Select
+                label="Assign To"
+                name="assigned_to"
+                value={addTaskFormik.values.assigned_to}
+                onChange={addTaskFormik.handleChange}
+                onBlur={addTaskFormik.handleBlur}
+            >
+                <option value="">Select Staff</option>
+                {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </Select>
+
+            <Select
+                label="Status"
+                name="status"
+                value={addTaskFormik.values.status}
+                onChange={addTaskFormik.handleChange}
+                onBlur={addTaskFormik.handleBlur}
+            >
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+            </Select>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Reference Document</label>
+            
+            <div 
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              style={{
+                position: 'relative',
+                width: '100%',
+                minHeight: '120px',
+                border: `2px dashed ${dragActive ? 'var(--primary)' : 'var(--border)'}`,
+                borderRadius: '12px',
+                backgroundColor: dragActive ? 'rgba(var(--primary-rgb), 0.05)' : '#fcfcfc',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px',
+                transition: 'all 0.2s ease',
+                cursor: 'pointer',
+                overflow: 'hidden'
+              }}
+              onClick={() => document.getElementById('task-file-upload').click()}
+            >
+              <input 
+                id="task-file-upload"
+                type="file" 
+                style={{ display: 'none' }}
+                onChange={handleFileUpload}
+                disabled={uploading}
+              />
+              
+              {uploading ? (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ 
+                    width: '32px', 
+                    height: '32px', 
+                    border: '3px solid rgba(var(--primary-rgb), 0.1)', 
+                    borderTopColor: 'var(--primary)', 
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    margin: '0 auto 12px'
+                  }} />
+                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>Uploading document...</span>
+                </div>
+              ) : addTaskFormik.values.document_url ? (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>📄</div>
+                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#059669', marginBottom: '4px' }}>Document Uploaded!</div>
+                  {uploadedFileName && <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{uploadedFileName}</div>}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '32px', marginBottom: '8px', opacity: 0.5 }}>📤</div>
+                  <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>Click or drag file to upload</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Deal Modal */}
+      <Modal 
+        isOpen={isAddDealModalOpen} 
+        onClose={() => setIsAddDealModalOpen(false)} 
+        title="Add New Deal"
+        footer={<>
+          <Button type="secondary" onClick={() => setIsAddDealModalOpen(false)}>Cancel</Button>
+          <Button onClick={addDealFormik.handleSubmit} disabled={addDealFormik.isSubmitting}>
+            {addDealFormik.isSubmitting ? 'Creating...' : 'Create Deal'}
+          </Button>
+        </>}
+      >
+        <form onSubmit={addDealFormik.handleSubmit}>
+          <Input 
+            label="Deal Name" 
+            name="deal_name"
+            placeholder="e.g. Enterprise License"
+            value={addDealFormik.values.deal_name} 
+            onChange={addDealFormik.handleChange} 
+            onBlur={addDealFormik.handleBlur}
+            error={addDealFormik.errors.deal_name}
+            touched={addDealFormik.touched.deal_name}
+            required 
+          />
+          
+          <Input 
+            label="Value ($)" 
+            type="number" 
+            name="value"
+            placeholder="0.00"
+            value={addDealFormik.values.value} 
+            onChange={addDealFormik.handleChange} 
+            onBlur={addDealFormik.handleBlur}
+            error={addDealFormik.errors.value}
+            touched={addDealFormik.touched.value}
+            required 
+          />
+          
+          <Select
+            label="Assigned To"
+            name="assigned_to"
+            value={addDealFormik.values.assigned_to}
+            onChange={addDealFormik.handleChange}
+            onBlur={addDealFormik.handleBlur}
+          >
+            <option value="">Unassigned</option>
+            {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </Select>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Select
+                label="Pipeline Stage"
+                name="stage"
+                value={addDealFormik.values.stage}
+                onChange={addDealFormik.handleChange}
+                onBlur={addDealFormik.handleBlur}
+            >
+                <option value="prospecting">Prospecting</option>
+                <option value="qualification">Qualification</option>
+                <option value="proposal">Proposal</option>
+                <option value="negotiation">Negotiation</option>
+                <option value="closed">Closed</option>
+            </Select>
+
+            <Select
+                label="Status"
+                name="status"
+                value={addDealFormik.values.status}
+                onChange={addDealFormik.handleChange}
+                onBlur={addDealFormik.handleBlur}
+            >
+                <option value="open">Open</option>
+                <option value="won">Won</option>
+                <option value="lost">Lost</option>
+            </Select>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

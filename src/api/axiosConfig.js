@@ -1,13 +1,40 @@
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
 // Create a custom axios instance
 const api = axios.create({
-    baseURL: 'http://localhost:5010/api',
+    baseURL: isLocalhost 
+        ? 'http://localhost:5010/api' 
+        : 'https://zigcrm-apis.staff-b0c.workers.dev/api',
     withCredentials: true // Important for sending/receiving HttpOnly cookies (refresh token)
 });
 
-export const FILE_BASE_URL = 'http://localhost:5010';
+export const FILE_BASE_URL = isLocalhost
+    ? 'http://localhost:5010'
+    : 'https://zigcrm-apis.staff-b0c.workers.dev';
+
+/**
+ * Helper to get the correct URL for a file.
+ * If the URL is already absolute (starts with http), it returns it as is.
+ * Otherwise, it prepends the FILE_BASE_URL.
+ */
+export const getFileUrl = (path) => {
+    if (!path) return '';
+    
+    // Ensure path is a string and trim any accidental whitespace
+    const cleanPath = String(path).trim();
+    
+    // If it's already an absolute URL, return it as is
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://') || cleanPath.startsWith('data:')) {
+        return cleanPath;
+    }
+    
+    // For relative paths, ensure we have a slash between base and path
+    const hasLeadingSlash = cleanPath.startsWith('/');
+    return `${FILE_BASE_URL}${hasLeadingSlash ? '' : '/'}${cleanPath}`;
+};
 
 // Flag to track preventing infinite loops on refresh failures
 let isRefreshing = false;
@@ -42,11 +69,11 @@ api.interceptors.response.use(
     },
     async (error) => {
         const originalRequest = error.config;
-        
+
         // Handle 401 and Refresh Token
         if (error.response?.status === 401 && originalRequest.url !== '/auth/refresh' && originalRequest.url !== '/auth/login' && !originalRequest._retry) {
             if (isRefreshing) {
-                return new Promise(function(resolve) {
+                return new Promise(function (resolve) {
                     subscribeTokenRefresh(token => {
                         originalRequest.headers['Authorization'] = 'Bearer ' + token;
                         resolve(api(originalRequest));
@@ -58,7 +85,7 @@ api.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                const { data } = await axios.post('http://localhost:5010/api/auth/refresh', {}, { withCredentials: true });
+                const { data } = await axios.post(`${api.defaults.baseURL}/auth/refresh`, {}, { withCredentials: true });
                 const newAccessToken = data.accessToken;
                 localStorage.setItem('accessToken', newAccessToken);
                 isRefreshing = false;
@@ -68,7 +95,7 @@ api.interceptors.response.use(
             } catch (err) {
                 isRefreshing = false;
                 localStorage.clear();
-                await axios.post('http://localhost:5010/api/auth/logout', {}, { withCredentials: true }).catch(() => {});
+                await axios.post(`${api.defaults.baseURL}/auth/logout`, {}, { withCredentials: true }).catch(() => { });
                 window.location.href = '/login';
                 return Promise.reject(err);
             }

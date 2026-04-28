@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import api, { FILE_BASE_URL } from '../api/axiosConfig';
+import { useSearchParams } from 'react-router-dom';
+import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
@@ -17,13 +18,13 @@ export default function Users() {
 
   if (!isPlatformAdmin && !hasPermission('users.manage')) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         padding: '80px 20px',
-        textAlign: 'center' 
+        textAlign: 'center'
       }}>
         <div style={{ fontSize: '64px', marginBottom: '24px' }}>🔒</div>
         <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>Access Denied</h1>
@@ -40,11 +41,14 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [viewScope, setViewScope] = useState('tenant'); // 'platform' | 'tenant'
   const [filterTenantId, setFilterTenantId] = useState('');
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // ─── Dropdown Data ───────────────────────────────────────────────────────────
   const [tenants, setTenants] = useState([]);          // For filter bar + modal
@@ -81,14 +85,14 @@ export default function Users() {
       re_password: Yup.string()
         .oneOf([Yup.ref('password'), null], 'Passwords must match')
         .when('password', {
-            is: (val) => val && val.length > 0,
-            then: (schema) => schema.required('Please confirm your new password'),
-            otherwise: (schema) => schema.notRequired()
+          is: (val) => val && val.length > 0,
+          then: (schema) => schema.required('Please confirm your new password'),
+          otherwise: (schema) => schema.notRequired()
         }),
       role_id: Yup.string().required('Role is required'),
       target_tenant_id: Yup.string().when('viewScope', {
-          is: () => viewScope === 'tenant' && isGlobalAdmin,
-          then: (schema) => schema.required('Company assignment is required')
+        is: () => viewScope === 'tenant' && isGlobalAdmin,
+        then: (schema) => schema.required('Company assignment is required')
       })
     }),
     onSubmit: async (values) => {
@@ -130,7 +134,7 @@ export default function Users() {
   // ─── Load Tenants (once, for Global Admins) ──────────────────────────────────
   useEffect(() => {
     if (isGlobalAdmin) {
-      api.get('/tenants/selection').then(res => setTenants(res.data || [])).catch(() => {});
+      api.get('/tenants/selection').then(res => setTenants(res.data || [])).catch(() => { });
     }
   }, [isGlobalAdmin]);
 
@@ -153,7 +157,12 @@ export default function Users() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: pageSize });
+      const params = new URLSearchParams({ 
+        page, 
+        limit: pageSize,
+        sortField,
+        sortOrder
+      });
       if (isGlobalAdmin) params.append('scope', viewScope);
       if (filterTenantId) params.append('tenant_id', filterTenantId);
       if (debouncedSearch) params.append('search', debouncedSearch);
@@ -166,9 +175,22 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  }, [viewScope, filterTenantId, page, debouncedSearch, isGlobalAdmin, pageSize]);
+  }, [viewScope, filterTenantId, page, debouncedSearch, isGlobalAdmin, pageSize, sortField, sortOrder]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  // Handle global search from navbar
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    if (urlSearch !== null) {
+      setSearch(urlSearch);
+      setDebouncedSearch(urlSearch);
+    } else {
+      setSearch('');
+      setDebouncedSearch('');
+    }
+    setPage(1);
+  }, [searchParams]);
 
   // ─── Modal Open/Close ─────────────────────────────────────────────────────────
   const handleOpenModal = (user = null) => {
@@ -189,14 +211,14 @@ export default function Users() {
       const defaultTenantId = !isGlobalAdmin ? loggedInUser?.tenantId : '';
       formik.resetForm({
         values: {
-            name: '', 
-            email: '', 
-            password: '', 
-            re_password: '',
-            role_id: '', 
-            target_tenant_id: defaultTenantId || '',
-            status: 'active',
-            profile_image_url: ''
+          name: '',
+          email: '',
+          password: '',
+          re_password: '',
+          role_id: '',
+          target_tenant_id: defaultTenantId || '',
+          status: 'active',
+          profile_image_url: ''
         }
       });
     }
@@ -264,13 +286,14 @@ export default function Users() {
     {
       header: 'Name',
       key: 'name',
+      sortKey: 'name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ 
-            width: '34px', 
-            height: '34px', 
-            borderRadius: '50%', 
-            overflow: 'hidden', 
+          <div style={{
+            width: '34px',
+            height: '34px',
+            borderRadius: '50%',
+            overflow: 'hidden',
             backgroundColor: 'var(--bg-muted)',
             display: 'flex',
             alignItems: 'center',
@@ -279,11 +302,11 @@ export default function Users() {
             flexShrink: 0
           }}>
             {row.profile_image_url ? (
-               <img src={`${FILE_BASE_URL}${row.profile_image_url}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={getFileUrl(row.profile_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-               <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
-                 {(row.name || 'U')[0].toUpperCase()}
-               </span>
+              <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                {(row.name || 'U')[0].toUpperCase()}
+              </span>
             )}
           </div>
           <div>
@@ -296,6 +319,7 @@ export default function Users() {
     {
       header: 'Role',
       key: 'role',
+      sortKey: 'roles(role_name)',
       render: (row) => (
         <Badge type="primary">
           {row.roles?.role_name || row.role || '—'}
@@ -310,6 +334,7 @@ export default function Users() {
     {
       header: 'Status',
       key: 'status',
+      sortKey: 'status',
       render: (row) => <Badge type={row.status === 'active' ? 'success' : 'danger'}>{row.status}</Badge>
     },
   ];
@@ -317,10 +342,10 @@ export default function Users() {
   // Filtering roles based on context
   const filteredRoles = allRoles.filter(r => {
     if (viewScope === 'tenant') {
-        return r.role_name.startsWith('tenant-');
+      return r.role_name.startsWith('tenant-');
     } else {
-        // Exclude tenant- prefixed roles AND the literal "Tenant" role for platform admins
-        return !r.role_name.startsWith('tenant-') && r.role_name !== 'Tenant';
+      // Exclude tenant- prefixed roles AND the literal "Tenant" role for platform admins
+      return !r.role_name.startsWith('tenant-') && r.role_name !== 'Tenant';
     }
   });
 
@@ -332,10 +357,10 @@ export default function Users() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>User Management</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Manage access, roles, and account status.</p>
+          <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>User Management</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Manage access, roles, and account status.</p>
         </div>
         {hasPermission('users.manage') && (
           <Button onClick={() => handleOpenModal()}>
@@ -344,8 +369,20 @@ export default function Users() {
         )}
       </div>
 
-      {/* Filter Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
+      {/* Sticky Filter Bar */}
+      <div style={{ 
+        position: 'sticky', 
+        top: 'var(--header-height)', 
+        zIndex: 40, 
+        backgroundColor: 'var(--bg-main)', 
+        paddingTop: '8px',
+        paddingBottom: '16px',
+        margin: '0 -24px 16px -24px',
+        paddingLeft: '24px',
+        paddingRight: '24px',
+        borderBottom: '1px solid var(--border)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Scope Toggle — Super Admin ONLY sees this */}
           {isSuperAdmin && (
@@ -383,7 +420,21 @@ export default function Users() {
 
         {/* Search */}
         <div style={{ position: 'relative', width: '300px' }}>
-          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '14px' }}>🔍</span>
+          <span style={{ 
+            position: 'absolute', 
+            left: '12px', 
+            top: '50%', 
+            transform: 'translateY(-50%)', 
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
           <input
             type="text"
             placeholder="Search by name or email..."
@@ -393,6 +444,7 @@ export default function Users() {
           />
         </div>
       </div>
+    </div>
 
       {/* Table */}
       <DataTable
@@ -403,6 +455,12 @@ export default function Users() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={(field, order) => {
+          setSortField(field);
+          setSortOrder(order);
+        }}
         actions={(row) => (
           <div style={{ display: 'flex', gap: '8px' }}>
             {hasPermission('users.manage') && (
@@ -434,11 +492,11 @@ export default function Users() {
         <form onSubmit={formik.handleSubmit}>
           {/* Profile Image Upload */}
           <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              width: '90px', 
-              height: '90px', 
-              borderRadius: '20px', 
-              backgroundColor: 'var(--bg-muted)', 
+            <div style={{
+              width: '90px',
+              height: '90px',
+              borderRadius: '20px',
+              backgroundColor: 'var(--bg-muted)',
               border: '2px dashed var(--border)',
               display: 'flex',
               alignItems: 'center',
@@ -447,12 +505,12 @@ export default function Users() {
               overflow: 'hidden'
             }}>
               {formik.values.profile_image_url ? (
-                <img src={`${FILE_BASE_URL}${formik.values.profile_image_url}`} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={getFileUrl(formik.values.profile_image_url)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <span style={{ color: 'var(--text-muted)', fontSize: '32px' }}>👤</span>
               )}
-              <input 
-                type="file" 
+              <input
+                type="file"
                 accept="image/*"
                 style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                 onChange={async (e) => {
@@ -473,45 +531,45 @@ export default function Users() {
             <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '500' }}>Click to upload user avatar</p>
           </div>
 
-          <Input 
-            label="Full Name" 
+          <Input
+            label="Full Name"
             name="name"
-            placeholder="Jane Doe" 
-            value={formik.values.name} 
+            placeholder="Jane Doe"
+            value={formik.values.name}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={formik.errors.name}
             touched={formik.touched.name}
-            required 
+            required
           />
-          <Input 
-            label="Email Address" 
+          <Input
+            label="Email Address"
             name="email"
-            type="email" 
-            placeholder="jane@company.com" 
-            value={formik.values.email} 
+            type="email"
+            placeholder="jane@company.com"
+            value={formik.values.email}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={formik.errors.email}
             touched={formik.touched.email}
-            required 
+            required
           />
           {/* Role and Company details moved up, Passwords moved down */}
 
           {/* Company Selector (For Global Admins when viewScope is tenant) */}
           {isGlobalAdmin && viewScope === 'tenant' && (
             <Select
-                label="Company"
-                name="target_tenant_id"
-                value={formik.values.target_tenant_id}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                error={formik.errors.target_tenant_id}
-                touched={formik.touched.target_tenant_id}
-                required
+              label="Company"
+              name="target_tenant_id"
+              value={formik.values.target_tenant_id}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.target_tenant_id}
+              touched={formik.touched.target_tenant_id}
+              required
             >
-                <option value="">— Select a Company —</option>
-                {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              <option value="">— Select a Company —</option>
+              {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </Select>
           )}
 
@@ -535,7 +593,7 @@ export default function Users() {
               ⚠️ No suitable roles found. Roles starting with <code>tenant-</code> are only for tenant users.
             </p>
           )}
-          
+
           {/* Account Status */}
           <Select
             label="Account Status"
@@ -552,22 +610,22 @@ export default function Users() {
 
           {/* Password Section - Bottom Placement + Conditional Rendering */}
           {(!editingUser || hasPermission('users.change_password')) && (
-            <div style={{ 
-              marginTop: '24px', 
-              padding: '20px', 
-              backgroundColor: '#f8fafc', 
+            <div style={{
+              marginTop: '24px',
+              padding: '20px',
+              backgroundColor: '#f8fafc',
               borderRadius: '16px',
-              border: '1px solid var(--border)' 
+              border: '1px solid var(--border)'
             }}>
               <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {editingUser ? '🔐 Security & Password' : '🔑 Initial Access'}
               </h3>
-              
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <Input
                   label={editingUser ? 'New Password' : 'Temporary Password'}
                   name="password"
-                  type="password" 
+                  type="password"
                   placeholder="••••••••"
                   value={formik.values.password}
                   onChange={formik.handleChange}
@@ -579,7 +637,7 @@ export default function Users() {
                 <Input
                   label="Confirm Password"
                   name="re_password"
-                  type="password" 
+                  type="password"
                   placeholder="••••••••"
                   value={formik.values.re_password}
                   onChange={formik.handleChange}
@@ -592,9 +650,9 @@ export default function Users() {
 
               {editingUser && (
                 <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button 
-                    type="secondary" 
-                    size="sm" 
+                  <Button
+                    type="secondary"
+                    size="sm"
                     onClick={(e) => { e.preventDefault(); handlePasswordChange(); }}
                     style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
                   >

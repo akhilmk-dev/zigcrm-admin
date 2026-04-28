@@ -25,7 +25,21 @@ export default function NoteEditor({ contactId, tenantId, onSave, style = {} }) 
       const response = await api.post('/notes/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setAttachments([...attachments, ...response.data.files]);
+      
+      const newFiles = response.data.files;
+      if (newFiles && newFiles.length > 0) {
+        const newFile = newFiles[0];
+        const isImage = newFile.type?.startsWith('image/');
+        
+        setAttachments(prev => {
+          // Remove existing file of the same category
+          const filtered = prev.filter(f => {
+            const fIsImage = f.type?.startsWith('image/');
+            return isImage ? !fIsImage : fIsImage;
+          });
+          return [...filtered, newFile];
+        });
+      }
     } catch (err) {
       console.error("Upload error", err);
     } finally {
@@ -76,8 +90,8 @@ export default function NoteEditor({ contactId, tenantId, onSave, style = {} }) 
 
   const attachButton = (
     <div style={{ display: 'flex', alignItems: 'center' }}>
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple style={{ display: 'none' }} />
-      <input type="file" ref={imageInputRef} onChange={handleFileChange} multiple accept="image/*" style={{ display: 'none' }} />
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
+      <input type="file" ref={imageInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
       
       <div style={{ width: '1px', backgroundColor: 'var(--border)', height: '20px', margin: '0 8px' }} />
       

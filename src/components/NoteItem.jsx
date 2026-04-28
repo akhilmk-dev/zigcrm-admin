@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FILE_BASE_URL } from '../api/axiosConfig';
+import { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { ConfirmModal } from './common/Modal';
 
 export default function NoteItem({ note, onDelete, isExpanded, onToggle }) {
@@ -145,8 +145,8 @@ export default function NoteItem({ note, onDelete, isExpanded, onToggle }) {
           {images.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '12px', marginTop: '24px' }}>
               {images.map((img, idx) => (
-                <a key={idx} href={`${FILE_BASE_URL}${img.url}`} target="_blank" rel="noopener noreferrer" style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <img src={`${FILE_BASE_URL}${img.url}`} alt={img.name} style={{ width: '100%', height: '120px', objectFit: 'cover' }} />
+                <a key={idx} href={getFileUrl(img.url)} target="_blank" rel="noopener noreferrer" style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <img src={getFileUrl(img.url)} alt={img.name} style={{ width: '100%', height: '120px', objectFit: 'cover' }} />
                 </a>
               ))}
             </div>
@@ -158,7 +158,7 @@ export default function NoteItem({ note, onDelete, isExpanded, onToggle }) {
               {files.map((file, idx) => (
                 <a 
                   key={idx} 
-                  href={`${FILE_BASE_URL}${file.url}`} 
+                  href={getFileUrl(file.url)} 
                   download 
                   target="_blank"
                   rel="noopener noreferrer"

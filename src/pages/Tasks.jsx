@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import api, { FILE_BASE_URL } from '../api/axiosConfig';
+import { useSearchParams } from 'react-router-dom';
+import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
@@ -22,11 +23,14 @@ export default function Tasks() {
   const [taskToDelete, setTaskToDelete] = useState(null);
   
   // Search & Pagination states
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
@@ -77,6 +81,8 @@ export default function Tasks() {
       const queryParams = new URLSearchParams();
       queryParams.append('page', page);
       queryParams.append('limit', pageSize);
+      queryParams.append('sortField', sortField);
+      queryParams.append('sortOrder', sortOrder);
 
       if (isGlobalAdmin && selectedTenantId) {
           queryParams.append('tenant_id', selectedTenantId);
@@ -115,7 +121,20 @@ export default function Tasks() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTenantId, page, debouncedSearch]);
+  }, [selectedTenantId, page, debouncedSearch, sortField, sortOrder]);
+
+  // Handle global search from navbar
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    if (urlSearch !== null) {
+      setSearch(urlSearch);
+      setDebouncedSearch(urlSearch);
+    } else {
+      setSearch('');
+      setDebouncedSearch('');
+    }
+    setPage(1);
+  }, [searchParams]);
 
   // Fetch staff and contacts when formik tenant_id changes (for creation by Super Admin)
   useEffect(() => {
@@ -147,6 +166,13 @@ export default function Tasks() {
   const handleOpenModal = (task = null) => {
     if (task) {
       setEditingTask(task);
+      // Extract filename from URL if it exists
+      if (task.document_url) {
+        const parts = task.document_url.split('/');
+        setUploadedFileName(parts[parts.length - 1]);
+      } else {
+        setUploadedFileName('');
+      }
       formik.setValues({
         title: task.title,
         description: task.description || '',
@@ -219,11 +245,16 @@ export default function Tasks() {
       });
       formik.setFieldValue('document_url', res.data.url);
       setUploadedFileName(res.data.fileName || file.name);
-      toast.success('Document uploaded');
+      toast.success('Document uploaded successfully');
     } catch (err) {
       console.error("Upload Error:", err);
+      const errorMsg = err.response?.data?.error || 'Failed to upload document';
+      toast.error(errorMsg);
     } finally {
       setUploading(false);
+      // Reset input value so the same file can be selected again if needed
+      const fileInput = document.getElementById('file-upload');
+      if (fileInput) fileInput.value = '';
     }
   };
 
@@ -244,6 +275,7 @@ export default function Tasks() {
     { 
       header: 'Task Title', 
       key: 'title',
+      sortKey: 'title',
       render: (row) => (
         <div>
           <div style={{ fontWeight: '600' }}>{row.title}</div>
@@ -260,17 +292,20 @@ export default function Tasks() {
     { 
       header: 'Due Date', 
       key: 'due_date',
+      sortKey: 'due_date',
       render: (row) => row.due_date ? new Date(row.due_date).toLocaleDateString() : '-'
     },
     // Show Company column for Global Admins
     ...(isGlobalAdmin ? [{
         header: 'Owner Company',
         key: 'tenant_name',
+        sortKey: 'tenant_id',
         render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
     { 
       header: 'Status', 
       key: 'status',
+      sortKey: 'status',
       render: (row) => {
         const types = { pending: 'warning', in_progress: 'primary', completed: 'success', cancelled: 'secondary' };
         return <Badge type={types[row.status]}>{row.status.replace('_', ' ')}</Badge>;
@@ -279,6 +314,7 @@ export default function Tasks() {
     { 
       header: 'Priority', 
       key: 'priority',
+      sortKey: 'priority',
       render: (row) => {
         const types = { low: 'secondary', medium: 'warning', high: 'danger' };
         return <Badge type={types[row.priority || 'medium']}>{row.priority?.toUpperCase() || 'MEDIUM'}</Badge>;
@@ -287,11 +323,13 @@ export default function Tasks() {
     { 
       header: 'Assignee', 
       key: 'assigned_to',
+      sortKey: 'assigned_to_user(name)',
       render: (row) => row.assigned_to_user?.name || 'Unassigned'
     },
     {
       header: 'Contact / Partner',
       key: 'contact_name',
+      sortKey: 'contact(first_name)',
       render: (row) => (
         <div style={{ fontSize: '13px' }}>
           {row.contact_first_name ? (
@@ -309,7 +347,7 @@ export default function Tasks() {
       key: 'document_url',
       render: (row) => row.document_url ? (
         <a 
-          href={`${FILE_BASE_URL}${row.document_url}`} 
+          href={getFileUrl(row.document_url)} 
           target="_blank" 
           rel="noopener noreferrer" 
           style={{ textDecoration: 'none', fontSize: '18px' }}
@@ -322,29 +360,43 @@ export default function Tasks() {
     { 
       header: 'Created', 
       key: 'created_at',
+      sortKey: 'created_at',
       render: (row) => new Date(row.created_at).toLocaleDateString()
     }
   ];
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Tasks</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Keep track of daily activities and team assignments.</p>
+          <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Tasks</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Keep track of daily activities and team assignments.</p>
         </div>
         {hasPermission('tasks.create') && (
           <Button onClick={() => handleOpenModal()}>+ New Task</Button>
         )}
       </div>
 
-      {/* Filters & Search Row */}
+      {/* Sticky Filters & Search Row */}
       <div style={{ 
-        marginBottom: '24px', 
-        display: 'flex', 
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        position: 'sticky', 
+        top: 'var(--header-height)', 
+        zIndex: 40, 
+        backgroundColor: 'var(--bg-main)', 
+        paddingTop: '8px',
+        paddingBottom: '16px',
+        margin: '0 -24px 16px -24px',
+        paddingLeft: '24px',
+        paddingRight: '24px',
+        borderBottom: '1px solid var(--border)'
       }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {isGlobalAdmin && (
             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -372,9 +424,14 @@ export default function Tasks() {
             top: '50%', 
             transform: 'translateY(-50%)', 
             color: 'var(--text-muted)',
-            fontSize: '14px'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}>
-            🔍
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
           </span>
           <input
             type="text"
@@ -396,6 +453,7 @@ export default function Tasks() {
           />
         </div>
       </div>
+    </div>
 
       <DataTable 
         columns={columns} 
@@ -405,6 +463,12 @@ export default function Tasks() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={(field, order) => {
+          setSortField(field);
+          setSortOrder(order);
+        }}
         actions={(row) => (
           <>
             {hasPermission('tasks.update') && (
@@ -623,7 +687,7 @@ export default function Tasks() {
                   )}
                   <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '12px' }}>
                     <a 
-                      href={`${FILE_BASE_URL}${formik.values.document_url}`} 
+                      href={getFileUrl(formik.values.document_url)} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
@@ -642,6 +706,7 @@ export default function Tasks() {
                     <Button 
                       size="sm" 
                       type="ghost"
+                      htmlType="button"
                       onClick={(e) => { e.stopPropagation(); document.getElementById('file-upload').click(); }}
                     >
                       Change File

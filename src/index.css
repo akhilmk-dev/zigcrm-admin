@@ -1,23 +1,41 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+ 
 :root {
-  --primary: #22c55e;
-  --primary-hover: #16a34a;
-  --primary-light: #dcfce7;
-  --secondary: #64748b;
-  --bg-main: #f8fafc;
+  --primary: #006D2F;
+  --primary-hover: #005A26;
+  --primary-dark: #004D21;
+  --primary-light: #E6F3EC;
+  --secondary: #438550;
+  --tertiary: #FFA07E;
+  --neutral: #F0F2F5;
+  
+  --bg-main: #F0F2F5;
   --bg-card: #ffffff;
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --border: #e2e8f0;
-  --success: #10b981;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --sidebar-width: 260px;
-  --header-height: 64px;
-  --radius: 8px;
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --text-main: #1A202C;
+  --text-muted: #718096;
+  --border: #E2E8F0;
+  
+  --success: #06C85D;
+  --danger: #E53E3E;
+  --warning: #ECC94B;
+  --info: #3182CE;
+  
+  --table-header-bg: #E2E8F0;
+  --table-row-hover: #F1F5F9;
+  --table-border: #E2E8F0;
+  --table-text-header: #64748B;
+
+  --font-headline: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  --sidebar-width: 280px;
+  --header-height: 72px;
+  --radius: 16px;
+  --radius-sm: 8px;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 4px 12px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 * {
@@ -27,17 +45,32 @@
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   background-color: var(--bg-main);
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
 }
 
 button {
   cursor: pointer;
-  font-family: inherit;
-  transition: all 0.2s;
+  font-family: var(--font-body);
+  font-weight: 600;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: var(--radius-sm);
+}
+
+button:active {
+  transform: scale(0.98);
 }
 
 a {

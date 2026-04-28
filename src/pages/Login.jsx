@@ -68,7 +68,7 @@ export default function Login() {
           left: '-10%',
           width: '60%',
           height: '60%',
-          background: 'radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, rgba(15, 23, 42, 0) 70%)',
+          background: 'radial-gradient(circle, rgba(0, 109, 47, 0.15) 0%, rgba(15, 23, 42, 0) 70%)',
           filter: 'blur(60px)'
         }} />
         <div style={{
@@ -77,7 +77,7 @@ export default function Login() {
           right: '-5%',
           width: '50%',
           height: '50%',
-          background: 'radial-gradient(circle, rgba(37, 99, 235, 0.1) 0%, rgba(15, 23, 42, 0) 70%)',
+          background: 'radial-gradient(circle, rgba(0, 109, 47, 0.1) 0%, rgba(15, 23, 42, 0) 70%)',
           filter: 'blur(50px)'
         }} />
 
@@ -130,7 +130,7 @@ export default function Login() {
               color: '#fff',
               fontWeight: '800',
               fontSize: '20px',
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
+              boxShadow: '0 4px 12px rgba(0, 109, 47, 0.2)'
             }}>Z</div>
             <span style={{ 
               fontSize: '22px', 
@@ -203,7 +203,7 @@ export default function Login() {
                   if (!(formik.touched.email && formik.errors.email)) {
                     e.target.style.borderColor = 'var(--primary)';
                     e.target.style.backgroundColor = '#fff';
-                    e.target.style.boxShadow = '0 0 0 4px rgba(37, 99, 235, 0.1)';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(0, 109, 47, 0.1)';
                   }
                 }}
                 onBlur={(e) => {
@@ -250,7 +250,7 @@ export default function Login() {
                   if (!(formik.touched.password && formik.errors.password)) {
                     e.target.style.borderColor = 'var(--primary)';
                     e.target.style.backgroundColor = '#fff';
-                    e.target.style.boxShadow = '0 0 0 4px rgba(37, 99, 235, 0.1)';
+                    e.target.style.boxShadow = '0 0 0 4px rgba(0, 109, 47, 0.1)';
                   }
                 }}
                 onBlur={(e) => {
@@ -329,7 +329,7 @@ export default function Login() {
               fontSize: '16px',
               opacity: formik.isSubmitting ? 0.7 : 1,
               transition: 'all 0.2s',
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)'
+              boxShadow: '0 4px 12px rgba(0, 109, 47, 0.25)'
             }}
             onMouseOver={(e) => !formik.isSubmitting && (e.target.style.backgroundColor = 'var(--primary-hover)')}
             onMouseOut={(e) => !formik.isSubmitting && (e.target.style.backgroundColor = 'var(--primary)')}

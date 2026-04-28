@@ -19,6 +19,8 @@ export default function Roles() {
   const [pageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // ─── Permissions State ───────────────────────────────────────────────────────
   const [allPermissions, setAllPermissions] = useState([]);
@@ -67,7 +69,12 @@ export default function Roles() {
   const fetchRoles = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: pageSize });
+      const params = new URLSearchParams({ 
+        page, 
+        limit: pageSize,
+        sortField,
+        sortOrder
+      });
       if (debouncedSearch) params.append('search', debouncedSearch);
 
       const res = await api.get(`/roles?${params.toString()}`);
@@ -78,7 +85,7 @@ export default function Roles() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, pageSize]);
+  }, [page, debouncedSearch, pageSize, sortField, sortOrder]);
 
   useEffect(() => { fetchRoles(); }, [fetchRoles]);
 
@@ -139,6 +146,7 @@ export default function Roles() {
     {
       header: 'Role Name',
       key: 'role_name',
+      sortKey: 'role_name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontWeight: '600', color: row.role_name.startsWith('tenant-') ? '#0ea5e9' : 'var(--text-main)' }}>
@@ -149,10 +157,16 @@ export default function Roles() {
         </div>
       )
     },
-    { header: 'Description', key: 'description', render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{row.description || '—'}</span> },
+    { 
+      header: 'Description', 
+      key: 'description', 
+      sortKey: 'description',
+      render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{row.description || '—'}</span> 
+    },
     {
       header: 'Created',
       key: 'created_at',
+      sortKey: 'created_at',
       render: (row) => <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{new Date(row.created_at).toLocaleDateString()}</span>
     }
   ];
@@ -169,10 +183,10 @@ export default function Roles() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Unified Roles Management</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Unified Roles Management</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>
             Platform and Tenant roles are now managed centrally. Use the <code>tenant-</code> prefix for roles intended for client staff.
           </p>
         </div>
@@ -181,11 +195,37 @@ export default function Roles() {
         </Button>
       </div>
 
-      {/* Filter Bar */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
+      {/* Sticky Filter Bar */}
+      <div style={{ 
+        position: 'sticky', 
+        top: 'var(--header-height)', 
+        zIndex: 40, 
+        backgroundColor: 'var(--bg-main)', 
+        paddingTop: '8px',
+        paddingBottom: '16px',
+        margin: '0 -24px 16px -24px',
+        paddingLeft: '24px',
+        paddingRight: '24px',
+        borderBottom: '1px solid var(--border)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '12px' }}>
         {/* Search */}
         <div style={{ position: 'relative', width: '280px' }}>
-          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '14px' }}>🔍</span>
+          <span style={{ 
+            position: 'absolute', 
+            left: '12px', 
+            top: '50%', 
+            transform: 'translateY(-50%)', 
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
           <input
             type="text"
             placeholder="Search roles..."
@@ -195,6 +235,7 @@ export default function Roles() {
           />
         </div>
       </div>
+    </div>
 
       {/* Table */}
       <DataTable
@@ -205,6 +246,12 @@ export default function Roles() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={(field, order) => {
+          setSortField(field);
+          setSortOrder(order);
+        }}
         actions={(row) => (
           <div style={{ display: 'flex', gap: '8px' }}>
             <Button 

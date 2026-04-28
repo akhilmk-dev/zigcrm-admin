@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
@@ -18,11 +19,14 @@ export default function Deals() {
   const [staff, setStaff] = useState([]);
   
   // Search & Pagination states
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   // Super Admin view states
   const [selectedTenantId, setSelectedTenantId] = useState('');
@@ -36,7 +40,7 @@ export default function Deals() {
   const formik = useFormik({
     initialValues: {
       deal_name: '',
-      value: 0,
+      value: '',
       stage: 'prospecting',
       contact_id: '',
       status: 'open',
@@ -45,7 +49,10 @@ export default function Deals() {
     },
     validationSchema: Yup.object({
       deal_name: Yup.string().required('Deal name is required'),
-      value: Yup.number().min(0, 'Value must be positive').required('Deal value is required'),
+      value: Yup.number()
+        .typeError('Value must be a number')
+        .positive('Value must be greater than 0')
+        .required('Deal value is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
       assigned_to: Yup.string().nullable()
     }),
@@ -70,6 +77,8 @@ export default function Deals() {
       const queryParams = new URLSearchParams();
       queryParams.append('page', page);
       queryParams.append('limit', pageSize);
+      queryParams.append('sortField', sortField);
+      queryParams.append('sortOrder', sortOrder);
 
       if (isGlobalAdmin && selectedTenantId) {
           queryParams.append('tenant_id', selectedTenantId);
@@ -105,7 +114,20 @@ export default function Deals() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTenantId, page, debouncedSearch]);
+  }, [selectedTenantId, page, debouncedSearch, sortField, sortOrder]);
+
+  // Handle global search from navbar
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    if (urlSearch !== null) {
+      setSearch(urlSearch);
+      setDebouncedSearch(urlSearch);
+    } else {
+      setSearch('');
+      setDebouncedSearch('');
+    }
+    setPage(1);
+  }, [searchParams]);
 
   // If tenant changes in form, refresh contacts and staff list
   useEffect(() => {
@@ -141,7 +163,7 @@ export default function Deals() {
       formik.resetForm({
         values: {
             deal_name: '', 
-            value: 0, 
+            value: '', 
             stage: 'prospecting', 
             contact_id: '', 
             status: 'open',
@@ -184,6 +206,7 @@ export default function Deals() {
     { 
       header: 'Deal Name', 
       key: 'deal_name',
+      sortKey: 'deal_name',
       render: (row) => (
         <div style={{ fontWeight: '600' }}>{row.deal_name}</div>
       )
@@ -191,11 +214,13 @@ export default function Deals() {
     { 
       header: 'Value', 
       key: 'value',
+      sortKey: 'value',
       render: (row) => formatCurrency(row.value)
     },
     { 
       header: 'Stage', 
       key: 'stage',
+      sortKey: 'stage',
       render: (row) => {
         const types = { prospecting: 'primary', qualification: 'warning', proposal: 'warning', negotiation: 'warning', closed: 'success' };
         return <Badge type={types[row.stage]}>{row.stage}</Badge>;
@@ -205,16 +230,19 @@ export default function Deals() {
     ...(isGlobalAdmin ? [{
         header: 'Owner Company',
         key: 'tenant_name',
+        sortKey: 'tenant_id',
         render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
     { 
       header: 'Assignee', 
       key: 'assigned_to',
+      sortKey: 'assigned_to_user(name)',
       render: (row) => row.assigned_to_user?.name || 'Unassigned'
     },
     { 
       header: 'Status', 
       key: 'status',
+      sortKey: 'status',
       render: (row) => {
         const types = { open: 'primary', won: 'success', lost: 'danger' };
         return <Badge type={types[row.status]}>{row.status}</Badge>;
@@ -223,29 +251,43 @@ export default function Deals() {
     { 
       header: 'Created', 
       key: 'created_at',
+      sortKey: 'created_at',
       render: (row) => new Date(row.created_at).toLocaleDateString()
     }
   ];
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Deals</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Track your sales pipeline and revenue forecasting.</p>
+          <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Deals</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Track your sales pipeline and revenue forecasting.</p>
         </div>
         {hasPermission('deals.create') && (
           <Button onClick={() => handleOpenModal()}>+ New Deal</Button>
         )}
       </div>
 
-      {/* Filters & Search Row */}
+      {/* Sticky Filters & Search Row */}
       <div style={{ 
-        marginBottom: '24px', 
-        display: 'flex', 
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        position: 'sticky', 
+        top: 'var(--header-height)', 
+        zIndex: 40, 
+        backgroundColor: 'var(--bg-main)', 
+        paddingTop: '8px',
+        paddingBottom: '16px',
+        margin: '0 -24px 16px -24px',
+        paddingLeft: '24px',
+        paddingRight: '24px',
+        borderBottom: '1px solid var(--border)'
       }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {isGlobalAdmin && (
             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -273,9 +315,14 @@ export default function Deals() {
             top: '50%', 
             transform: 'translateY(-50%)', 
             color: 'var(--text-muted)',
-            fontSize: '14px'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}>
-            🔍
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
           </span>
           <input
             type="text"
@@ -297,6 +344,7 @@ export default function Deals() {
           />
         </div>
       </div>
+    </div>
 
       <DataTable 
         columns={columns} 
@@ -306,6 +354,12 @@ export default function Deals() {
         currentPage={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        sortField={sortField}
+        sortOrder={sortOrder}
+        onSort={(field, order) => {
+          setSortField(field);
+          setSortOrder(order);
+        }}
         actions={(row) => (
           <>
             {hasPermission('deals.update') && (
