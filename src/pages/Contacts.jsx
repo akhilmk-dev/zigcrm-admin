@@ -62,10 +62,7 @@ export default function Contacts() {
       email: Yup.string().email('Invalid email address').required('Email is required'),
       phone: Yup.string()
         .required('Phone number is required')
-        .test('is-valid-phone', 'Invalid phone number format (use +countrycode)', (value) => {
-          if (!value) return true;
-          return isValidPhoneNumber(value);
-        }),
+        .matches(/^\+?[\d\s-]{7,15}$/, 'Invalid phone number format'),
       company_name: Yup.string().required('Workplace name is required'),
       profession: Yup.string().required('Profession is required')
     }),

@@ -63,11 +63,7 @@ export default function ContactDetail() {
       email: Yup.string().email('Invalid email address').required('Email is required'),
       phone: Yup.string()
         .required('Phone number is required')
-        .test('is-valid-phone', 'Invalid phone number for the selected country', (value) => {
-          if (!value) return false;
-          const phoneNumber = parsePhoneNumberFromString(value);
-          return phoneNumber ? phoneNumber.isValid() : false;
-        }),
+        .matches(/^\+?[\d\s-]{7,15}$/, 'Invalid phone number format'),
       company_name: Yup.string().required('Workplace name is required'),
       profession: Yup.string().required('Profession is required')
     }),
