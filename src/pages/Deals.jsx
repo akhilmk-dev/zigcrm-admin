@@ -22,6 +22,9 @@ export default function Deals() {
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [stageFilter, setStageFilter] = useState('');
+  const [assigneeFilter, setAssigneeFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
@@ -36,6 +39,7 @@ export default function Deals() {
 
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
+  const showAssigneeFilter = loggedInUser?.user_type !== 'tenant_user';
 
   const formik = useFormik({
     initialValues: {
@@ -88,6 +92,10 @@ export default function Deals() {
           queryParams.append('search', debouncedSearch);
       }
 
+      if (statusFilter) queryParams.append('status', statusFilter);
+      if (stageFilter) queryParams.append('stage', stageFilter);
+      if (assigneeFilter) queryParams.append('assigned_to', assigneeFilter);
+
       const [dealsRes, tenantsRes] = await Promise.all([
         api.get(`/deals?${queryParams.toString()}`),
         isGlobalAdmin ? api.get('/tenants/selection') : Promise.resolve({ data: [] })
@@ -114,7 +122,7 @@ export default function Deals() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedTenantId, page, debouncedSearch, sortField, sortOrder]);
+  }, [selectedTenantId, page, debouncedSearch, statusFilter, stageFilter, assigneeFilter, sortField, sortOrder]);
 
   // Handle global search from navbar
   useEffect(() => {
@@ -302,6 +310,86 @@ export default function Deals() {
               >
                 <option value="">All Companies (Global View)</option>
                 {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Stage Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: isGlobalAdmin ? '12px' : '0' }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Stage:</span>
+            <select
+              value={stageFilter}
+              onChange={(e) => {
+                setStageFilter(e.target.value);
+                setPage(1);
+              }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                fontSize: '13px',
+                outline: 'none',
+                backgroundColor: '#fff',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">All Stages</option>
+              <option value="prospecting">Prospecting</option>
+              <option value="qualification">Qualification</option>
+              <option value="proposal">Proposal</option>
+              <option value="negotiation">Negotiation</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '12px' }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Status:</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                fontSize: '13px',
+                outline: 'none',
+                backgroundColor: '#fff',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">All Statuses</option>
+              <option value="open">Open</option>
+              <option value="won">Won</option>
+              <option value="lost">Lost</option>
+            </select>
+          </div>
+
+          {/* Assignee Filter */}
+          {showAssigneeFilter && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '12px' }}>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Assignee:</span>
+              <select
+                value={assigneeFilter}
+                onChange={(e) => {
+                  setAssigneeFilter(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border)',
+                  fontSize: '13px',
+                  outline: 'none',
+                  backgroundColor: '#fff',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">All Assignees</option>
+                <option value="unassigned">Unassigned Only</option>
               </select>
             </div>
           )}

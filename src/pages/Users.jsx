@@ -44,6 +44,7 @@ export default function Users() {
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
+  const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
@@ -166,6 +167,7 @@ export default function Users() {
       if (isGlobalAdmin) params.append('scope', viewScope);
       if (filterTenantId) params.append('tenant_id', filterTenantId);
       if (debouncedSearch) params.append('search', debouncedSearch);
+      if (statusFilter) params.append('status', statusFilter);
 
       const res = await api.get(`/users?${params.toString()}`);
       setUsers(res.data.data || []);
@@ -175,7 +177,7 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  }, [viewScope, filterTenantId, page, debouncedSearch, isGlobalAdmin, pageSize, sortField, sortOrder]);
+  }, [viewScope, filterTenantId, page, debouncedSearch, statusFilter, isGlobalAdmin, pageSize, sortField, sortOrder]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -416,6 +418,32 @@ export default function Users() {
               {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           )}
+
+          {/* Status Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: isGlobalAdmin ? '12px' : '0' }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Status:</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                fontSize: '13px',
+                outline: 'none',
+                backgroundColor: '#fff',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
         </div>
 
         {/* Search */}

@@ -19,6 +19,7 @@ export default function Roles() {
   const [pageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [sortField, setSortField] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
 
@@ -76,6 +77,7 @@ export default function Roles() {
         sortOrder
       });
       if (debouncedSearch) params.append('search', debouncedSearch);
+      if (roleFilter) params.append('roleFilter', roleFilter);
 
       const res = await api.get(`/roles?${params.toString()}`);
       setRoles(res.data.data || []);
@@ -85,7 +87,7 @@ export default function Roles() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, pageSize, sortField, sortOrder]);
+  }, [page, debouncedSearch, roleFilter, pageSize, sortField, sortOrder]);
 
   useEffect(() => { fetchRoles(); }, [fetchRoles]);
 
@@ -208,34 +210,61 @@ export default function Roles() {
         paddingRight: '24px',
         borderBottom: '1px solid var(--border)'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '12px' }}>
-        {/* Search */}
-        <div style={{ position: 'relative', width: '280px' }}>
-          <span style={{ 
-            position: 'absolute', 
-            left: '12px', 
-            top: '50%', 
-            transform: 'translateY(-50%)', 
-            color: 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </span>
-          <input
-            type="text"
-            placeholder="Search roles..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '100%', padding: '8px 12px 8px 36px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
-          />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          {/* Role Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Filter by Role:</span>
+            <select
+              value={roleFilter}
+              onChange={(e) => {
+                setRoleFilter(e.target.value);
+                setPage(1);
+              }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                fontSize: '14px',
+                outline: 'none',
+                backgroundColor: '#fff',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">All Roles</option>
+              <option value="super_admin">Super Admin</option>
+              <option value="admin">Admins</option>
+              <option value="tenant">Tenants</option>
+              <option value="tenant_user">Tenant Users</option>
+            </select>
+          </div>
+
+          {/* Search */}
+          <div style={{ position: 'relative', width: '280px' }}>
+            <span style={{ 
+              position: 'absolute', 
+              left: '12px', 
+              top: '50%', 
+              transform: 'translateY(-50%)', 
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Search roles..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '100%', padding: '8px 12px 8px 36px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
+            />
+          </div>
         </div>
       </div>
-    </div>
 
       {/* Table */}
       <DataTable
