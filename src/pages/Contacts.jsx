@@ -64,10 +64,12 @@ export default function Contacts() {
 
   useEffect(() => {
     let autocomplete = null;
+    let companyAutocomplete = null;
     let timer = null;
 
     if (isModalOpen) {
       timer = setTimeout(() => {
+        // 1. Autocomplete for address field
         const inputElement = document.querySelector('input[name="address"]');
         if (inputElement && window.google && window.google.maps && window.google.maps.places) {
           autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
@@ -82,6 +84,25 @@ export default function Contacts() {
             }
           });
         }
+
+        // 2. Autocomplete for workplace (company_name) field
+        const companyInputElement = document.querySelector('input[name="company_name"]');
+        if (companyInputElement && window.google && window.google.maps && window.google.maps.places) {
+          companyAutocomplete = new window.google.maps.places.Autocomplete(companyInputElement, {
+            types: ['establishment'],
+          });
+          companyAutocomplete.addListener('place_changed', () => {
+            const place = companyAutocomplete.getPlace();
+            if (place) {
+              if (place.name) {
+                formik.setFieldValue('company_name', place.name);
+              }
+              if (place.formatted_address) {
+                formik.setFieldValue('address', place.formatted_address);
+              }
+            }
+          });
+        }
       }, 300);
     }
 
@@ -89,6 +110,9 @@ export default function Contacts() {
       if (timer) clearTimeout(timer);
       if (autocomplete && window.google && window.google.maps && window.google.maps.event) {
         window.google.maps.event.clearInstanceListeners(autocomplete);
+      }
+      if (companyAutocomplete && window.google && window.google.maps && window.google.maps.event) {
+        window.google.maps.event.clearInstanceListeners(companyAutocomplete);
       }
     };
   }, [isModalOpen]);

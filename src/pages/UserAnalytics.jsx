@@ -22,11 +22,13 @@ export default function UserAnalytics() {
 
   const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
+  const isTenantAdmin = loggedInUser?.user_type === 'tenant_admin';
+  const canSelectUser = isGlobalAdmin || isTenantAdmin;
 
   const [usersList, setUsersList] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(() => {
     if (userIdParam) return userIdParam;
-    return isGlobalAdmin ? '' : (loggedInUser?.id || '');
+    return canSelectUser ? '' : (loggedInUser?.id || '');
   });
   const [selectedUser, setSelectedUser] = useState(null);
 
@@ -75,7 +77,7 @@ export default function UserAnalytics() {
   };
 
   const handleReset = () => {
-    setSelectedUserId(userIdParam || (isGlobalAdmin ? '' : (loggedInUser?.id || '')));
+    setSelectedUserId(userIdParam || (canSelectUser ? '' : (loggedInUser?.id || '')));
     setSearchQuery('');
     setFromDate(defaultFrom);
     setToDate(defaultTo);
@@ -362,7 +364,7 @@ export default function UserAnalytics() {
               <select
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
-                disabled={!isGlobalAdmin}
+                disabled={!canSelectUser}
                 style={{
                   width: '100%',
                   height: '44px',
@@ -372,9 +374,9 @@ export default function UserAnalytics() {
                   fontSize: '14px',
                   fontWeight: '600',
                   color: '#1f2937',
-                  backgroundColor: isGlobalAdmin ? '#ffffff' : '#f1f5f9',
+                  backgroundColor: canSelectUser ? '#ffffff' : '#f1f5f9',
                   outline: 'none',
-                  cursor: isGlobalAdmin ? 'pointer' : 'not-allowed',
+                  cursor: canSelectUser ? 'pointer' : 'not-allowed',
                   appearance: 'none',
                   boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
                   fontFamily: 'Inter, sans-serif'
