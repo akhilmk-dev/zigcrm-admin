@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { usePermission } from '../hooks/usePermission';
 import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
 import { useFormik } from 'formik';
@@ -99,7 +99,6 @@ export default function Profile() {
       phone: profileData?.phone || '',
       address: profileData?.address || '',
       country: profileData?.country || '',
-      timezone: profileData?.timezone || '',
       profileImage: null
     },
     enableReinitialize: true,
@@ -117,7 +116,6 @@ export default function Profile() {
         formData.append('phone', values.phone || '');
         formData.append('address', values.address || '');
         formData.append('country', values.country || '');
-        formData.append('timezone', values.timezone || '');
         if (values.profileImage) {
           formData.append('file', values.profileImage);
         }
@@ -714,14 +712,6 @@ export default function Profile() {
                     name="country"
                     placeholder="USA"
                     value={editFormik.values.country}
-                    onChange={editFormik.handleChange}
-                    onBlur={editFormik.handleBlur}
-                  />
-                  <Input
-                    label="Timezone"
-                    name="timezone"
-                    placeholder="UTC+0"
-                    value={editFormik.values.timezone}
                     onChange={editFormik.handleChange}
                     onBlur={editFormik.handleBlur}
                   />

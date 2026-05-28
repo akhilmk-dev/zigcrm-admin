@@ -1,6 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import RichTextEditor from './RichTextEditor';
-import { Button } from './common/Modal';
 import api from '../api/axiosConfig';
 import { toast } from 'react-hot-toast';
 
@@ -26,8 +25,121 @@ export default function NoteEditor({
   const [attachments, setAttachments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [interimText, setInterimText] = useState('');
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const shouldRestartRef = useRef(false);
+  const silenceTimerRef = useRef(null);
+  const SILENCE_TIMEOUT = 3000; // auto-stop after 3s of silence
+
+  useEffect(() => {
+    return () => {
+      shouldRestartRef.current = false;
+      clearTimeout(silenceTimerRef.current);
+      recognitionRef.current?.stop();
+    };
+  }, []);
+
+  const stopVoice = () => {
+    shouldRestartRef.current = false;
+    clearTimeout(silenceTimerRef.current);
+    recognitionRef.current?.stop();
+    setIsListening(false);
+    setInterimText('');
+  };
+
+  const startVoice = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error('Voice transcription not supported. Please use Chrome or Edge.');
+      return;
+    }
+
+    shouldRestartRef.current = true;
+
+    const initSession = () => {
+      if (!shouldRestartRef.current) return;
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = navigator.language || 'en-US';
+      recognitionRef.current = recognition;
+
+      // Reset silence countdown — called on every speech activity
+      const resetSilenceTimer = () => {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          // No speech for SILENCE_TIMEOUT ms → auto-stop
+          if (shouldRestartRef.current) {
+            shouldRestartRef.current = false;
+            recognition.stop();
+          }
+        }, SILENCE_TIMEOUT);
+      };
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setInterimText('');
+        resetSilenceTimer();
+      };
+
+      recognition.onresult = (event) => {
+        resetSilenceTimer(); // Any speech resets the silence countdown
+        let interim = '';
+        let final = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const t = event.results[i][0].transcript;
+          if (event.results[i].isFinal) final += t;
+          else interim += t;
+        }
+        setInterimText(interim);
+        if (final) {
+          setInterimText('');
+          setContent(prev => {
+            const empty = !prev || prev === '<p><br></p>' || prev.trim() === '';
+            return empty
+              ? `<p>${final.trim()}</p>`
+              : prev.replace(/<p><br><\/p>$/, '') + `<p>${final.trim()}</p>`;
+          });
+        }
+      };
+
+      // Suppress non-critical errors; let onend handle restart
+      recognition.onerror = (e) => {
+        if (e.error === 'aborted' || e.error === 'no-speech' || e.error === 'network') return;
+        toast.error(`Voice error: ${e.error}`);
+        shouldRestartRef.current = false;
+      };
+
+      recognition.onend = () => {
+        if (shouldRestartRef.current) {
+          // Session ended naturally (browser limit / silence) — restart seamlessly
+          setTimeout(initSession, 150);
+        } else {
+          // Manual stop or silence timeout fired
+          setIsListening(false);
+          setInterimText('');
+          clearTimeout(silenceTimerRef.current);
+        }
+      };
+
+      try {
+        recognition.start();
+      } catch {
+        setTimeout(initSession, 300);
+      }
+    };
+
+    initSession();
+  };
+
+  const toggleVoice = () => {
+    if (isListening) stopVoice();
+    else startVoice();
+  };
 
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files);
@@ -74,7 +186,7 @@ export default function NoteEditor({
 
     setIsSaving(true);
     try {
-      const response = await api.post('/notes', {
+      await api.post('/notes', {
         contact_id: contactId,
         deal_id: dealId,
         tenant_id: tenantId,
@@ -116,6 +228,38 @@ export default function NoteEditor({
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
       <input type="file" ref={imageInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
+
+      {/* Voice Transcribe */}
+      <div style={{ position: 'relative' }}>
+        <button
+          type="button"
+          onClick={toggleVoice}
+          title={isListening ? 'Stop voice transcription' : 'Transcribe voice to text'}
+          style={{
+            padding: '6px 8px', borderRadius: '4px', border: 'none',
+            backgroundColor: isListening ? '#fee2e2' : 'transparent',
+            color: isListening ? '#ef4444' : '#64748b',
+            cursor: 'pointer', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', transition: 'all 0.15s ease', outline: 'none'
+          }}
+          onMouseOver={(e) => { if (!isListening) { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.color = '#1e293b'; } }}
+          onMouseOut={(e) => { if (!isListening) { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+          {isListening && (
+            <span style={{
+              position: 'absolute', top: '2px', right: '2px',
+              width: '7px', height: '7px', borderRadius: '50%',
+              backgroundColor: '#ef4444', border: '1.5px solid #fff'
+            }} />
+          )}
+        </button>
+      </div>
 
       {/* Attach Files */}
       <button
@@ -197,6 +341,34 @@ export default function NoteEditor({
             }}
           />
           <div style={{ height: '2px', backgroundColor: 'var(--primary-light)', marginTop: '8px', width: '40px', borderRadius: '2px' }} />
+        </div>
+      )}
+
+      {isListening && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '6px 20px', backgroundColor: '#fff5f5',
+          borderBottom: '1px solid #fee2e2'
+        }}>
+          <style>{`@keyframes voice-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }`}</style>
+          <span style={{
+            width: '8px', height: '8px', borderRadius: '50%',
+            backgroundColor: '#ef4444', flexShrink: 0,
+            animation: 'voice-pulse 1.2s ease-in-out infinite'
+          }} />
+          <span style={{ fontSize: '12px', fontWeight: '600', color: '#dc2626' }}>Listening…</span>
+          {interimText && (
+            <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {interimText}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={toggleVoice}
+            style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: '700', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}
+          >
+            Stop
+          </button>
         </div>
       )}
 
