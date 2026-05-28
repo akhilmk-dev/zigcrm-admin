@@ -157,16 +157,8 @@ export default function Contacts() {
             description: `Updated details of ${values.first_name} ${values.last_name || ''}`
           });
         } else {
-          const response = await api.post('/contacts', values);
+          await api.post('/contacts', values);
           toast.success('Contact created successfully');
-          if (response.data) {
-            saveActivityLog({
-              contact_id: response.data.id,
-              activity_type: 'contact_created',
-              title: 'Created Contact',
-              description: `Created contact: ${values.first_name} ${values.last_name || ''}`
-            });
-          }
         }
         fetchData();
         handleCloseModal();

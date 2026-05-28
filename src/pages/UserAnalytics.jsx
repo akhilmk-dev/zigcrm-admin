@@ -23,6 +23,7 @@ export default function UserAnalytics() {
   const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
   const isTenantAdmin = loggedInUser?.user_type === 'tenant_admin';
+  const isTenantUser = loggedInUser?.user_type === 'tenant_user';
   const canSelectUser = isGlobalAdmin || isTenantAdmin;
 
   const [usersList, setUsersList] = useState([]);
@@ -357,7 +358,8 @@ export default function UserAnalytics() {
           marginBottom: '24px',
           width: '100%'
         }}>
-          {/* User selector */}
+          {/* User selector - hidden for tenant_user */}
+          {!isTenantUser && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: isMobile ? '1' : '4.5', minWidth: '220px' }}>
             <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b', fontFamily: 'Inter, sans-serif' }}>Select User</span>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -410,6 +412,7 @@ export default function UserAnalytics() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Date Selector Popover */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: isMobile ? '1' : '4.5', minWidth: '220px', position: 'relative' }} ref={popoverRef}>
@@ -598,11 +601,12 @@ export default function UserAnalytics() {
         {/* 3. Analytics Grid (Row 1) */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: isMobile ? 'repeat(auto-fit, minmax(220px, 1fr))' : 'repeat(5, 1fr)',
+          gridTemplateColumns: isMobile ? 'repeat(auto-fit, minmax(220px, 1fr))' : (isTenantUser ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)'),
           gap: '16px',
           marginBottom: '16px'
         }}>
-          {/* Card 1: Users */}
+          {/* Card 1: Users - hidden for tenant_user */}
+          {!isTenantUser && (
           <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
               <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -618,6 +622,7 @@ export default function UserAnalytics() {
               </span>
             </div>
           </div>
+          )}
 
           {/* Card 2: Contacts */}
           <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
