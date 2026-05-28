@@ -35,6 +35,36 @@ export default function Roles() {
   // ─── New Role Modal ───────────────────────────────────────────────────────────
   const [isNewRoleModalOpen, setIsNewRoleModalOpen] = useState(false);
 
+  // ─── Edit Role Modal ──────────────────────────────────────────────────────────
+  const [editingRole, setEditingRole] = useState(null);
+
+  const editFormik = useFormik({
+    initialValues: { role_name: '', description: '' },
+    enableReinitialize: true,
+    validationSchema: Yup.object({
+      role_name: Yup.string().required('Role name is required').min(3, 'Min 3 characters').max(100, 'Max 100 characters'),
+      description: Yup.string().max(500, 'Max 500 characters')
+    }),
+    onSubmit: async (values) => {
+      try {
+        await api.patch(`/roles/${editingRole.id}`, {
+          role_name: values.role_name.trim(),
+          description: values.description.trim()
+        });
+        toast.success('Role updated successfully');
+        setEditingRole(null);
+        fetchRoles();
+      } catch (err) {
+        console.error('Update Role Error:', err);
+      }
+    }
+  });
+
+  const openEditModal = (role) => {
+    setEditingRole(role);
+    editFormik.setValues({ role_name: role.role_name, description: role.description || '' });
+  };
+
   const formik = useFormik({
     initialValues: {
       role_name: '',
@@ -379,6 +409,21 @@ export default function Roles() {
                 </Button>
               </Link>
             )}
+            {!row.is_system_role && (
+              <Button
+                type="secondary"
+                size="sm"
+                onClick={() => openEditModal(row)}
+                title="Edit role name and description"
+                style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Edit
+              </Button>
+            )}
             <Button
               type="secondary"
               size="sm"
@@ -553,6 +598,65 @@ export default function Roles() {
         title="Update Permissions"
         message={`Are you sure you want to update the permissions for the role "${selectedRole?.role_name}"?`}
       />
+
+      {/* ─── Edit Role Modal ────────────────────────────────────────────────── */}
+      <Modal
+        isOpen={!!editingRole}
+        onClose={() => setEditingRole(null)}
+        title="Edit Role"
+        footer={<>
+          <Button type="secondary" onClick={() => setEditingRole(null)}>Cancel</Button>
+          <Button onClick={editFormik.handleSubmit} disabled={editFormik.isSubmitting}>
+            {editFormik.isSubmitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </>}
+      >
+        <form onSubmit={editFormik.handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <Input
+            label="Role Name"
+            name="role_name"
+            placeholder="e.g. manager or tenant-operator"
+            value={editFormik.values.role_name}
+            onChange={editFormik.handleChange}
+            onBlur={editFormik.handleBlur}
+            error={editFormik.errors.role_name}
+            touched={editFormik.touched.role_name}
+            required
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Description</label>
+            <textarea
+              name="description"
+              placeholder="Brief description of what this role can do"
+              value={editFormik.values.description}
+              onChange={editFormik.handleChange}
+              onBlur={editFormik.handleBlur}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                minHeight: '90px',
+                borderRadius: '12px',
+                border: `1px solid ${editFormik.touched.description && editFormik.errors.description ? 'var(--danger)' : 'var(--border)'}`,
+                fontSize: '13px',
+                backgroundColor: '#fff',
+                outline: 'none',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+                color: 'var(--text-main)',
+                boxSizing: 'border-box'
+              }}
+              onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+              onBlur={(e) => {
+                editFormik.handleBlur(e);
+                e.target.style.borderColor = editFormik.errors.description ? 'var(--danger)' : 'var(--border)';
+              }}
+            />
+            {editFormik.touched.description && editFormik.errors.description && (
+              <span style={{ fontSize: '12px', color: 'var(--danger)' }}>{editFormik.errors.description}</span>
+            )}
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
