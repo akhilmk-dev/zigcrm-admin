@@ -54,7 +54,7 @@ export default function Plans() {
       header: 'Monthly Price',
       render: (row) => (
         <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>
-          ${row.price} <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '400' }}>/mo</span>
+          ₹{row.price} <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '400' }}>/mo</span>
         </div>
       )
     },

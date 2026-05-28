@@ -4,20 +4,27 @@ export const Modal = ({ isOpen, onClose, title, children, footer }) => {
   if (!isOpen) return null;
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(15, 23, 42, 0.4)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '24px'
-    }}>
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.4)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '24px'
+      }}
+    >
       <div style={{
         backgroundColor: '#fff',
         borderRadius: '16px',
@@ -76,7 +83,7 @@ export const Modal = ({ isOpen, onClose, title, children, footer }) => {
   );
 };
 
-export const Button = ({ children, onClick, type = 'primary', size = 'md', disabled = false, htmlType = 'submit' }) => {
+export const Button = ({ children, onClick, type = 'primary', size = 'md', disabled = false, htmlType = 'submit', style = {}, ...props }) => {
   const baseStyles = {
     borderRadius: 'var(--radius)',
     fontWeight: '600',
@@ -92,8 +99,8 @@ export const Button = ({ children, onClick, type = 'primary', size = 'md', disab
 
   const types = {
     primary: { backgroundColor: 'var(--primary)', color: '#fff' },
-    secondary: { backgroundColor: '#fff', color: 'var(--text-main)', border: '1px solid var(--border)' },
-    ghost: { backgroundColor: 'transparent', color: 'var(--text-main)' },
+    secondary: { backgroundColor: '#fff', color: 'var(--text-main)', border: '1px solid #94a3b8' },
+    ghost: { backgroundColor: 'transparent', color: 'var(--text-main)', border: '1px solid #94a3b8' },
     danger: { backgroundColor: 'var(--danger)', color: '#fff' }
   };
 
@@ -110,8 +117,9 @@ export const Button = ({ children, onClick, type = 'primary', size = 'md', disab
     <button 
       type={htmlType}
       onClick={!disabled ? onClick : undefined}
-      style={{ ...baseStyles, ...selectedType, ...selectedSize }}
+      style={{ ...baseStyles, ...selectedType, ...selectedSize, ...style }}
       disabled={disabled}
+      {...props}
     >
       {children}
     </button>
@@ -218,7 +226,7 @@ export const Select = ({ label, error, touched, required, children, ...props }) 
     </div>
   );
 };
-export const ConfirmModal = ({ isOpen, onClose, onConfirm, title = 'Confirm Action', message = 'Are you sure you want to proceed?', confirmLabel = 'Confirm', cancelLabel = 'Cancel', type = 'danger' }) => {
+export const ConfirmModal = ({ isOpen, onClose, onConfirm, title = 'Confirm Action', message = 'Are you sure you want to proceed?', confirmLabel = 'Confirm', cancelLabel = 'Cancel', type = 'danger', disabled = false }) => {
   if (!isOpen) return null;
 
   return (
@@ -228,8 +236,8 @@ export const ConfirmModal = ({ isOpen, onClose, onConfirm, title = 'Confirm Acti
       title={title}
       footer={
         <>
-          <Button type="secondary" onClick={onClose}>{cancelLabel}</Button>
-          <Button type={type === 'danger' ? 'danger' : 'primary'} onClick={onConfirm}>{confirmLabel}</Button>
+          <Button type="secondary" onClick={onClose} disabled={disabled}>{cancelLabel}</Button>
+          <Button type={type === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} disabled={disabled}>{confirmLabel}</Button>
         </>
       }
     >

@@ -9,6 +9,18 @@ const TextIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', opacity: 0.7 }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
 );
 
+const RoleIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', opacity: 0.7 }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+);
+
+const CompanyIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', opacity: 0.7 }}><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+);
+
+const StatusIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', opacity: 0.7 }}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+);
+
 const StarIcon = ({ filled = false }) => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? "#FFB800" : "none"} stroke={filled ? "#FFB800" : "#CBD5E1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'pointer' }}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
 );
@@ -16,7 +28,7 @@ const StarIcon = ({ filled = false }) => (
 export const Badge = ({ children, type = 'default' }) => {
   const styles = {
     default: { backgroundColor: '#F1F5F9', color: '#475569' },
-    success: { backgroundColor: '#DCFCE7', color: '#15803d' },
+    success: { backgroundColor: '#eff6ff', color: '#1e40af' },
     danger: { backgroundColor: '#FEE2E2', color: '#b91c1c' },
     warning: { backgroundColor: '#FEF3C7', color: '#a16207' },
     primary: { backgroundColor: '#E0F2FE', color: '#0369a1' }
@@ -150,7 +162,47 @@ export const DataTable = ({
       maxWidth: '100%',
       ...containerStyle 
     }}>
-      <div style={{ 
+      <style>
+        {`
+          .sticky-actions {
+            position: sticky !important;
+            right: 0 !important;
+            z-index: 5 !important;
+            background-color: #fff;
+            box-shadow: -4px 0 8px rgba(0,0,0,0.02);
+            border-left: 1px solid var(--table-border) !important;
+          }
+          .table-header-sticky-actions {
+            position: sticky !important;
+            right: 0 !important;
+            z-index: 20 !important;
+            background-color: var(--table-header-bg) !important;
+            box-shadow: -4px 0 8px rgba(0,0,0,0.02);
+            border-left: 1px solid var(--table-border) !important;
+          }
+          .table-row:hover .sticky-actions {
+            background-color: var(--table-row-hover) !important;
+          }
+          /* Custom Scrollbar for better UX */
+          .table-scroll-container::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+          }
+          .table-scroll-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+          }
+          .table-scroll-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+          }
+          .table-scroll-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+          }
+        `}
+      </style>
+      <div 
+        className="table-scroll-container"
+        style={{ 
         overflowX: 'auto', 
         overflowY: 'auto', 
         maxHeight, 
@@ -199,7 +251,14 @@ export const DataTable = ({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {col.header.toLowerCase().includes('name') || col.header.toLowerCase().includes('owner') ? <UserIcon /> : <TextIcon />}
+                    {(() => {
+                      const lower = col.header.toLowerCase();
+                      if (lower.includes('name') || lower.includes('owner') || lower.includes('user')) return <UserIcon />;
+                      if (lower.includes('role')) return <RoleIcon />;
+                      if (lower.includes('company') || lower.includes('tenant')) return <CompanyIcon />;
+                      if (lower.includes('status')) return <StatusIcon />;
+                      return <TextIcon />;
+                    })()}
                     <span style={{ flex: 1 }}>{col.header}</span>
                     {isSortable && (
                       <span style={{ 
@@ -219,6 +278,7 @@ export const DataTable = ({
               )})}
               {actions && (
                 <th 
+                  className="table-header-sticky-actions"
                   style={{ 
                     padding: '12px 20px', 
                     fontSize: '11px', 
@@ -228,12 +288,7 @@ export const DataTable = ({
                     textTransform: 'uppercase', 
                     textAlign: 'right', 
                     letterSpacing: '0.08em',
-                    position: 'sticky',
                     top: 0,
-                    backgroundColor: 'var(--table-header-bg)',
-                    zIndex: 10,
-                    borderBottom: '1px solid var(--table-border)',
-                    borderLeft: '1px solid var(--table-border)',
                     whiteSpace: 'nowrap'
                   }}
                 >
@@ -281,7 +336,10 @@ export const DataTable = ({
                     </td>
                   ))}
                   {actions && (
-                    <td style={{ padding: '12px 20px', textAlign: 'right', borderLeft: '1px solid var(--table-border)' }}>
+                    <td 
+                      className="sticky-actions"
+                      style={{ padding: '12px 20px', textAlign: 'right' }}
+                    >
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                         {actions(row)}
                       </div>

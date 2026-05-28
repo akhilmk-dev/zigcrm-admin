@@ -10,12 +10,14 @@ export default function DashboardLayout() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const [globalCategory, setGlobalCategory] = useState((user?.isSuperAdmin || user?.isAdmin) ? 'tenants' : 'contacts');
   const [searchParams, setSearchParams] = useSearchParams();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const dropdownRef = useRef(null);
   const searchRef = useRef(null);
 
@@ -39,16 +41,17 @@ export default function DashboardLayout() {
     }
 
     const path = location.pathname.split('/')[1];
-    const validCategories = (user?.isSuperAdmin || user?.isAdmin) 
-      ? ['tenants', 'deals', 'users'] 
+    const validCategories = (user?.isSuperAdmin || user?.isAdmin)
+      ? ['tenants', 'deals', 'users']
       : ['contacts', 'deals', 'tasks'];
-      
+
     if (validCategories.includes(path)) {
       setGlobalCategory(path);
     }
   }, [searchParams, location.pathname, user]);
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       await api.post('/auth/logout');
     } catch (err) {
@@ -103,7 +106,7 @@ export default function DashboardLayout() {
       )
     },
     {
-      label: 'Contacts', path: '/contacts', permission: 'contacts.read', icon: (
+      label: 'Contacts', path: '/contacts', permission: 'contacts.read', hideForPlatformAdmin: true, icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
           <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
@@ -113,25 +116,30 @@ export default function DashboardLayout() {
     {
       label: 'Deals', path: '/deals', permission: 'deals.read', icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+          <rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /><path d="M22 13a18.15 18.15 0 0 1-20 0" /><path d="M12 12h.01" />
         </svg>
       )
     },
     {
       label: 'Tasks', path: '/tasks', permission: 'tasks.read', icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 5v14" /><path d="M5 12h14" /><rect x="3" y="3" width="18" height="18" rx="2" />
+          <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
         </svg>
       )
     },
   ];
 
+  const isPlatformAdmin = user?.isSuperAdmin || user?.isAdmin;
+
   const filteredNav = navItems.filter(item => {
+    // Hide items explicitly flagged for platform admins (e.g. Contacts)
+    if (item.hideForPlatformAdmin && isPlatformAdmin) return false;
+
     let isVisible = true;
     if (item.requireSuperAdmin) isVisible = user?.isSuperAdmin;
     else if (item.requirePlatformAdmin) isVisible = user?.isSuperAdmin || user?.isAdmin;
     else if (item.permission) isVisible = hasPermission(item.permission);
-    
+
     if (!isVisible) return false;
     if (searchQuery) return item.label.toLowerCase().includes(searchQuery.toLowerCase());
     return true;
@@ -139,11 +147,13 @@ export default function DashboardLayout() {
 
   const displayName = user?.name || user?.email?.split('@')[0] || 'Account';
 
-  const desktopSidebarWidth = '80px';
-  const sidebarWidth = isMobile ? '280px' : desktopSidebarWidth;
+  const expandedWidth = '260px';
+  const shrunkWidth = '80px';
+  const sidebarWidth = isMobile ? '280px' : (isSidebarExpanded ? expandedWidth : shrunkWidth);
+  const showLabels = isMobile || isSidebarExpanded;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-main)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: location.pathname.includes('/contacts/') ? 'hsl(0deg 0% 98.04%)' : 'var(--bg-main)' }}>
       <style>
         {`
           .sidebar-icon-container {
@@ -232,42 +242,47 @@ export default function DashboardLayout() {
           height: 'var(--header-height, 64px)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: isMobile ? 'flex-start' : 'center',
-          padding: isMobile ? '0 24px' : '0',
+          justifyContent: (isMobile || isSidebarExpanded) ? 'space-between' : 'center',
+          padding: (isMobile || isSidebarExpanded) ? '0 24px' : '0',
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
           whiteSpace: 'nowrap'
         }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            backgroundColor: 'var(--primary)',
-            borderRadius: 'var(--radius-sm)',
-            marginRight: isMobile ? '12px' : '0',
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontFamily: 'var(--font-headline)',
-            fontWeight: '900',
-            fontSize: '20px',
-            boxShadow: '0 4px 14px rgba(6, 200, 93, 0.25)'
-          }}>Z</div>
-          {isMobile && (
-            <span style={{ fontSize: '18px', fontWeight: '800', color: '#fff', letterSpacing: '-0.8px' }}>ZIGCRM</span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              backgroundColor: 'var(--primary)',
+              borderRadius: 'var(--radius-sm)',
+              marginRight: (isMobile || isSidebarExpanded) ? '12px' : '0',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              fontFamily: 'var(--font-headline)',
+              fontWeight: '900',
+              fontSize: '20px',
+              boxShadow: '0 4px 14px rgba(6, 200, 93, 0.25)'
+            }}>Z</div>
+            {(isMobile || isSidebarExpanded) && (
+              <span style={{ fontSize: '18px', fontWeight: '800', color: '#fff', letterSpacing: '-0.8px' }}>ZIGCRM</span>
+            )}
+          </div>
         </div>
 
         {/* Sidebar Search */}
-        <div 
+        <div
           ref={searchRef}
-          style={{ padding: isMobile ? '16px 20px 8px' : '16px 14px 8px' }} 
+          style={{
+            padding: isMobile ? '16px 20px 8px' : '16px 14px 8px',
+            position: 'relative'
+          }}
           className={!isMobile ? "sidebar-icon-container" : ""}
         >
           <div style={{ position: 'relative', width: '100%' }}>
-            {!isMobile ? (
+            {(!isMobile && !isSidebarExpanded) ? (
               <>
-                <button 
+                <button
                   onClick={() => setIsSearchOpen(!isSearchOpen)}
                   className="sidebar-icon-link"
                   style={{
@@ -288,7 +303,7 @@ export default function DashboardLayout() {
                   </svg>
                 </button>
                 {!isSearchOpen && <div className="sidebar-tooltip">Search</div>}
-                
+
                 {isSearchOpen && (
                   <div style={{
                     position: 'absolute',
@@ -332,13 +347,13 @@ export default function DashboardLayout() {
                         borderColor: 'transparent #fff transparent transparent',
                       }} />
                     </div>
-                    
+
                     <div style={{ marginBottom: '8px', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Search Menu
                     </div>
                     <input
                       type="text"
-                      placeholder="Type to search..."
+                      placeholder="Search Dashboard, Users..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       autoFocus
@@ -376,7 +391,7 @@ export default function DashboardLayout() {
                 </span>
                 <input
                   type="text"
-                  placeholder="Search menu..."
+                  placeholder="Search Dashboard, Users..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
@@ -395,12 +410,40 @@ export default function DashboardLayout() {
               </>
             )}
           </div>
+
+          {!isMobile && (
+            <button
+              onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+              style={{
+                position: 'absolute',
+                right: '-12px',
+                top: '50%',
+                transform: `translateY(-50%) ${isSidebarExpanded ? 'rotate(180deg)' : ''}`,
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--primary)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#fff',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+                zIndex: 10
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          )}
         </div>
 
         <nav style={{ flex: 1, padding: '12px 0 24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {filteredNav.map((item) => {
             const isActive = location.pathname === item.path;
-            const showLabels = isMobile;
             return (
               <div key={item.path} className={!isMobile ? "sidebar-icon-container" : ""} style={{ padding: showLabels ? '0 16px' : '0 12px' }}>
                 <Link
@@ -433,7 +476,7 @@ export default function DashboardLayout() {
                   </span>
                   {showLabels && <span>{item.label}</span>}
                 </Link>
-                {!isMobile && <div className="sidebar-tooltip">{item.label}</div>}
+                {!showLabels && <div className="sidebar-tooltip">{item.label}</div>}
               </div>
             );
           })}
@@ -465,21 +508,22 @@ export default function DashboardLayout() {
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
               </svg>
             </span>
-            {isMobile && <span>Sign Out</span>}
+            {showLabels && <span>Sign Out</span>}
           </button>
-          {!isMobile && <div className="sidebar-tooltip">Sign Out</div>}
+          {!showLabels && <div className="sidebar-tooltip">Sign Out</div>}
         </div>
       </aside>
 
       {/* Main Content Area */}
       <div style={{
         flex: 1,
-        marginLeft: isMobile ? '0' : desktopSidebarWidth,
+        marginLeft: isMobile ? '0' : sidebarWidth,
         display: 'flex',
         flexDirection: 'column',
         transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         width: '100%',
-        minWidth: 0
+        minWidth: 0,
+        backgroundColor: location.pathname.includes('/contacts/') ? 'hsl(0deg 0% 98.04%)' : undefined
       }}>
         <header style={{
           height: 'var(--header-height)',
@@ -518,6 +562,15 @@ export default function DashboardLayout() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {(() => {
                   const path = location.pathname;
+                  if (path === '/users/analytics') {
+                    return (
+                      <>
+                        <Link to="/users" style={{ color: 'var(--text-muted)', fontSize: '14px', textDecoration: 'none' }}>Users</Link>
+                        <span style={{ color: 'var(--border)', fontSize: '14px' }}>/</span>
+                        <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>User Analytics</span>
+                      </>
+                    );
+                  }
                   if (path.startsWith('/contacts/') && path.split('/').length === 3) {
                     return (
                       <>
@@ -527,6 +580,52 @@ export default function DashboardLayout() {
                       </>
                     );
                   }
+                  if (path.startsWith('/roles/') && path.split('/').length === 3) {
+                    return (
+                      <>
+                        <Link to="/roles" style={{ color: 'var(--text-muted)', fontSize: '14px', textDecoration: 'none' }}>Roles</Link>
+                        <span style={{ color: 'var(--border)', fontSize: '14px' }}>/</span>
+                        <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>Roles Details</span>
+                      </>
+                    );
+                  }
+                  if (path.startsWith('/deals/') && path.split('/').length === 3) {
+                    return (
+                      <>
+                        <Link to="/deals" style={{ color: 'var(--text-muted)', fontSize: '14px', textDecoration: 'none' }}>Deals</Link>
+                        <span style={{ color: 'var(--border)', fontSize: '14px' }}>/</span>
+                        <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>Deals Details</span>
+                      </>
+                    );
+                  }
+                  if (path.startsWith('/tasks/') && path.split('/').length === 3) {
+                    return (
+                      <>
+                        <Link to="/tasks" style={{ color: 'var(--text-muted)', fontSize: '14px', textDecoration: 'none' }}>Tasks</Link>
+                        <span style={{ color: 'var(--border)', fontSize: '14px' }}>/</span>
+                        <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>Tasks Details</span>
+                      </>
+                    );
+                  }
+                  if (path.startsWith('/users/') && path.split('/').length === 3) {
+                    return (
+                      <>
+                        <Link to="/users" style={{ color: 'var(--text-muted)', fontSize: '14px', textDecoration: 'none' }}>Users</Link>
+                        <span style={{ color: 'var(--border)', fontSize: '14px' }}>/</span>
+                        <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>User Details</span>
+                      </>
+                    );
+                  }
+                  if (path.startsWith('/tenants/') && path.split('/').length === 3) {
+                    return (
+                      <>
+                        <Link to="/tenants" style={{ color: 'var(--text-muted)', fontSize: '14px', textDecoration: 'none' }}>Tenants</Link>
+                        <span style={{ color: 'var(--border)', fontSize: '14px' }}>/</span>
+                        <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>Tenants Details</span>
+                      </>
+                    );
+                  }
+                  if (path === '/profile') return <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>My Profile</span>;
                   const navItem = navItems.find(i => i.path === path);
                   return (
                     <span style={{ color: '#fff', fontSize: '14px', fontWeight: '600' }}>
@@ -540,7 +639,14 @@ export default function DashboardLayout() {
               <span style={{ fontSize: '15px', fontWeight: '700', color: '#fff' }}>
                 {(() => {
                   const path = location.pathname;
+                  if (path === '/users/analytics') return 'User Analytics';
                   if (path.startsWith('/contacts/') && path.split('/').length === 3) return 'Contact detail';
+                  if (path.startsWith('/roles/') && path.split('/').length === 3) return 'Roles Details';
+                  if (path.startsWith('/deals/') && path.split('/').length === 3) return 'Deals Details';
+                  if (path.startsWith('/tasks/') && path.split('/').length === 3) return 'Tasks Details';
+                  if (path.startsWith('/users/') && path.split('/').length === 3) return 'User Details';
+                  if (path.startsWith('/tenants/') && path.split('/').length === 3) return 'Tenants Details';
+                  if (path === '/profile') return 'My Profile';
                   return navItems.find(i => i.path === path)?.label || 'Dashboard';
                 })()}
               </span>
@@ -549,122 +655,122 @@ export default function DashboardLayout() {
 
           {/* Global Search Bar */}
           {(user?.isSuperAdmin || user?.isAdmin || user?.tenantId) && !isMobile && (
-              <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  padding: '2px',
-                  width: '380px',
-                  margin: '0 20px',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              }}>
-                  <select 
-                      value={globalCategory}
-                      onChange={(e) => setGlobalCategory(e.target.value)}
-                      style={{
-                          backgroundColor: 'transparent',
-                          color: '#fff',
-                          border: 'none',
-                          fontSize: '12px',
-                          fontWeight: '700',
-                          padding: '0 12px',
-                          outline: 'none',
-                          cursor: 'pointer',
-                          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-                          height: '32px',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.02em'
-                      }}
-                  >
-                      {(user?.isSuperAdmin || user?.isAdmin) ? (
-                        <>
-                          <option value="tenants" style={{ color: '#000' }}>Tenants</option>
-                          <option value="deals" style={{ color: '#000' }}>Deals</option>
-                          <option value="users" style={{ color: '#000' }}>Users</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="contacts" style={{ color: '#000' }}>Contacts</option>
-                          <option value="deals" style={{ color: '#000' }}>Deals</option>
-                          <option value="tasks" style={{ color: '#000' }}>Tasks</option>
-                        </>
-                      )}
-                  </select>
-                  <input 
-                      type="text"
-                      placeholder={`Search ${globalCategory}...`}
-                      value={globalSearch}
-                      onChange={(e) => setGlobalSearch(e.target.value)}
-                      onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                              if (globalSearch.trim()) {
-                                  navigate(`/${globalCategory}?search=${encodeURIComponent(globalSearch)}`);
-                              } else {
-                                  navigate(`/${globalCategory}`);
-                              }
-                          }
-                      }}
-                      style={{
-                          flex: 1,
-                          backgroundColor: 'transparent',
-                          border: 'none',
-                          color: '#fff',
-                          padding: '8px 12px',
-                          fontSize: '13px',
-                          outline: 'none',
-                          fontFamily: 'inherit'
-                      }}
-                  />
-                  {globalSearch && (
-                      <button 
-                        onClick={() => {
-                            setGlobalSearch('');
-                            navigate(`/${globalCategory}`);
-                        }}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'rgba(255, 255, 255, 0.4)',
-                            padding: '0 8px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      </button>
-                  )}
-                  <button 
-                    onClick={() => {
-                        if (globalSearch.trim()) {
-                            navigate(`/${globalCategory}?search=${encodeURIComponent(globalSearch)}`);
-                        } else {
-                            navigate(`/${globalCategory}`);
-                        }
-                    }}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'rgba(255, 255, 255, 0.5)',
-                        padding: '0 12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'color 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-                    onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.5)'}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-                    </svg>
-                  </button>
-              </div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '12px',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              padding: '2px',
+              width: '380px',
+              margin: '0 20px',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}>
+              <select
+                value={globalCategory}
+                onChange={(e) => setGlobalCategory(e.target.value)}
+                style={{
+                  backgroundColor: 'transparent',
+                  color: '#fff',
+                  border: 'none',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  padding: '0 12px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+                  height: '32px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.02em'
+                }}
+              >
+                {(user?.isSuperAdmin || user?.isAdmin) ? (
+                  <>
+                    <option value="tenants" style={{ color: '#000' }}>Tenants</option>
+                    <option value="deals" style={{ color: '#000' }}>Deals</option>
+                    <option value="users" style={{ color: '#000' }}>Users</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="contacts" style={{ color: '#000' }}>Contacts</option>
+                    <option value="deals" style={{ color: '#000' }}>Deals</option>
+                    <option value="tasks" style={{ color: '#000' }}>Tasks</option>
+                  </>
+                )}
+              </select>
+              <input
+                type="text"
+                placeholder={`Search ${globalCategory}...`}
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (globalSearch.trim()) {
+                      navigate(`/${globalCategory}?search=${encodeURIComponent(globalSearch)}`);
+                    } else {
+                      navigate(`/${globalCategory}`);
+                    }
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  outline: 'none',
+                  fontFamily: 'inherit'
+                }}
+              />
+              {globalSearch && (
+                <button
+                  onClick={() => {
+                    setGlobalSearch('');
+                    navigate(`/${globalCategory}`);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'rgba(255, 255, 255, 0.4)',
+                    padding: '0 8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  if (globalSearch.trim()) {
+                    navigate(`/${globalCategory}?search=${encodeURIComponent(globalSearch)}`);
+                  } else {
+                    navigate(`/${globalCategory}`);
+                  }
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  padding: '0 12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.5)'}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+                </svg>
+              </button>
+            </div>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -710,10 +816,14 @@ export default function DashboardLayout() {
                   justifyContent: 'center',
                   overflow: 'hidden'
                 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
-                  </svg>
+                  {user?.profile_image_url ? (
+                    <img src={user.profile_image_url} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                  )}
                 </div>
                 {!isMobile && (
                   <>
@@ -804,7 +914,7 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main style={{ padding: isMobile ? '16px' : '24px', flex: 1 }}>
+        <main style={{ padding: isMobile ? '16px' : '24px', flex: 1, backgroundColor: location.pathname.includes('/contacts/') ? 'hsl(0deg 0% 98.04%)' : undefined }}>
           <Outlet />
         </main>
       </div>
@@ -851,7 +961,8 @@ export default function DashboardLayout() {
             </p>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
-                onClick={() => setShowLogoutConfirm(false)}
+                disabled={isLoggingOut}
+                onClick={() => !isLoggingOut && setShowLogoutConfirm(false)}
                 style={{
                   flex: 1,
                   padding: '12px',
@@ -859,12 +970,14 @@ export default function DashboardLayout() {
                   border: '1px solid var(--border)',
                   backgroundColor: '#fff',
                   fontWeight: '700',
-                  cursor: 'pointer'
+                  cursor: isLoggingOut ? 'not-allowed' : 'pointer',
+                  opacity: isLoggingOut ? 0.6 : 1
                 }}
               >
                 Cancel
               </button>
               <button
+                disabled={isLoggingOut}
                 onClick={handleLogout}
                 style={{
                   flex: 1,
@@ -874,10 +987,11 @@ export default function DashboardLayout() {
                   backgroundColor: 'var(--danger)',
                   color: '#fff',
                   fontWeight: '700',
-                  cursor: 'pointer'
+                  cursor: isLoggingOut ? 'not-allowed' : 'pointer',
+                  opacity: isLoggingOut ? 0.6 : 1
                 }}
               >
-                Sign Out
+                {isLoggingOut ? "Signing Out..." : "Sign Out"}
               </button>
             </div>
           </div>
