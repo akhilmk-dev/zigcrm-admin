@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { usePermission } from '../hooks/usePermission';
 import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
 import { useFormik } from 'formik';
@@ -17,6 +17,22 @@ export default function Profile() {
   const [showFinalConfirm, setShowFinalConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  const [profileData, setProfileData] = useState(user);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await api.get('/profile');
+        if (response.data?.data) {
+          setProfileData(response.data.data);
+          localStorage.setItem('user', JSON.stringify({ ...user, ...response.data.data }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile:', err);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -78,12 +94,12 @@ export default function Profile() {
 
   const editFormik = useFormik({
     initialValues: {
-      name: user?.name || '',
-      email: user?.email || '',
-      phone: user?.phone || '',
-      address: user?.address || '',
-      country: user?.country || '',
-      timezone: user?.timezone || '',
+      name: profileData?.name || '',
+      email: profileData?.email || '',
+      phone: profileData?.phone || '',
+      address: profileData?.address || '',
+      country: profileData?.country || '',
+      timezone: profileData?.timezone || '',
       profileImage: null
     },
     enableReinitialize: true,
@@ -162,182 +178,369 @@ export default function Profile() {
     );
   }
 
-  const groupedPermissions = user?.permissions?.reduce((acc, perm) => {
-    if (perm === '*') return acc;
-    const [module, action] = perm.split('.');
-    if (!acc[module]) acc[module] = [];
-    acc[module].push(action);
-    return acc;
-  }, {}) || {};
+  const profileItems = [
+    {
+      label: 'Full Name',
+      value: profileData?.name || 'John Doe',
+      icon: (
+        <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+      )
+    },
+    {
+      label: 'Email',
+      value: profileData?.email || 'john.doe@acme.com',
+      icon: (
+        <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+          <polyline points="22,6 12,13 2,6" />
+        </svg>
+      )
+    },
+    {
+      label: 'Date Joined',
+      value: profileData?.created_at ? new Date(profileData.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Jan 15, 2023',
+      icon: (
+        <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+      )
+    },
+    {
+      label: 'Role',
+      value: user?.isSuperAdmin ? 'Platform Super Admin' : (profileData?.tenantRoleName || 'Sales Manager'),
+      icon: (
+        <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        </svg>
+      )
+    },
+    {
+      label: 'Phone',
+      value: profileData?.phone || '+1 (555) 123-4567',
+      icon: (
+        <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+        </svg>
+      )
+    },
+    {
+      label: 'Department',
+      value: profileData?.department || 'Sales',
+      icon: (
+        <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+          <line x1="9" y1="22" x2="9" y2="16" />
+          <line x1="15" y1="22" x2="15" y2="16" />
+          <line x1="9" y1="16" x2="15" y2="16" />
+          <path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M12 6h.01M12 10h.01" />
+        </svg>
+      )
+    },
+    {
+      label: 'Location',
+      value: profileData?.address || (profileData?.country ? `${profileData?.country}` : 'New York, USA'),
+      icon: (
+        <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+          <circle cx="12" cy="10" r="3" />
+        </svg>
+      )
+    },
+    {
+      label: 'Username',
+      value: profileData?.username || profileData?.email?.split('@')[0] || 'johndoe',
+      icon: (
+        <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 14a4 4 0 0 0-4-4h0a4 4 0 0 0-4 4" />
+          <circle cx="12" cy="7" r="2" />
+        </svg>
+      )
+    }
+  ];
+
+  const getPermissionsList = () => {
+    const isSuper = user?.isSuperAdmin || user?.permissions?.includes('*');
+    
+    if (isSuper) {
+      const superModules = [
+        { module: 'Leads', actions: ['manage', 'create', 'update', 'delete', 'view'], desc: 'Unrestricted administration, creation, modification, and tracking of leads.' },
+        { module: 'Contacts', actions: ['manage', 'create', 'update', 'delete', 'view'], desc: 'Unrestricted administration, creation, modification, and management of client contacts.' },
+        { module: 'Deals', actions: ['manage', 'create', 'update', 'delete', 'view'], desc: 'Unrestricted administration, creation, modification, and tracking of deals/pipelines.' },
+        { module: 'Tasks', actions: ['manage', 'create', 'update', 'delete', 'view'], desc: 'Unrestricted access to manage, assign, track, and complete CRM tasks.' },
+        { module: 'Users', actions: ['manage', 'create', 'update', 'delete', 'view'], desc: 'Unrestricted administration and management of organization users and memberships.' },
+        { module: 'Roles', actions: ['manage', 'create', 'update', 'delete', 'view'], desc: 'Unrestricted creation, assignment, and modification of permission roles.' },
+        { module: 'Reports', actions: ['view', 'read'], desc: 'Access to view analytical dashboards and performance metrics.', level: 'Read Only' }
+      ];
+      return superModules.map(m => ({
+        module: m.module,
+        actions: m.actions,
+        accessLevel: m.level || 'Full Access',
+        desc: m.desc
+      }));
+    }
+
+    const rawPermissions = user?.permissions || [];
+    const grouped = {};
+    
+    rawPermissions.forEach(perm => {
+      if (!perm || perm === '*') return;
+      const parts = perm.split('.');
+      if (parts.length < 2) return;
+      
+      const moduleKey = parts[0];
+      const actionKey = parts[1];
+      
+      if (!grouped[moduleKey]) {
+        grouped[moduleKey] = [];
+      }
+      if (!grouped[moduleKey].includes(actionKey)) {
+        grouped[moduleKey].push(actionKey);
+      }
+    });
+
+    const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : '';
+
+    return Object.keys(grouped).map(moduleKey => {
+      const actions = grouped[moduleKey];
+      const moduleName = capitalize(moduleKey);
+      
+      const hasWritePrivileges = actions.some(action => 
+        ['manage', 'create', 'write', 'delete', 'update', 'edit', 'add'].includes(action.toLowerCase())
+      );
+      const accessLevel = hasWritePrivileges ? 'Full Access' : 'Read Only';
+      
+      const actionsString = actions.map(act => act.toLowerCase()).join(', ');
+      const desc = `Assigned privileges in the ${moduleKey} module: ${actionsString}.`;
+
+      return {
+        module: moduleName,
+        actions,
+        accessLevel,
+        desc
+      };
+    });
+  };
+
+  const permissionsList = getPermissionsList();
 
   return (
-    <div style={{ maxWidth: '800px' }}>
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>My Profile</h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Overview of your account settings and access level.</p>
+    <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', padding: '0 24px 48px 24px', boxSizing: 'border-box' }}>
+      
+      {/* Header section exactly like provided image */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.5px' }}>Profile</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+            <span style={{ cursor: 'pointer', transition: 'color 0.2s' }} onClick={() => navigate('/')}>Home</span>
+            <span>&gt;</span>
+            <span style={{ color: '#0f172a', fontWeight: '500' }}>Profile</span>
+          </div>
+        </div>
+        
+        {/* Buttons exactly like the mockup */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={() => setIsEditModalOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: '#ffffff',
+              border: '1.5px solid #3b82f6',
+              color: '#3b82f6',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '13.5px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#eff6ff';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            Edit Profile
+          </button>
+
+          <button
+            onClick={() => setIsModalOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: '#ffffff',
+              border: '1.5px solid #3b82f6',
+              color: '#3b82f6',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '13.5px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#eff6ff';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            Change Password
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gap: '24px' }}>
-        {/* User Info Card */}
-        <div style={{ backgroundColor: '#fff', padding: '32px', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '32px', marginBottom: '32px' }}>
-            {/* Column 1: Profile Icon */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        
+        {/* Profile Information Card */}
+        <div style={{ backgroundColor: '#ffffff', padding: '28px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 24px 0' }}>Profile Information</h2>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '36px', flexWrap: 'wrap' }}>
+            
+            {/* Left: Avatar with green active indicator */}
+            <div style={{ position: 'relative', width: '110px', height: '110px' }}>
               <div style={{
-                width: '80px',
-                height: '80px',
+                width: '100%',
+                height: '100%',
                 borderRadius: '50%',
-                backgroundColor: 'var(--primary)',
-                color: '#fff',
+                backgroundColor: '#f1f5f9',
+                color: '#3b82f6',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '32px',
-                fontWeight: 'bold',
+                fontSize: '36px',
+                fontWeight: '700',
                 overflow: 'hidden',
-                boxShadow: '0 4px 12px rgba(0, 109, 47, 0.2)'
+                border: '1px solid #e2e8f0'
               }}>
-                {user?.profile_image_url ? (
-                  <img src={user.profile_image_url} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {profileData?.profile_image_url ? (
+                  <img src={profileData.profile_image_url} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  user?.email?.[0].toUpperCase()
+                  profileData?.name ? profileData.name[0].toUpperCase() : 'U'
                 )}
               </div>
+              
+              {/* Green indicator */}
+              <div style={{
+                position: 'absolute',
+                bottom: '4px',
+                right: '4px',
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                backgroundColor: '#2563eb',
+                border: '3px solid #ffffff',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+              }}></div>
             </div>
 
-            {/* Column 2: Profile Info */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>{user?.email}</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '8px' }}>ID: {user?.id}</p>
-              <span style={{
-                fontSize: '10px',
-                fontWeight: '700',
-                backgroundColor: 'var(--primary-light)',
-                color: 'var(--primary)',
-                padding: '4px 12px',
-                borderRadius: '20px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em'
-              }}>
-                {user?.isSuperAdmin ? 'Platform Super Admin' : user?.tenantRoleName || 'User'}
-              </span>
-            </div>
-
-            {/* Column 3: Edit Profile Button */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <div
-                onClick={() => setIsEditModalOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  color: 'var(--primary)',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '700',
-                  padding: '10px 16px',
-                  borderRadius: '10px',
-                  transition: 'all 0.2s',
-                  backgroundColor: 'var(--primary-light)',
-                  border: '1px solid transparent'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(0, 109, 47, 0.15)';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--primary-light)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
-                Edit Profile
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr 1fr',
-            gap: '32px',
-            borderTop: '1px solid var(--border)',
-            paddingTop: '32px'
-          }}>
-            {/* Column 1: Account Status */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.05em' }}>Account Status</p>
-              <p style={{ fontWeight: '700', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--success)' }}></span>
-                Active
-              </p>
-            </div>
-
-            {/* Column 2: Member Since */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.05em' }}>Member Since</p>
-              <p style={{ fontWeight: '700', color: 'var(--text-main)' }}>April 2026</p>
-            </div>
-
-            {/* Column 3: Change Password Button */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <Button
-                size="sm"
-                onClick={() => setIsModalOpen(true)}
-                style={{
-                  backgroundColor: '#2563eb',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '10px',
-                  fontWeight: '700',
-                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
-                }}
-              >
-                🔒 Change Password
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Permissions Card */}
-        <div style={{ backgroundColor: '#fff', padding: '32px', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '24px' }}>Active Permissions</h3>
-
-          {user?.permissions?.includes('*') ? (
-            <div style={{ padding: '24px', backgroundColor: 'var(--bg-main)', borderRadius: 'var(--radius)', border: '1px dashed var(--border)' }}>
-              <p style={{ fontWeight: '600', color: 'var(--primary)' }}>Master Access Enabled</p>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>As a Super Admin, you have unrestricted access to all platform and CRM modules.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gap: '20px' }}>
-              {Object.keys(groupedPermissions).length > 0 ? Object.keys(groupedPermissions).map(module => (
-                <div key={module} style={{ padding: '16px', backgroundColor: 'var(--bg-main)', borderRadius: 'var(--radius)' }}>
-                  <h4 style={{ fontSize: '13px', fontWeight: '700', textTransform: 'capitalize', color: 'var(--text-main)', marginBottom: '12px' }}>{module}</h4>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {groupedPermissions[module].map(action => (
-                      <span key={action} style={{
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        backgroundColor: '#fff',
-                        color: 'var(--text-muted)',
-                        padding: '4px 10px',
-                        borderRadius: '4px',
-                        border: '1px solid var(--border)'
-                      }}>
-                        {action}
-                      </span>
-                    ))}
+            {/* Right: Info grid of exactly 9 properties */}
+            <div style={{
+              flex: 1,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '20px 32px'
+            }}>
+              {profileItems.map((item, index) => (
+                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#f8fafc' }}>
+                    {item.icon}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.02em', marginBottom: '2px' }}>{item.label}</div>
+                    <div style={{ fontSize: '13.5px', color: '#0f172a', fontWeight: '700' }}>{item.value}</div>
                   </div>
                 </div>
-              )) : (
-                <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No permissions assigned to this role.</p>
-              )}
+              ))}
             </div>
-          )}
+
+          </div>
         </div>
+
+        {/* Active Permissions Card */}
+        <div style={{ backgroundColor: '#ffffff', padding: '28px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px 0' }}>Active Permissions</h2>
+          <p style={{ color: '#64748b', fontSize: '13px', margin: '0 0 24px 0' }}>This is a list of permissions currently active for your account.</p>
+
+          <div style={{ width: '100%', overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ backgroundColor: '#f8fafc', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', textAlign: 'left', padding: '12px 16px' }}>Module</th>
+                  <th style={{ backgroundColor: '#f8fafc', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', textAlign: 'left', padding: '12px 16px' }}>Active Permissions</th>
+                  <th style={{ backgroundColor: '#f8fafc', color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', textAlign: 'left', padding: '12px 16px' }}>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {permissionsList.map((perm, idx) => (
+                  <tr key={idx} style={{ borderBottom: idx === permissionsList.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                        <circle cx="12" cy="12" r="10" stroke="#2563eb"></circle>
+                        <polyline points="16 9 11 14 8 11"></polyline>
+                      </svg>
+                      <span style={{ fontSize: '13.5px', fontWeight: '600', color: '#0f172a' }}>{perm.module}</span>
+                    </td>
+                    <td style={{ padding: '16px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {perm.actions.map((act, actIdx) => (
+                          <span key={actIdx} style={{
+                            fontSize: '11.5px',
+                            fontWeight: '600',
+                            backgroundColor: '#f8fafc',
+                            color: '#475569',
+                            padding: '3px 9px',
+                            borderRadius: '6px',
+                            border: '1.5px solid #e2e8f0',
+                            textTransform: 'lowercase',
+                            display: 'inline-block'
+                          }}>
+                            {act}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px', fontSize: '13.5px', color: '#64748b' }}>{perm.desc}</td>
+                  </tr>
+                ))}
+                {permissionsList.length === 0 && (
+                  <tr>
+                    <td colSpan="3" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+                      No active permissions assigned to your role.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       {/* Change Password Modal */}

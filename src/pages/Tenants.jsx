@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
@@ -34,13 +34,13 @@ export default function Tenants() {
 
   if (!isPlatformAdmin) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         padding: '80px 20px',
-        textAlign: 'center' 
+        textAlign: 'center'
       }}>
         <div style={{ fontSize: '64px', marginBottom: '24px' }}>🔒</div>
         <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>Access Denied</h1>
@@ -70,13 +70,17 @@ export default function Tenants() {
       email: Yup.string().email('Invalid email address').required('Owner email is required'),
       phone: Yup.string()
         .required('Phone number is required')
-        .test('is-valid-phone', 'Invalid phone number for selected country', function(value) {
+        .matches(/^[0-9]+$/, 'Phone number must contain only digits')
+        .test('is-valid-phone', 'Invalid phone number for selected country', function (value) {
           const { country } = this.parent;
           if (!country || !value) return true;
           const selectedCountry = countries.find(c => c.name === country);
           if (!selectedCountry) return true;
           try {
-            return isValidPhoneNumber(value, selectedCountry.iso);
+            const dialCode = selectedCountry.code.split(',')[0].trim().replace(/[^\d+]/g, '');
+            const phoneWithoutSpaces = value.replace(/\s+/g, '');
+            const fullPhone = phoneWithoutSpaces.startsWith('+') ? phoneWithoutSpaces : `${dialCode}${phoneWithoutSpaces}`;
+            return isValidPhoneNumber(fullPhone);
           } catch (e) {
             return false;
           }
@@ -84,25 +88,46 @@ export default function Tenants() {
       country: Yup.string().required('Country is required'),
       plan_id: Yup.string().required('Subscription plan is required'),
       status: Yup.string().required('Status is required'),
-      password: Yup.string().when('isEditing', {
-          is: () => !editingTenant,
-          then: () => Yup.string().required('Password is required').min(6, 'Min 6 characters')
-      }),
-      re_password: Yup.string().oneOf([Yup.ref('password'), null], 'Passwords must match')
+      password: editingTenant
+        ? Yup.string().test('min-6', 'Password must be at least 6 characters', val => !val || val.length >= 6)
+        : Yup.string().required('Password is required').min(6, 'Password must be at least 6 characters'),
+      re_password: Yup.string()
+        .oneOf([Yup.ref('password'), null], 'Passwords must match')
+        .when('password', {
+          is: (val) => val && val.length > 0,
+          then: (schema) => schema.required('Please confirm password'),
+          otherwise: (schema) => schema.notRequired()
+        })
     }),
     onSubmit: async (values) => {
       try {
+        const selectedCountry = countries.find(c => c.name === values.country);
+        const dialCode = selectedCountry ? selectedCountry.code.split(',')[0].trim().replace(/[^\d+]/g, '') : '';
+        const phoneWithoutSpaces = values.phone?.replace(/\s+/g, '') || '';
+        const fullPhone = phoneWithoutSpaces.startsWith('+') ? phoneWithoutSpaces : `${dialCode}${phoneWithoutSpaces}`;
+
+        const payload = { ...values, phone: fullPhone };
         if (editingTenant) {
-          await api.patch(`/tenants/${editingTenant.id}`, values);
+          await api.patch(`/tenants/${editingTenant.id}`, payload);
           toast.success('Tenant updated successfully');
         } else {
-          await api.post('/tenants', values);
+          await api.post('/tenants', payload);
           toast.success('Tenant created successfully');
         }
         fetchTenants();
         handleCloseModal();
       } catch (err) {
         console.error("Failed to save tenant", err);
+        const errMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to save tenant';
+        if (errMsg.toLowerCase().includes('email')) {
+          formik.setFieldError('email', errMsg);
+          formik.setFieldTouched('email', true, false);
+        } else if (errMsg.toLowerCase().includes('phone')) {
+          formik.setFieldError('phone', errMsg);
+          formik.setFieldTouched('phone', true, false);
+        } else {
+          toast.error(errMsg);
+        }
       }
     }
   });
@@ -142,6 +167,33 @@ export default function Tenants() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const params = new URLSearchParams({
+        search: debouncedSearch,
+        status: statusFilter,
+        sortField,
+        sortOrder,
+        export: 'true'
+      });
+      toast.loading('Exporting tenants...', { id: 'export-tenants' });
+      const response = await api.get(`/tenants?${params.toString()}`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `tenants_export_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      toast.success('Tenants exported successfully', { id: 'export-tenants' });
+    } catch (err) {
+      console.error("Export tenants failed", err);
+      toast.error('Failed to export tenants', { id: 'export-tenants' });
+    }
+  };
+
   useEffect(() => {
     fetchTenants();
   }, [page, debouncedSearch, statusFilter, sortField, sortOrder]);
@@ -162,17 +214,35 @@ export default function Tenants() {
   const handleOpenModal = (tenant = null) => {
     if (tenant) {
       setEditingTenant(tenant);
-      formik.setValues({
-        plan_id: tenant.plan_id || '',
-        name: tenant.owner_name || '',
-        email: tenant.owner_email || '',
-        phone: tenant.owner_phone || '',
-        country: tenant.country || '',
-        status: tenant.owner_status || tenant.status || 'active',
-        password: '',
-        re_password: '',
-        owner_id: tenant.owner_id || '',
-        profile_image_url: tenant.owner_profile_image || ''
+
+      let phoneVal = tenant.owner_phone || '';
+      if (phoneVal && tenant.country) {
+        const selectedCountry = countries.find(c => c.name === tenant.country);
+        if (selectedCountry) {
+          const cleanPhone = phoneVal.replace(/[^\d+]/g, '');
+          const codes = selectedCountry.code.split(',').map(c => c.trim().replace(/[^\d+]/g, ''));
+          for (const code of codes) {
+            if (cleanPhone.startsWith(code)) {
+              phoneVal = cleanPhone.substring(code.length);
+              break;
+            }
+          }
+        }
+      }
+
+      formik.resetForm({
+        values: {
+          plan_id: tenant.plan_id || '',
+          name: tenant.owner_name || '',
+          email: tenant.owner_email || '',
+          phone: phoneVal,
+          country: tenant.country || '',
+          status: tenant.owner_status || tenant.status || 'active',
+          password: '',
+          re_password: '',
+          owner_id: tenant.owner_id || '',
+          profile_image_url: tenant.owner_profile_image || ''
+        }
       });
     } else {
       setEditingTenant(null);
@@ -218,11 +288,11 @@ export default function Tenants() {
       sortKey: 'owner_name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ 
-            width: '32px', 
-            height: '32px', 
-            borderRadius: '8px', 
-            overflow: 'hidden', 
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            overflow: 'hidden',
             backgroundColor: 'var(--bg-muted)',
             display: 'flex',
             alignItems: 'center',
@@ -231,14 +301,16 @@ export default function Tenants() {
             flexShrink: 0
           }}>
             {row.owner_profile_image ? (
-               <img src={getFileUrl(row.owner_profile_image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={getFileUrl(row.owner_profile_image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-               <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
-                 {(row.owner_name || 'T')[0].toUpperCase()}
-               </span>
+              <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                {(row.owner_name || 'T')[0].toUpperCase()}
+              </span>
             )}
           </div>
-          <div style={{ fontWeight: '600' }}>{row.owner_name}</div>
+          <Link to={`/tenants/${row.id}`} style={{ fontWeight: '750', textDecoration: 'none', color: 'var(--text-main)' }} onMouseOver={(e) => e.target.style.color = 'var(--primary)'} onMouseOut={(e) => e.target.style.color = 'var(--text-main)'}>
+            {row.owner_name}
+          </Link>
         </div>
       )
     },
@@ -248,7 +320,7 @@ export default function Tenants() {
         <Badge type="info">{row.plan_name}</Badge>
       )
     },
-    { header: 'Email', key: 'owner_email', sortKey: 'owner_email' },
+    { header: 'Email', key: 'owner_email' },
     { header: 'Country', key: 'country', sortKey: 'country' },
     {
       header: 'Status',
@@ -272,47 +344,50 @@ export default function Tenants() {
           <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Tenants</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Manage all registered platform companies and their status.</p>
         </div>
-        <Button onClick={() => handleOpenModal()}>
-          <span>+</span> Add Tenant
-        </Button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+          </Button>
+          <Button onClick={() => handleOpenModal()}>
+            <span>+</span> Add Tenant
+          </Button>
+        </div>
       </div>
 
       {/* Sticky Filters & Search Row */}
-      <div style={{ 
-        position: 'sticky', 
-        top: 'var(--header-height)', 
-        zIndex: 40, 
-        backgroundColor: 'var(--bg-main)', 
-        paddingTop: '8px',
-        paddingBottom: '16px',
-        margin: '0 -24px 16px -24px',
-        paddingLeft: '24px',
-        paddingRight: '24px',
-        borderBottom: '1px solid var(--border)'
+      <div style={{
+        backgroundColor: '#fff',
+        borderRadius: '16px',
+        border: '1px solid var(--border)',
+        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
+        padding: '16px 20px',
+        margin: '0 0 20px 0',
+        display: 'flex',
+        width: '100%',
+        boxSizing: 'border-box',
+        flexWrap: 'wrap',
+        gap: '16px',
+        alignItems: 'flex-end'
       }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
         {/* Status Filter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Filter by Status:</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
           <select
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value);
-              setPage(page);
+              setPage(1);
             }}
             style={{
               padding: '8px 12px',
               borderRadius: '12px',
               border: '1px solid var(--border)',
-              fontSize: '14px',
+              fontSize: '13px',
               outline: 'none',
-              backgroundColor: '#fff',
+              backgroundColor: '#f8fafc',
+              height: '38px',
+              minWidth: '140px',
               cursor: 'pointer'
             }}
           >
@@ -324,43 +399,88 @@ export default function Tenants() {
         </div>
 
         {/* Search Bar */}
-        <div style={{ position: 'relative', width: '320px' }}>
-          <span style={{ 
-            position: 'absolute', 
-            left: '12px', 
-            top: '50%', 
-            transform: 'translateY(-50%)', 
-            color: 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </span>
-          <input
-            type="text"
-            placeholder="Search name, email or country..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px 8px 36px',
-              borderRadius: '10px',
-              border: '1px solid var(--border)',
-              fontSize: '13px',
-              outline: 'none',
-              backgroundColor: '#fff',
-              transition: 'border-color 0.2s'
-            }}
-            onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-            onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
-          />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '280px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Search</span>
+          <div style={{ position: 'relative', width: '100%' }}>
+            <span style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Search name, email or country..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 32px 10px 36px',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                fontSize: '13px',
+                outline: 'none',
+                backgroundColor: '#f8fafc',
+                transition: 'border-color 0.2s',
+                height: '38px'
+              }}
+              onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+              onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#334155', padding: 0 }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Restore Button */}
+        {(() => {
+          const hasFilters = !!(statusFilter || search);
+          return (
+            <button
+              title={hasFilters ? 'Clear all filters' : 'No active filters'}
+              onClick={() => {
+                if (!hasFilters) return;
+                setStatusFilter('');
+                setSearch('');
+                setPage(1);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '38px',
+                height: '38px',
+                borderRadius: '12px',
+                border: `1px solid ${hasFilters ? '#f87171' : 'var(--border)'}`,
+                backgroundColor: hasFilters ? '#fff1f2' : '#f8fafc',
+                color: hasFilters ? '#dc2626' : '#cbd5e1',
+                cursor: hasFilters ? 'pointer' : 'default',
+                transition: 'all 0.2s',
+                alignSelf: 'flex-end'
+              }}
+              onMouseOver={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = '#fee2e2'; }}
+              onMouseOut={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = '#fff1f2'; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            </button>
+          );
+        })()}
       </div>
-    </div>
 
       <DataTable
         columns={columns}
@@ -402,11 +522,11 @@ export default function Tenants() {
         <form onSubmit={formik.handleSubmit}>
           {/* Owner Profile Image Upload */}
           <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              width: '90px', 
-              height: '90px', 
-              borderRadius: '20px', 
-              backgroundColor: 'var(--bg-muted)', 
+            <div style={{
+              width: '90px',
+              height: '90px',
+              borderRadius: '20px',
+              backgroundColor: 'var(--bg-muted)',
               border: '2px dashed var(--border)',
               display: 'flex',
               alignItems: 'center',
@@ -415,12 +535,12 @@ export default function Tenants() {
               overflow: 'hidden'
             }}>
               {formik.values.profile_image_url ? (
-                 <img src={getFileUrl(formik.values.profile_image_url)} alt="Owner Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={getFileUrl(formik.values.profile_image_url)} alt="Owner Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <span style={{ color: 'var(--text-muted)', fontSize: '32px' }}>🏢</span>
               )}
-              <input 
-                type="file" 
+              <input
+                type="file"
                 accept="image/*"
                 style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
                 onChange={async (e) => {
@@ -454,7 +574,7 @@ export default function Tenants() {
             >
               <option value="">Select Plan</option>
               {plans.map(p => (
-                <option key={p.id} value={p.id}>{p.plan_name} (${p.price})</option>
+                <option key={p.id} value={p.id}>{p.plan_name} (₹{p.price})</option>
               ))}
             </Select>
           </div>
@@ -491,18 +611,7 @@ export default function Tenants() {
               name="country"
               value={formik.values.country}
               onChange={(e) => {
-                const countryName = e.target.value;
-                const selectedCountry = countries.find(c => c.name === countryName);
-                formik.setFieldValue('country', countryName);
-                
-                if (selectedCountry) {
-                  const currentPhone = formik.values.phone;
-                  // If phone is empty or only contains a previous dial code, update it
-                  const isJustCode = countries.some(c => currentPhone.trim() === c.code);
-                  if (!currentPhone || isJustCode) {
-                    formik.setFieldValue('phone', selectedCountry.code + ' ');
-                  }
-                }
+                formik.setFieldValue('country', e.target.value);
               }}
               onBlur={formik.handleBlur}
               error={formik.errors.country}
@@ -519,14 +628,34 @@ export default function Tenants() {
           <Input
             label="Phone Number"
             name="phone"
-            placeholder="+1 234 567 890"
+            type="tel"
+            placeholder="e.g. 9876543210"
             value={formik.values.phone}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            onKeyDown={(e) => {
+              if (
+                ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) ||
+                (e.key === 'a' && (e.ctrlKey === true || e.metaKey === true)) ||
+                (e.key === 'c' && (e.ctrlKey === true || e.metaKey === true)) ||
+                (e.key === 'v' && (e.ctrlKey === true || e.metaKey === true)) ||
+                (e.key === 'x' && (e.ctrlKey === true || e.metaKey === true))
+              ) {
+                return;
+              }
+              if (!/^[0-9]$/.test(e.key)) {
+                e.preventDefault();
+              }
+            }}
             error={formik.errors.phone}
             touched={formik.touched.phone}
             required
-            helperText="Include country code (e.g. +91 9876543210)"
+            helperText={
+              (() => {
+                const sel = countries.find(c => c.name === formik.values.country);
+                return sel ? `Enter mobile number without country code (starts with ${sel.code})` : 'Enter mobile number without country code';
+              })()
+            }
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -552,7 +681,7 @@ export default function Tenants() {
               onBlur={formik.handleBlur}
               error={formik.errors.re_password}
               touched={formik.touched.re_password}
-              required={!editingTenant}
+              required={!editingTenant || !!formik.values.password}
             />
           </div>
 
@@ -562,6 +691,8 @@ export default function Tenants() {
             value={formik.values.status}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            error={formik.errors.status}
+            touched={formik.touched.status}
             required
           >
             <option value="active">Active</option>
@@ -571,7 +702,7 @@ export default function Tenants() {
         </form>
       </Modal>
 
-      <ConfirmModal 
+      <ConfirmModal
         isOpen={!!tenantToDelete}
         onClose={() => setTenantToDelete(null)}
         onConfirm={handleDelete}

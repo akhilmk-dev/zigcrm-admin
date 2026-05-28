@@ -36,6 +36,17 @@ export const getFileUrl = (path) => {
     return `${FILE_BASE_URL}${hasLeadingSlash ? '' : '/'}${cleanPath}`;
 };
 
+/**
+ * Helper to record activity logs silently.
+ */
+export const saveActivityLog = async (logData) => {
+    try {
+        await api.post('/logs', logData);
+    } catch (err) {
+        console.error("Failed to save activity log", err);
+    }
+};
+
 // Flag to track preventing infinite loops on refresh failures
 let isRefreshing = false;
 let refreshSubscribers = [];

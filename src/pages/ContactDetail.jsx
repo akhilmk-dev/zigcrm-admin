@@ -1,36 +1,77 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import api, { getFileUrl } from '../api/axiosConfig';
+import api, { getFileUrl, saveActivityLog } from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import RichTextEditor from '../components/RichTextEditor';
 import NoteEditor from '../components/NoteEditor';
 import NoteItem from '../components/NoteItem';
 import { toast } from 'react-hot-toast';
-import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { PhoneInput } from '../components/common/PhoneInput';
+import { SearchableSelect } from '../components/common/SearchableSelect';
+import CRMWorkspaceTabs from '../components/common/CRMWorkspaceTabs';
+
+const formatRelativeDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'N/A';
+  const now = new Date();
+
+  const isToday = date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+
+  const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  if (isToday) {
+    return `Today, ${timeStr}`;
+  } else if (isYesterday) {
+    return `Yesterday, ${timeStr}`;
+  } else {
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${dateStr}, ${timeStr}`;
+  }
+};
 
 export default function ContactDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('notes');
-  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
-  const [expandedNoteId, setExpandedNoteId] = useState(null);
-  const [isNoteEditorExpanded, setIsNoteEditorExpanded] = useState(true);
-  
+  const [activeTab, setActiveTab] = useState('activities');
+  const [noteTitle, setNoteTitle] = useState('');
+  const [isNoteEditorExpanded, setIsNoteEditorExpanded] = useState(false);
+
+  // More Actions dropdown state (removed -- using direct Delete button)
+
+  // Search & Filter state for Activities/Timeline
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterTime, setFilterTime] = useState('all');
+
   // Edit Modal States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [viewingTask, setViewingTask] = useState(null);
   const [viewingDeal, setViewingDeal] = useState(null);
   const [tenants, setTenants] = useState([]);
+  const [tenantUsers, setTenantUsers] = useState([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [taskPage, setTaskPage] = useState(1);
+  const [activityPage, setActivityPage] = useState(1);
+  const [notePage, setNotePage] = useState(1);
   const [dealPage, setDealPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const [taskPage, setTaskPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const isInitialMount = useRef(true);
 
   // Add Task/Deal States
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
@@ -39,6 +80,92 @@ export default function ContactDetail() {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [selectedDealId, setSelectedDealId] = useState('');
+  const [showDealDropdown, setShowDealDropdown] = useState(false);
+
+  const [communicationModal, setCommunicationModal] = useState({
+    isOpen: false,
+    type: '',
+    destination: '',
+    title: '',
+    message: ''
+  });
+
+  const handleQuickContactClick = (e, type, destination) => {
+    if (e) e.preventDefault();
+    if (!destination) {
+      toast.error(`No ${type === 'mail' ? 'email address' : 'phone number'} available for this contact.`);
+      return;
+    }
+
+    let title = '';
+    let message = '';
+    
+    if (type === 'mail') {
+      title = 'Send Email';
+      message = `Would you like to send an email to ${data?.contact?.first_name || ''} at ${destination}? This will also log a "Mail" activity note in the contact timeline.`;
+    } else if (type === 'call') {
+      title = 'Make Phone Call';
+      message = `Would you like to call ${data?.contact?.first_name || ''} at ${destination}? This will also log a "call" activity note in the contact timeline.`;
+    } else if (type === 'whatsapp') {
+      title = 'Connect on WhatsApp';
+      message = `Would you like to open WhatsApp to message ${data?.contact?.first_name || ''} at ${destination}? This will also log a "Whatsapp" activity note in the contact timeline.`;
+    }
+
+    setCommunicationModal({
+      isOpen: true,
+      type,
+      destination,
+      title,
+      message
+    });
+  };
+
+  const handleConfirmCommunication = async () => {
+    const { type, destination } = communicationModal;
+    setCommunicationModal(prev => ({ ...prev, isOpen: false }));
+
+    try {
+      let noteTitle = '';
+      let noteContent = '';
+
+      if (type === 'mail') {
+        noteTitle = 'contacted through mail';
+        noteContent = 'contacted through mail';
+      } else if (type === 'call') {
+        noteTitle = 'connected to call';
+        noteContent = 'connected to call';
+      } else if (type === 'whatsapp') {
+        noteTitle = 'contacted through whatsapp';
+        noteContent = 'contacted through whatsapp';
+      }
+
+      // Create the activity log via API POST /logs
+      await api.post('/logs', {
+        contact_id: id,
+        activity_type: type, // 'mail', 'call', or 'whatsapp'
+        title: noteTitle,
+        description: noteContent
+      });
+
+      toast.success(`${noteTitle} logged successfully.`);
+
+      // Direct page redirection
+      if (type === 'mail') {
+        window.location.href = `mailto:${destination}`;
+      } else if (type === 'call') {
+        window.location.href = `tel:${destination}`;
+      } else if (type === 'whatsapp') {
+        window.open(`https://wa.me/${destination.replace(/\D/g, '')}`, '_blank', 'noopener,noreferrer');
+      }
+
+      // Silent reload of lists
+      fetchDetail(true);
+    } catch (err) {
+      console.error("Create quick note error", err);
+      toast.error('Failed to log activity note.');
+    }
+  };
 
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
@@ -55,7 +182,11 @@ export default function ContactDetail() {
       tags: '',
       status: 'lead',
       tenant_id: '',
-      profession: ''
+      profession: '',
+      assigned_to: '',
+      profile_image_url: '',
+      address: '',
+      gst_no: ''
     },
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
@@ -64,14 +195,20 @@ export default function ContactDetail() {
       phone: Yup.string()
         .required('Phone number is required')
         .matches(/^\+?[\d\s-]{7,15}$/, 'Invalid phone number format'),
-      company_name: Yup.string().required('Workplace name is required'),
-      profession: Yup.string().required('Profession is required')
+      company_name: Yup.string(),
+      profession: Yup.string()
     }),
     onSubmit: async (values) => {
       try {
         await api.patch(`/contacts/${id}`, values);
         toast.success('Contact updated successfully');
         setIsEditModalOpen(false);
+        saveActivityLog({
+          contact_id: id,
+          activity_type: 'contact_updated',
+          title: 'Updated Contact',
+          description: `Updated contact profile details`
+        });
         fetchDetail();
       } catch (err) {
         console.error("Update contact error", err);
@@ -89,7 +226,8 @@ export default function ContactDetail() {
       assigned_to: '',
       contact_id: id,
       document_url: '',
-      tenant_id: ''
+      tenant_id: '',
+      deal_id: ''
     },
     validationSchema: Yup.object({
       title: Yup.string().required('Task title is required'),
@@ -113,7 +251,7 @@ export default function ContactDetail() {
     initialValues: {
       deal_name: '',
       value: '',
-      stage: 'prospecting',
+      stage: 'lead',
       contact_id: id,
       status: 'open',
       tenant_id: '',
@@ -122,8 +260,8 @@ export default function ContactDetail() {
     validationSchema: Yup.object({
       deal_name: Yup.string().required('Deal name is required'),
       value: Yup.number()
-        .typeError('Value must be a number')
-        .positive('Value must be greater than 0')
+        .typeError('Invalid value. Only numbers are allowed')
+        .min(0, 'Value cannot be negative')
         .required('Deal value is required')
     }),
     onSubmit: async (values) => {
@@ -139,11 +277,27 @@ export default function ContactDetail() {
     }
   });
 
+  // Synchronize status with pipeline stage for Deal modal
+  useEffect(() => {
+    const stage = addDealFormik.values.stage;
+    if (stage === 'won' || stage === 'lost') {
+      addDealFormik.setFieldValue('status', stage);
+    } else if (stage === 'lead' || stage === 'qualification' || stage === 'proposal' || stage === 'negotiation' || stage === 'prospecting') {
+      addDealFormik.setFieldValue('status', 'open');
+    }
+  }, [addDealFormik.values.stage]);
+
   const fetchDetail = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const response = await api.get(`/contacts/${id}`);
+      const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+      const dateParam = filterTime && filterTime !== 'all' ? `&dateFilter=${filterTime}` : '';
+      const response = await api.get(`/contacts/${id}?activities_limit=5&tasks_limit=5&notes_limit=5&deals_limit=5${searchParam}${dateParam}`);
       setData(response.data);
+      setActivityPage(1);
+      setNotePage(1);
+      setDealPage(1);
+      setTaskPage(1);
     } catch (err) {
       console.error("Fetch detail error", err);
       if (err.response?.status === 404) {
@@ -154,15 +308,142 @@ export default function ContactDetail() {
     }
   };
 
+  const fetchTabDetail = async (tabName, pageNum, limitVal = ITEMS_PER_PAGE, append = false) => {
+    try {
+      const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+      const dateParam = filterTime && filterTime !== 'all' ? `&dateFilter=${filterTime}` : '';
+      const response = await api.get(`/contacts/${id}?type=${tabName}&page=${pageNum}&limit=${limitVal}${searchParam}${dateParam}`);
+      setData(prev => {
+        if (!prev) return prev;
+        const responseData = response.data[tabName];
+        if (!responseData) return prev;
+
+        const newItems = responseData.data || [];
+        const currentItems = append ? (prev[tabName]?.data || []) : [];
+
+        // Merge items ensuring unique IDs
+        const mergedData = [...currentItems];
+        newItems.forEach(item => {
+          if (!mergedData.some(existing => existing.id === item.id)) {
+            mergedData.push(item);
+          }
+        });
+
+        return {
+          ...prev,
+          [tabName]: {
+            ...prev[tabName],
+            ...responseData,
+            data: mergedData
+          }
+        };
+      });
+    } catch (err) {
+      console.error(`Fetch tab ${tabName} error`, err);
+    }
+  };
+
+  const handleActivityLoadMore = () => {
+    const nextPage = activityPage + 1;
+    setActivityPage(nextPage);
+    fetchTabDetail('activities', nextPage, ITEMS_PER_PAGE, true);
+  };
+
+  const handleNoteLoadMore = () => {
+    const nextPage = notePage + 1;
+    setNotePage(nextPage);
+    fetchTabDetail('notes', nextPage, ITEMS_PER_PAGE, true);
+  };
+
+  const handleDealLoadMore = () => {
+    const nextPage = dealPage + 1;
+    setDealPage(nextPage);
+    fetchTabDetail('deals', nextPage, ITEMS_PER_PAGE, true);
+  };
+
+  const handleTaskLoadMore = () => {
+    const nextPage = taskPage + 1;
+    setTaskPage(nextPage);
+    fetchTabDetail('tasks', nextPage, ITEMS_PER_PAGE, true);
+  };
+
+  const handleActivityCollapse = () => {
+    setActivityPage(1);
+    setData(prev => {
+      if (!prev || !prev.activities) return prev;
+      return {
+        ...prev,
+        activities: {
+          ...prev.activities,
+          data: prev.activities.data.slice(0, 5)
+        }
+      };
+    });
+  };
+
+  const handleNoteCollapse = () => {
+    setNotePage(1);
+    setData(prev => {
+      if (!prev || !prev.notes) return prev;
+      return {
+        ...prev,
+        notes: {
+          ...prev.notes,
+          data: prev.notes.data.slice(0, 5)
+        }
+      };
+    });
+  };
+
+  const handleDealCollapse = () => {
+    setDealPage(1);
+    setData(prev => {
+      if (!prev || !prev.deals) return prev;
+      return {
+        ...prev,
+        deals: {
+          ...prev.deals,
+          data: prev.deals.data.slice(0, 5)
+        }
+      };
+    });
+  };
+
+  const handleTaskCollapse = () => {
+    setTaskPage(1);
+    setData(prev => {
+      if (!prev || !prev.tasks) return prev;
+      return {
+        ...prev,
+        tasks: {
+          ...prev.tasks,
+          data: prev.tasks.data.slice(0, 5)
+        }
+      };
+    });
+  };
+
   useEffect(() => {
-    fetchDetail();
-  }, [id]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      fetchDetail(false);
+      isInitialMount.current = false;
+    } else {
+      fetchDetail(true);
+    }
+  }, [id, debouncedSearch, filterTime]);
 
   useEffect(() => {
     if (data?.contact?.tenant_id) {
       addTaskFormik.setFieldValue('tenant_id', data.contact.tenant_id);
       addDealFormik.setFieldValue('tenant_id', data.contact.tenant_id);
-      
+
       // Fetch staff for this tenant
       api.get(`/users?tenant_id=${data.contact.tenant_id}`)
         .then(res => setStaff(res.data.data || []))
@@ -170,10 +451,27 @@ export default function ContactDetail() {
     }
   }, [data?.contact?.tenant_id]);
 
+  useEffect(() => {
+    const tid = formik.values.tenant_id || loggedInUser?.tenantId;
+    if (tid) {
+      api.get(`/users?tenant_id=${tid}&scope=tenant&limit=100`)
+        .then(res => setTenantUsers(res.data.data || []))
+        .catch(console.error);
+    } else {
+      setTenantUsers([]);
+    }
+  }, [formik.values.tenant_id]);
+
   const handleConfirmDelete = async () => {
     try {
       await api.delete(`/contacts/${id}`);
       toast.success('Contact deleted successfully');
+      saveActivityLog({
+        contact_id: id,
+        activity_type: 'contact_deleted',
+        title: 'Deleted Contact',
+        description: `Deleted contact: ${data?.contact?.first_name} ${data?.contact?.last_name || ''}`
+      });
       navigate('/contacts');
     } catch (err) {
       console.error("Delete contact error", err);
@@ -195,13 +493,17 @@ export default function ContactDetail() {
       tags: contact.tags || '',
       status: contact.status,
       tenant_id: contact.tenant_id || '',
-      profession: contact.profession || ''
+      profession: contact.profession || '',
+      assigned_to: contact.assigned_to || '',
+      profile_image_url: contact.profile_image_url || '',
+      address: contact.address || '',
+      gst_no: contact.gst_no || ''
     });
-    
+
     if (isGlobalAdmin) {
       api.get('/tenants').then(res => setTenants(res.data.data || []));
     }
-    
+
     setIsEditModalOpen(true);
   };
 
@@ -230,6 +532,9 @@ export default function ContactDetail() {
         tenant_id: data?.contact?.tenant_id || ''
       }
     });
+    if (isGlobalAdmin && tenants.length === 0) {
+      api.get('/tenants').then(res => setTenants(res.data.data || []));
+    }
     setIsAddDealModalOpen(true);
   };
 
@@ -278,501 +583,2458 @@ export default function ContactDetail() {
     }
   };
 
+  // (previous dropdown handling removed)
+
   if (loading) return <ContactDetailSkeleton />;
   if (!data) return null;
+
   const contact = data.contact || {};
-  const tasks = data.tasks || [];
-  const deals = data.deals || [];
-  const notes = data.notes || [];
+  const tasks = data.tasks?.data || [];
+  const deals = data.deals?.data || [];
+  const notes = data.notes?.data || [];
+  const activities = data.activities?.data || [];
+
+  // 1. Dynamic Deal Value Calculation
+  const totalDealValue = deals.reduce((sum, d) => sum + Number(d.value || 0), 0);
+
+  // Helper mappings
+  const mapNote = (n) => ({
+    id: `note-${n.id}`,
+    originalId: n.id,
+    type: 'note',
+    date: new Date(n.created_at),
+    title: 'Note added',
+    subTitle: n.title,
+    description: n.content,
+    author: n.author_name || 'System',
+    attachments: n.attachments,
+    badgeColor: '#f97316', // Orange
+    icon: (
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+      </svg>
+    ),
+    deal: n.deal
+  });
+
+  const mapDeal = (d) => ({
+    id: `deal-${d.id}`,
+    originalId: d.id,
+    type: 'deal',
+    date: new Date(d.created_at),
+    title: 'Deal associated',
+    subTitle: d.deal_name,
+    description: `New CRM Deal associated. Stage: <strong style="color: var(--primary); font-weight: 700; text-transform: uppercase; background-color: #eff6ff; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${d.stage?.replace('_', ' ')}</strong>. Value: <strong style="color: #2563eb; font-weight: 800; background-color: #eff6ff; padding: 2px 6px; border-radius: 4px; font-size: 12px;">₹${Number(d.value || 0).toLocaleString('en-IN')}</strong>`,
+    author: d.assignee_name || 'System',
+    badgeColor: '#1e3a8a', // Dark blue
+    icon: (
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /><path d="M22 13a18.15 18.15 0 0 1-20 0" /><path d="M12 12h.01" />
+      </svg>
+    )
+  });
+
+  const mapTask = (t) => ({
+    id: `task-${t.id}`,
+    originalId: t.id,
+    type: 'task',
+    date: new Date(t.created_at),
+    title: 'Task created',
+    subTitle: t.title,
+    taskDescription: t.description || 'No description provided.',
+    description: `Task assigned. Priority: ${t.priority.toUpperCase()}. Due Date: ${t.due_date ? new Date(t.due_date).toLocaleDateString() : 'No limit'}`,
+    author: t.assignee_name || 'System',
+    priority: t.priority,
+    status: t.status,
+    due_date: t.due_date,
+    badgeColor: '#8b5cf6', // Purple
+    icon: (
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </svg>
+    )
+  });
+
+  const mapGenericActivity = (act) => {
+    const type = act.activity_type || act.type || 'activity';
+    const isContactEvent = type.includes('contact');
+    return {
+      id: act.id,
+      originalId: act.id,
+      type: type,
+      date: act.created_at ? new Date(act.created_at) : (act.date ? new Date(act.date) : new Date()),
+      title: act.title || 'Activity',
+      subTitle: '',
+      description: act.description || '',
+      author: act.author_name || act.author || 'System',
+      badgeColor: isContactEvent ? '#2563eb' : '#64748b', // blue for contact events, slate for others
+      icon: isContactEvent ? (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+        </svg>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+        </svg>
+      )
+    };
+  };
+
+  const formatActivityItem = (act) => {
+    const type = act.activity_type || act.type;
+    if (type === 'note') return mapNote(act);
+    if (type === 'deal') return mapDeal(act);
+    if (type === 'task') return mapTask(act);
+    return mapGenericActivity(act);
+  };
+
+  const activitiesToShow = activities.map(formatActivityItem);
+  const notesToShow = notes.map(mapNote);
+  const dealsToShow = deals.map(mapDeal);
+  const tasksToShow = tasks.map(mapTask);
+
+  // Timeline Filtering Logic
+  const filteredActivities = activitiesToShow.filter(act => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchTitle = act.title.toLowerCase().includes(query);
+      const matchSub = (act.subTitle || '').toLowerCase().includes(query);
+      const matchDesc = (act.description || '').toLowerCase().includes(query);
+      if (!matchTitle && !matchSub && !matchDesc) return false;
+    }
+    if (filterType !== 'all') {
+      if (act.type !== filterType) return false;
+    }
+    if (filterTime !== 'all') {
+      const now = new Date();
+      const diffTime = Math.abs(now - act.date);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (filterTime === 'today' && diffDays > 1) return false;
+      if (filterTime === 'week' && diffDays > 7) return false;
+      if (filterTime === 'month' && diffDays > 30) return false;
+    }
+    return true;
+  });
+
+  const filteredNotes = notesToShow.filter(act => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchTitle = act.title.toLowerCase().includes(query);
+      const matchSub = (act.subTitle || '').toLowerCase().includes(query);
+      const matchDesc = (act.description || '').toLowerCase().includes(query);
+      if (!matchTitle && !matchSub && !matchDesc) return false;
+    }
+    return true;
+  });
+
+  const filteredDeals = dealsToShow.filter(act => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchTitle = act.title.toLowerCase().includes(query);
+      const matchSub = (act.subTitle || '').toLowerCase().includes(query);
+      const matchDesc = (act.description || '').toLowerCase().includes(query);
+      if (!matchTitle && !matchSub && !matchDesc) return false;
+    }
+    return true;
+  });
+
+  const filteredTasks = tasksToShow.filter(act => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchTitle = act.title.toLowerCase().includes(query);
+      const matchSub = (act.subTitle || '').toLowerCase().includes(query);
+      const matchDesc = (act.description || '').toLowerCase().includes(query);
+      if (!matchTitle && !matchSub && !matchDesc) return false;
+    }
+    return true;
+  });
+
+  const activitiesRemaining = (data?.activities?.pagination?.totalCount || 0) - activities.length;
+  const notesRemaining = (data?.notes?.pagination?.totalCount || 0) - notes.length;
+  const dealsRemaining = (data?.deals?.pagination?.totalCount || 0) - deals.length;
+  const tasksRemaining = (data?.tasks?.pagination?.totalCount || 0) - tasks.length;
 
   return (
-    <div className="contact-detail-container">
+    <div className="contact-detail-workspace" style={{ padding: '0 0 24px 0', minHeight: '100vh', marginTop: '0', backgroundColor: 'hsl(0deg 0% 98.04%)' }}>
       <style>{`
-        .contact-detail-layout {
+        .contact-detail-grid {
           display: grid;
-          grid-template-columns: minmax(320px, 1fr) 2.5fr;
-          gap: 32px;
+          grid-template-columns: minmax(310px, 340px) 1fr;
+          gap: 20px;
           align-items: start;
         }
-
-        .contact-tabs-header {
+        
+        .crm-left-col {
           display: flex;
-          border-bottom: 1px solid var(--border);
-          padding: 0 24px;
-          overflow-x: auto;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
+          flex-direction: column;
+          gap: 20px;
+          min-width: 0;
         }
-        .contact-tabs-header::-webkit-scrollbar {
-          display: none;
+
+        .crm-right-col {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          min-width: 0;
+        }
+
+        .crm-card {
+          background-color: #fff;
+          border-radius: 10px;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+          overflow: hidden;
+          transition: all 0.2s ease;
+        }
+
+        .quick-contact-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background-color: #eff6ff;
+          color: #2563eb;
+          border: none;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-decoration: none;
+        }
+
+        .quick-contact-btn:hover {
+          background-color: #dbeafe;
+          transform: translateY(-1px);
+        }
+
+        .deal-summary-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 20px;
+          border-bottom: 1px solid #f1f5f9;
+          transition: background-color 0.15s;
+        }
+
+        .deal-summary-item:hover {
+          background-color: #f8fafc;
+        }
+
+        .crm-tab-btn {
+          padding: 14px 20px;
+          font-size: 13.5px;
+          font-weight: 700;
+          color: #64748b;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          border-bottom: 2px solid transparent;
+          border-radius: 0;
+          transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .crm-tab-btn.active {
+          color: hsl(218.71deg 90.89% 73.35%);
+          border-bottom-color: #2563eb;
+        }
+
+        .timeline-line {
+          position: absolute;
+          left: 21px;
+          top: 28px;
+          bottom: 4px;
+          width: 2px;
+          background-color: #f1f5f9;
+        }
+
+        .timeline-item-container {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding-bottom: 8px;
+        }
+
+        .timeline-item-container:last-child {
+          padding-bottom: 0;
+        }
+
+        .timeline-node {
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2;
+          flex-shrink: 0;
+          border: 3px solid #fff;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
 
         @media (max-width: 1024px) {
-          .contact-detail-layout {
+          .contact-detail-grid {
             grid-template-columns: 1fr;
-            gap: 24px;
-          }
-          
-          .contact-detail-sidebar {
-            order: 1;
-          }
-          
-          .contact-detail-main {
-            order: 2;
-          }
-
-          .contact-tabs-header {
-            padding: 0 16px;
-          }
-
-          .contact-main-content {
-            padding: 20px !important;
+            gap: 20px;
           }
         }
 
-        @media (max-width: 640px) {
-          .contact-detail-container {
-            padding: 16px;
-          }
-          
-          .contact-profile-card {
-             padding: 24px !important;
+        @media (max-width: 768px) {
+          .contact-detail-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 12px !important;
+            margin-bottom: 12px !important;
           }
 
-          .contact-info-card {
+          .contact-detail-header-actions {
+            width: 100% !important;
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+          }
+
+          .contact-detail-header-actions button {
+            flex: 1 1 calc(50% - 4px) !important;
+            min-width: 120px !important;
+            padding: 8px 10px !important;
+            font-size: 12.5px !important;
+            justify-content: center !important;
+          }
+
+          div.crm-card {
             padding: 16px !important;
+          }
+
+          .profile-top-info {
+            flex-direction: column !important;
+            align-items: center !important;
+            text-align: center !important;
+            gap: 12px !important;
+          }
+
+          .profile-top-info h2 {
+            text-align: center !important;
+            justify-content: center !important;
+          }
+
+          .profile-top-info div {
+            justify-content: center !important;
+          }
+
+          .profile-structured-rows span {
+            word-break: break-word !important;
+            white-space: normal !important;
+          }
+
+          .contact-detail-tabs {
+            display: flex !important;
+            width: 100% !important;
+            overflow-x: auto !important;
+            white-space: nowrap !important;
+            -webkit-overflow-scrolling: touch !important;
+            scrollbar-width: none !important;
+          }
+
+          .contact-detail-tabs::-webkit-scrollbar {
+            display: none !important;
+          }
+
+          .crm-tab-btn {
+            flex-shrink: 0 !important;
+            flex-grow: 1 !important;
+            justify-content: center !important;
+            padding: 12px 16px !important;
+            font-size: 13px !important;
+            white-space: nowrap !important;
+          }
+
+          .tab-list-filters-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+            padding: 14px 16px !important;
+          }
+
+          .tab-list-filters-bar > div:first-child {
+            max-width: 100% !important;
+            width: 100% !important;
+          }
+
+          .tab-list-filters-bar > div:last-child {
+            width: 100% !important;
+            display: flex !important;
+            gap: 8px !important;
+          }
+
+          .tab-list-filters-bar > div:last-child > select {
+            flex: 1 !important;
+            width: auto !important;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .deal-item-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
+            padding: 12px 16px !important;
+          }
+
+          .deal-item-row > div:last-child {
+            text-align: left !important;
+            width: 100% !important;
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
           }
         }
       `}</style>
 
-      {/* Breadcrumbs & Navigation */}
-      <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-        <Link to="/contacts" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Contacts</Link>
-        <span style={{ color: 'var(--border)' }}>/</span>
-        <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>{contact.first_name} {contact.last_name}</span>
-      </div>
+      {/* Breadcrumbs & Header Actions */}
+      <div className="contact-detail-header" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 0 16px 0',
+        marginBottom: '8px'
+      }}>
+        {/* Left: Breadcrumbs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+          <Link to="/contacts" style={{ color: '#94a3b8', textDecoration: 'none', fontWeight: '500', transition: 'color 0.15s ease' }} onMouseEnter={(e) => e.currentTarget.style.color = '#64748b'} onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}>Contacts</Link>
+          <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+          </span>
+          <span style={{ color: '#0f172a', fontWeight: '700' }}>{contact.first_name} {contact.last_name || ''}</span>
+        </div>
 
-      {/* Main Content Layout */}
-      <div className="contact-detail-layout">
-        
-        {/* Left Col: Detailed Info */}
-        <aside className="contact-detail-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Profile Card */}
-          <div className="contact-profile-card" style={{ 
-            backgroundColor: '#fff', 
-            borderRadius: '16px', 
-            padding: '32px', 
-            border: '1px solid var(--border)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center'
-          }}>
-            <div style={{ 
-              width: '100px', 
-              height: '100px', 
-              borderRadius: '50%', 
-              backgroundColor: 'var(--primary-light)', 
-              color: 'var(--primary)',
+        {/* Right: Actions */}
+        <div className="contact-detail-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={() => setIsDeleteModalOpen(true)}
+            style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '40px',
-              fontWeight: 'bold',
-              marginBottom: '20px',
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.15)'
-            }}>
-              {contact.first_name[0]}{contact.last_name?.[0] || ''}
-            </div>
-            <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-main)', margin: '0 0 12px 0', letterSpacing: '-0.5px' }}>
-              {contact.first_name} {contact.last_name}
-            </h1>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <Badge type={contact.status === 'active' ? 'success' : contact.status === 'lost' ? 'danger' : 'warning'}>
-                  {contact.status.toUpperCase()}
-                </Badge>
-                <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>{contact.company_name || 'Individual'}</span>
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: '1px solid #fee2e2',
+              backgroundColor: '#fff',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#ef4444',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              outline: 'none'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#fef2f2';
+              e.currentTarget.style.borderColor = '#fca5a5';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = '#fff';
+              e.currentTarget.style.borderColor = '#fee2e2';
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ef4444' }}>
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+            Delete Contact
+          </button>
+
+          <button
+            onClick={handleOpenEditModal}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(37, 99, 235, 0.15)',
+              transition: 'all 0.2s ease',
+              outline: 'none'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+          >
+            Edit Contact
+          </button>
+        </div>
+      </div>
+
+      {/* Snug Grid Layout */}
+      <div className="contact-detail-grid">
+
+        {/* Left Sidebar (25%) */}
+        <aside className="crm-left-col">
+          {/* Profile Card */}
+          <div className="crm-card" style={{ padding: '24px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)' }}>
+            {/* Top Avatar & Name Info Section */}
+            <div className="profile-top-info" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                {contact.profile_image_url ? (
+                  <img src={getFileUrl(contact.profile_image_url)} alt="Profile" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #e2e8f0' }} />
+                ) : (
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    backgroundColor: '#eff6ff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1.5px solid #dbeafe',
+                    flexShrink: 0
+                  }}>
+                    {/* Cute SVG Owl Avatar! */}
+                    <svg width="42" height="42" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="32" cy="36" r="20" fill="#1e3a8a" />
+                      <path d="M16 28C16 20 22 16 32 16C42 16 48 20 48 28C48 30 45 32 32 32C19 32 16 30 16 28Z" fill="#2563eb" />
+                      <circle cx="23" cy="28" r="8" fill="#ffffff" />
+                      <circle cx="41" cy="28" r="8" fill="#ffffff" />
+                      <circle cx="23" cy="28" r="4" fill="#0f172a" />
+                      <circle cx="41" cy="28" r="4" fill="#0f172a" />
+                      <circle cx="24.5" cy="26.5" r="1.5" fill="#ffffff" />
+                      <circle cx="42.5" cy="26.5" r="1.5" fill="#ffffff" />
+                      <polygon points="32,32 29,37 35,37" fill="#f59e0b" />
+                      <path d="M18 20L26 23L20 16Z" fill="#1e3a8a" />
+                      <path d="M46 20L38 23L44 16Z" fill="#1e3a8a" />
+                      <path d="M26 44C29 42 35 42 38 44" stroke="#bfdbfe" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M28 48C30 46 34 46 36 48" stroke="#bfdbfe" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                )}
               </div>
-              {contact.tenants?.owner?.name && (
-                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Owner: {contact.tenants.owner.name}
-                </span>
-              )}
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.5px' }}>
+                    {contact.first_name} {contact.last_name || ''}
+                  </h2>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#fef3c7', padding: '2px 8px', borderRadius: '4px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: '850', color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      {contact.status || 'LEAD'}
+                    </span>
+                    <span style={{ color: '#fbbf24', fontSize: '12px', display: 'flex', alignItems: 'center' }}>★</span>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px', fontWeight: '500' }}>
+                  {contact.job_title || 'Consultant'} at {contact.company_name || 'neptune'}
+                </div>
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%' }}>
-              <Button type="secondary" size="sm" onClick={handleOpenEditModal} style={{ width: '100%', gap: '6px' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                Edit
-              </Button>
-              <Button type="danger" size="sm" onClick={() => setIsDeleteModalOpen(true)} style={{ width: '100%', gap: '6px' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                Delete
-              </Button>
+            {/* Social Quick Contact Toolbar Pills (Email, Call, WhatsApp only) */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap', width: '100%' }}>
+              <button onClick={e => handleQuickContactClick(e, 'mail', contact.email)} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                border: '1px solid #e2e8f0',
+                backgroundColor: '#fff',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#475569',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                outline: 'none'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#64748b' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+                Email
+              </button>
+
+              <button onClick={e => handleQuickContactClick(e, 'call', contact.phone)} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                border: '1px solid #e2e8f0',
+                backgroundColor: '#fff',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#475569',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                outline: 'none'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#64748b' }}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+                Call
+              </button>
+
+              <button onClick={e => handleQuickContactClick(e, 'whatsapp', contact.phone)} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                border: '1px solid #e2e8f0',
+                backgroundColor: '#fff',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#475569',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                outline: 'none'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+              >
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style={{ color: '#16a34a' }}>
+                  <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
+                </svg>
+                WhatsApp
+              </button>
+            </div>
+
+            {/* Structured Rows List redesign as detailed border cards */}
+            <div className="profile-structured-rows" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '10px', marginTop: '24px' }}>
+              
+              {/* Row 1: Email */}
+              <div 
+                onClick={() => contact.email && handleQuickContactClick(null, 'mail', contact.email)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#fff',
+                  cursor: contact.email ? 'pointer' : 'default',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (contact.email) {
+                    e.currentTarget.style.borderColor = '#cbd5e1';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Email</span>
+                    <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {contact.email || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                </span>
+              </div>
+
+              {/* Row 2: Phone */}
+              <div 
+                onClick={() => contact.phone && handleQuickContactClick(null, 'call', contact.phone)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#fff',
+                  cursor: contact.phone ? 'pointer' : 'default',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (contact.phone) {
+                    e.currentTarget.style.borderColor = '#cbd5e1';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Phone</span>
+                    <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {contact.phone || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                </span>
+              </div>
+
+              {/* Row 3: Work */}
+              <div 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#fff',
+                  cursor: 'default',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /><path d="M12 12h.01" /></svg>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Work</span>
+                    <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      N/A
+                    </span>
+                  </div>
+                </div>
+                <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                </span>
+              </div>
+
+              {/* Row 4: Company (Respective Navigation to /tenants/:id) */}
+              <div 
+                onClick={() => contact.tenant_id && navigate(`/tenants/${contact.tenant_id}`)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#fff',
+                  cursor: contact.tenant_id ? 'pointer' : 'default',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (contact.tenant_id) {
+                    e.currentTarget.style.borderColor = '#2563eb';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.08)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+                      <path d="M6 12H4a2 2 0 0 0-2 2v8" />
+                      <path d="M18 16h2a2 2 0 0 1 2 2v4" />
+                    </svg>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Company</span>
+                    <span style={{ fontSize: '13px', fontWeight: '750', color: contact.tenant_id ? '#2563eb' : '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {contact.company_name || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                <span style={{ color: contact.tenant_id ? '#2563eb' : '#cbd5e1', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                </span>
+              </div>
+
+              {/* Row 5: Industry */}
+              <div 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#fff',
+                  cursor: 'default',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect width="20" height="14" x="2" y="5" rx="2" /><line x1="8" y1="19" x2="16" y2="19" /><line x1="12" y1="14" x2="12" y2="19" /></svg>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Industry</span>
+                    <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {contact.profession || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                </span>
+              </div>
+
+              {/* Row 6: Source */}
+              <div 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#fff',
+                  cursor: 'default',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Source</span>
+                    <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {contact.source || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+                <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                </span>
+              </div>
+
+              {/* Row 7: Owner (Respective Navigation to /users/:id) */}
+              <div 
+                onClick={() => contact.assigned_to && navigate(`/users/${contact.assigned_to}`)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#fff',
+                  cursor: contact.assigned_to ? 'pointer' : 'default',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (contact.assigned_to) {
+                    e.currentTarget.style.borderColor = '#2563eb';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.08)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Owner</span>
+                    <span style={{ fontSize: '13px', fontWeight: '750', color: contact.assigned_to ? '#2563eb' : '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {contact.tenants?.owner?.name || 'leetcode'}
+                    </span>
+                  </div>
+                </div>
+                <span style={{ color: contact.assigned_to ? '#2563eb' : '#cbd5e1', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                </span>
+              </div>
+
             </div>
           </div>
 
-          <div className="contact-info-card" style={{ 
-            backgroundColor: '#fff', 
-            borderRadius: '16px', 
-            padding: '24px', 
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 20px -5px rgba(0,0,0,0.05)'
-          }}>
-            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: 'var(--text-main)' }}>Contact Information</h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-               <InfoRow label="Email" value={contact.email} icon="✉️" />
-              <InfoRow label="Phone" value={contact.phone} icon="📞" />
-              <InfoRow label="Profession" value={contact.profession} icon="🎓" />
-              <InfoRow label="Job Title" value={contact.job_title} icon="👔" />
-              <InfoRow label="Source" value={contact.source} icon="📍" />
-              <InfoRow label="Owner Company" value={contact.tenants?.owner?.name} icon="🏢" isBadge />
-              <InfoRow label="Tags" value={contact.tags} icon="🏷️" />
-              <InfoRow label="Joined" value={new Date(contact.created_at).toLocaleDateString()} icon="📅" />
+          {/* Deals Card */}
+          <div className="crm-card" style={{ padding: '0px', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: 'hsl(0deg 0% 99.61%)', overflow: 'hidden' }}>
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid #f1f5f9',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h3 style={{ fontSize: '14.5px', fontWeight: '600', color: '#0f172a', margin: 0 }}>
+                Deals ({deals.length})
+              </h3>
+              <button
+                onClick={() => setActiveTab('deals')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#2563eb',
+                  fontWeight: '600',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: 0
+                }}
+              >
+                View all
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6" /></svg>
+              </button>
+            </div>
+
+            {/* Deals list */}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {deals.length === 0 ? (
+                <div style={{ padding: '24px 20px', textAlign: 'center', fontSize: '13px', color: '#64748b' }}>
+                  No deals linked.
+                </div>
+              ) : (
+                deals.slice(0, 3).map((d, index) => {
+                  const colorsList = [
+                    {
+                      bg: '#eff6ff',
+                      icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5">
+                          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                          <polyline points="17 6 23 6 23 12" />
+                        </svg>
+                      )
+                    },
+                    {
+                      bg: '#f5f3ff',
+                      icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5">
+                          <circle cx="12" cy="12" r="10" />
+                          <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                      )
+                    },
+                    {
+                      bg: '#fff7ed',
+                      icon: (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2.5">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                      )
+                    }
+                  ];
+                  const cScheme = colorsList[index % colorsList.length];
+
+                  // Setup status styling matching mockup exactly
+                  let statusBg = '#eff6ff';
+                  let statusColor = '#2563eb';
+                  let statusLabel = 'In Progress';
+
+                  if (d.status?.toLowerCase() === 'won') {
+                    statusBg = '#eff6ff';
+                    statusColor = '#2563eb';
+                    statusLabel = 'Won';
+                  } else if (d.status?.toLowerCase() === 'lost') {
+                    statusBg = '#fef2f2';
+                    statusColor = '#dc2626';
+                    statusLabel = 'Lost';
+                  } else if (d.status?.toLowerCase() === 'proposal') {
+                    statusBg = '#fff7ed';
+                    statusColor = '#ea580c';
+                    statusLabel = 'Proposal';
+                  }
+
+                  return (
+                    <div key={d.id} className="deal-item-row" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 20px',
+                      borderBottom: index === Math.min(deals.length, 3) - 1 ? 'none' : '1px solid #f1f5f9'
+                    }}>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', minWidth: 0 }}>
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '10px',
+                          backgroundColor: cScheme.bg,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          {cScheme.icon}
+                        </div>
+
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {d.deal_name}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: '400' }}>
+                            {contact.company_name || 'Acme Inc.'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                          ${Number(d.value).toLocaleString()}
+                        </div>
+                        <div style={{ display: 'inline-flex', marginTop: '4px' }}>
+                          <span style={{
+                            fontSize: '10.5px',
+                            fontWeight: '600',
+                            color: statusColor,
+                            backgroundColor: statusBg,
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            textTransform: 'capitalize'
+                          }}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Total Deals Summary Banner */}
+            <div style={{
+              padding: '16px 20px',
+              backgroundColor: 'hsl(0deg 0% 99.61%)',
+              borderTop: '1px solid #f1f5f9',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Total Deal Value</span>
+              <span style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>
+                ${totalDealValue.toLocaleString()}
+              </span>
             </div>
           </div>
         </aside>
 
-        {/* Right Col: Activity/Tabs */}
-        <main className="contact-detail-main" style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', minHeight: '600px', display: 'flex', flexDirection: 'column' }}>
-          {/* Tabs Header */}
-          <div className="contact-tabs-header">
-            <TabItem active={activeTab === 'notes'} onClick={() => setActiveTab('notes')}>Timeline & Notes ({notes.length})</TabItem>
-            <TabItem active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>Tasks ({tasks.length})</TabItem>
-            <TabItem active={activeTab === 'deals'} onClick={() => setActiveTab('deals')}>Deals ({deals.length})</TabItem>
-          </div>
+        {/* Right Workspace (75%) */}
+        <main className="crm-right-col">
 
-          <div className="contact-main-content" style={{ padding: '32px', flex: 1 }}>
-            {activeTab === 'notes' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div style={{ 
-                  border: '1px solid #e2e8f0', 
-                  borderRadius: '16px', 
-                  overflow: 'hidden',
-                  backgroundColor: '#fff',
-                  boxShadow: '0 12px 30px -10px rgba(0,0,0,0.08), 0 4px 10px -5px rgba(0,0,0,0.04)'
-                }}>
-                  <div 
-                    onClick={() => setIsNoteEditorExpanded(!isNoteEditorExpanded)}
-                    style={{ 
-                      padding: '16px 24px', 
-                      cursor: 'pointer', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between', 
-                      backgroundColor: 'var(--bg-main)',
-                      borderBottom: isNoteEditorExpanded ? '1px solid var(--border)' : 'none',
-                      transition: 'background-color 0.2s'
+          {/* Quick Action Cards Row */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: '14px',
+            width: '100%',
+            marginBottom: '16px'
+          }}>
+            {/* Add Note Card */}
+            <div 
+              onClick={() => {
+                setActiveTab('activities');
+                const inputEl = document.getElementById('note-title-input');
+                if (inputEl) inputEl.focus();
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '16px 14px',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+                backgroundColor: '#fff',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#2563eb';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e2e8f0';
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)';
+              }}
+            >
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', whiteSpace: 'nowrap' }}>Add Note</span>
+                <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Add a new note</span>
+              </div>
+            </div>
+
+            {/* Add Deal Card */}
+            <div 
+              onClick={handleOpenAddDeal}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '16px 14px',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+                backgroundColor: '#fff',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#16a34a';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(22, 163, 74, 0.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e2e8f0';
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)';
+              }}
+            >
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', whiteSpace: 'nowrap' }}>Add Deal</span>
+                <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Create a new deal</span>
+              </div>
+            </div>
+
+            {/* Add Task Card */}
+            <div 
+              onClick={handleOpenAddTask}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '16px 14px',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+                backgroundColor: '#fff',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#8b5cf6';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e2e8f0';
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)';
+              }}
+            >
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', whiteSpace: 'nowrap' }}>Add Task</span>
+                <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Create a new task</span>
+              </div>
+            </div>
+
+            {/* Call Card */}
+            <div 
+              onClick={e => handleQuickContactClick(e, 'call', contact.phone)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '16px 14px',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+                backgroundColor: '#fff',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#2563eb';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e2e8f0';
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)';
+              }}
+            >
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', whiteSpace: 'nowrap' }}>Call</span>
+                <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Quick call</span>
+              </div>
+            </div>
+
+            {/* WhatsApp Card */}
+            <div 
+              onClick={e => handleQuickContactClick(e, 'whatsapp', contact.phone)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '16px 14px',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+                backgroundColor: '#fff',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#16a34a';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(22, 163, 74, 0.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e2e8f0';
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)';
+              }}
+            >
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', whiteSpace: 'nowrap' }}>WhatsApp</span>
+                <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Send message</span>
+              </div>
+            </div>
+          </div>
+          {/* ── Note Editor Card ─────────────────────────────────── */}
+          <div style={{
+            backgroundColor: '#ffffff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+            padding: '18px 20px 20px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            transition: 'all 0.2s ease'
+          }}>
+            {/* Collapse / Expand Toggle Header */}
+            <div 
+              onClick={() => setIsNoteEditorExpanded(!isNoteEditorExpanded)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                userSelect: 'none',
+                paddingBottom: isNoteEditorExpanded ? '14px' : '0',
+                borderBottom: isNoteEditorExpanded ? '1px solid #f1f5f9' : 'none',
+                marginBottom: isNoteEditorExpanded ? '14px' : '0'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </div>
+                <span style={{ fontSize: '14.5px', fontWeight: '750', color: '#0f172a' }}>Add Note</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {!isNoteEditorExpanded && <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>Click to expand</span>}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5"
+                  style={{ transform: isNoteEditorExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
+            </div>
+
+            {isNoteEditorExpanded && (
+              <>
+                {/* Row 1 — Title */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  <input
+                    id="note-title-input"
+                    type="text"
+                    placeholder="Add Note Title"
+                    value={noteTitle}
+                    onChange={(e) => setNoteTitle(e.target.value)}
+                    style={{
+                      border: 'none',
+                      outline: 'none',
+                      fontSize: '15px',
+                      fontWeight: '700',
+                      color: '#111827',
+                      backgroundColor: 'transparent',
+                      width: '100%',
+                      padding: '0'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-main)'}
-                  >
-                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                       <span style={{ 
-                         fontSize: '12px', 
-                         transform: isNoteEditorExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
-                         transition: 'transform 0.2s',
-                         display: 'inline-block',
-                         color: 'var(--text-muted)'
-                       }}>
-                         ▼
-                       </span>
-                       <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                         <span style={{ fontSize: '18px' }}>📝</span> Create New Note
-                       </h4>
-                     </div>
-                     {isNoteEditorExpanded ? (
-                       <span 
-                         onClick={(e) => { e.stopPropagation(); setIsNoteEditorExpanded(false); }}
-                         style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: '600', cursor: 'pointer' }}
-                        >
-                         Click to view all notes
-                       </span>
-                     ) : (
-                       <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '500' }}>Click to expand editor</span>
-                     )}
-                  </div>
-                  
-                  <div style={{ 
-                    maxHeight: isNoteEditorExpanded ? '1000px' : '0',
-                    opacity: isNoteEditorExpanded ? 1 : 0,
-                    overflow: 'hidden',
-                    transition: 'all 0.3s ease-in-out'
-                  }}>
-                    <div style={{ padding: '24px' }}>
-                      <NoteEditor 
-                        contactId={id} 
-                        tenantId={contact.tenant_id} 
-                        onSave={() => fetchDetail(true)} 
-                        style={{ border: 'none', boxShadow: 'none', padding: 0 }}
-                      />
-                    </div>
-                  </div>
+                  />
                 </div>
 
-                <div className="notes-scroll" style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  maxHeight: (!isNoteEditorExpanded && notes.length > 6) ? '480px' : 'auto',
-                  overflowY: (!isNoteEditorExpanded && notes.length > 6) ? 'auto' : 'visible',
-                  paddingRight: (!isNoteEditorExpanded && notes.length > 6) ? '12px' : '0',
-                  position: 'relative',
-                  marginTop: isNoteEditorExpanded ? '16px' : '0'
-                }}>
-                  <style>{`
-                    .notes-scroll::-webkit-scrollbar { width: 6px; }
-                    .notes-scroll::-webkit-scrollbar-track { background: transparent; }
-                    .notes-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-                    .notes-scroll::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
-                  `}</style>
-                  {notes.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', backgroundColor: 'var(--bg-main)', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📝</div>
-                      <div style={{ fontSize: '16px', fontWeight: '600' }}>No notes yet</div>
-                      <div style={{ fontSize: '14px', marginTop: '4px' }}>Start the conversation by adding a note above.</div>
-                    </div>
-                  ) : (
-                    <div style={{ 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      gap: isNoteEditorExpanded ? '0' : '4px',
-                      position: 'relative',
-                      height: isNoteEditorExpanded ? '140px' : 'auto'
+                {/* Row 2 — Deal label + dropdown */}
+                <div style={{ position: 'relative', marginBottom: '14px' }}>
+                  {/* "🔒 LINK TO ACTIVE DEAL:" label */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '7px' }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    <span style={{
+                      fontSize: '10.5px', fontWeight: '700', color: '#9ca3af',
+                      textTransform: 'uppercase', letterSpacing: '0.6px'
                     }}>
-                      {notes.map((note, index) => {
-                        const isPiled = isNoteEditorExpanded;
-                        const isVisibleInPile = index < 3;
-                        if (isPiled && !isVisibleInPile) return null;
+                      Link to Active Deal:
+                    </span>
+                  </div>
 
-                        const pileStyles = isPiled ? {
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          zIndex: 10 - index,
-                          transform: `translateY(${index * 12}px) scale(${1 - (index * 0.04)})`,
-                          opacity: 1 - (index * 0.2),
-                          pointerEvents: index === 0 ? 'auto' : 'none',
-                        } : {};
-
-                        return (
-                          <div key={note.id} style={pileStyles}>
-                            <NoteItem 
-                              note={note} 
-                              onDelete={handleDeleteNote}
-                              isExpanded={!isNoteEditorExpanded && expandedNoteId === note.id}
-                              onToggle={() => {
-                                if (isNoteEditorExpanded) {
-                                  setIsNoteEditorExpanded(false);
-                                } else {
-                                  setExpandedNoteId(expandedNoteId === note.id ? null : note.id);
-                                }
-                              }}
-                            />
-                          </div>
-                        );
-                      })}
-                      {isNoteEditorExpanded && notes.length > 3 && (
-                        <div 
-                          onClick={() => setIsNoteEditorExpanded(false)}
-                          style={{ 
-                            position: 'absolute', bottom: '-12px', left: '50%', transform: 'translateX(-50%)',
-                            fontSize: '11px', color: 'var(--primary)', fontWeight: '700', cursor: 'pointer', zIndex: 11,
-                            backgroundColor: '#fff', padding: '4px 14px', borderRadius: '20px', border: '1px solid var(--primary-light)',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '4px'
-                          }}
+                  {!selectedDealId ? (
+                    <>
+                      {/* Dashed select button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowDealDropdown(!showDealDropdown)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          width: '100%', padding: '9px 12px',
+                          border: '1px dashed #d1d5db', borderRadius: '8px',
+                          backgroundColor: '#ffffff', cursor: 'pointer',
+                          outline: 'none', textAlign: 'left',
+                          transition: 'border-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.borderColor = '#818cf8'}
+                        onMouseLeave={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                      >
+                        <span style={{ fontSize: '13.5px', color: '#9ca3af', fontWeight: '400' }}>
+                          Select a deal to associate with this note...
+                        </span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"
+                          style={{ flexShrink: 0, transform: showDealDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
                         >
-                          <span>📂</span> View {notes.length - 1} more notes
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </button>
+
+                      {/* Dropdown list */}
+                      {showDealDropdown && deals.length > 0 && (
+                        <div style={{
+                          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                          zIndex: 300, maxHeight: '220px', overflowY: 'auto',
+                          backgroundColor: '#ffffff', border: '1px solid #e5e7eb',
+                          borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.10)', padding: '6px'
+                        }}>
+                          {deals.map(d => (
+                            <div
+                              key={d.id}
+                              onClick={() => { setSelectedDealId(d.id); setShowDealDropdown(false); }}
+                              style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '8px 10px', borderRadius: '6px', cursor: 'pointer',
+                                transition: 'background-color 0.12s ease'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#eff6ff'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <div>
+                                <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>{d.deal_name}</div>
+                                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>
+                                  Stage: <strong style={{ color: '#3b82f6', textTransform: 'uppercase' }}>{d.stage?.replace('_', ' ')}</strong>
+                                </div>
+                              </div>
+                              <span style={{
+                                fontSize: '12px', fontWeight: '700', color: '#2563eb',
+                                backgroundColor: '#eff6ff', padding: '2px 8px', borderRadius: '5px', flexShrink: 0
+                              }}>
+                                ${Number(d.value || 0).toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       )}
+
+                      {/* Empty state when no deals */}
+                      {showDealDropdown && deals.length === 0 && (
+                        <div style={{
+                          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                          zIndex: 300, backgroundColor: '#ffffff', border: '1px solid #e5e7eb',
+                          borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.10)', padding: '20px',
+                          textAlign: 'center', fontSize: '13px', color: '#94a3b8'
+                        }}>
+                          No deals associated with this contact
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    /* Selected deal chip */
+                    (() => {
+                      const selectedDeal = deals.find(d => d.id === selectedDealId);
+                      if (!selectedDeal) return null;
+                      return (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '9px 12px', borderRadius: '8px',
+                          border: '1px solid #bfdbfe', backgroundColor: '#eff6ff'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{
+                              width: '28px', height: '28px', borderRadius: '6px',
+                              backgroundColor: '#dbeafe', display: 'flex', alignItems: 'center',
+                              justifyContent: 'center', color: '#2563eb', flexShrink: 0
+                            }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <rect width="20" height="14" x="2" y="6" rx="2" />
+                                <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                              </svg>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e3a8a' }}>{selectedDeal.deal_name}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '1px' }}>
+                                <span style={{
+                                  fontSize: '9.5px', fontWeight: '700', backgroundColor: '#dbeafe',
+                                  color: '#1e40af', padding: '1px 5px', borderRadius: '3px', textTransform: 'uppercase'
+                                }}>
+                                  {selectedDeal.stage?.replace('_', ' ')}
+                                </span>
+                                <span style={{ fontSize: '12px', fontWeight: '800', color: '#2563eb' }}>
+                                  ${Number(selectedDeal.value || 0).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button" onClick={() => setSelectedDealId('')} title="Unlink Deal"
+                            style={{
+                              border: 'none', background: '#dbeafe', color: '#1e40af',
+                              width: '20px', height: '20px', borderRadius: '50%',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer', fontSize: '14px', fontWeight: '800',
+                              outline: 'none', transition: 'all 0.15s ease', flexShrink: 0
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fecaca'; e.currentTarget.style.color = '#dc2626'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1e40af'; }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
+
+                {/* Row 3 — Rich text editor (has its own border per mockup) */}
+                <NoteEditor
+                  contactId={id}
+                  dealId={selectedDealId}
+                  tenantId={contact.tenant_id}
+                  onSave={() => {
+                    setNoteTitle('');
+                    setSelectedDealId('');
+                    setIsNoteEditorExpanded(false);
+                    fetchDetail(true);
+                  }}
+                  style={{
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: 'none',
+                    overflow: 'hidden'
+                  }}
+                  minHeight="90px"
+                  hideTitle={true}
+                  placeholder={`Write a note about ${contact.first_name} ${contact.last_name || ''}..`}
+                  externalTitle={noteTitle}
+                  setExternalTitle={setNoteTitle}
+                />
+              </>
+            )}
+
+          </div>
+          {/* ── /Note Editor Card ─────────────────────────────────── */}
+
+          <CRMWorkspaceTabs
+            tabs={[
+              {
+                id: 'activities',
+                label: 'All Activities',
+                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: activeTab === 'activities' ? '#2563eb' : '#64748b' }}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+              },
+              {
+                id: 'notes',
+                label: 'Notes',
+                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: activeTab === 'notes' ? '#2563eb' : '#64748b' }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>,
+                count: data?.notes?.pagination?.totalCount || 0
+              },
+              {
+                id: 'deals',
+                label: 'Deals',
+                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: activeTab === 'deals' ? '#2563eb' : '#64748b' }}><rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /><path d="M22 13a18.15 18.15 0 0 1-20 0" /><path d="M12 12h.01" /></svg>,
+                count: data?.deals?.pagination?.totalCount || 0
+              },
+              {
+                id: 'tasks',
+                label: 'Tasks',
+                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: activeTab === 'tasks' ? '#2563eb' : '#64748b' }}><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
+                count: data?.tasks?.pagination?.totalCount || 0
+              }
+            ]}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            searchPlaceholder={activeTab === 'activities' ? "Search activities..." : activeTab === 'notes' ? "Search notes..." : activeTab === 'deals' ? "Search deals..." : "Search tasks..."}
+            filterType={filterType}
+            setFilterType={setFilterType}
+            filterTime={filterTime}
+            setFilterTime={setFilterTime}
+            showFilterType={activeTab === 'activities'}
+            showFilterTime={true}
+            filterTypeOptions={[
+              { value: 'all', label: 'All Types' },
+              { value: 'note', label: 'Notes Only' },
+              { value: 'task', label: 'Tasks Only' },
+              { value: 'deal', label: 'Deals Only' }
+            ]}
+            filterTimeOptions={[
+              { value: 'all', label: 'All Time' },
+              { value: 'today', label: 'Today' },
+              { value: 'week', label: 'Past Week' },
+              { value: 'month', label: 'Past Month' }
+            ]}
+          >
+            {/* Tab 1: activities timeline */}
+            {activeTab === 'activities' && (
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                {filteredActivities.length > 0 && <div className="timeline-line" />}
+
+                {filteredActivities.length === 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
+                    <div style={{ 
+                      width: '56px', 
+                      height: '56px', 
+                      borderRadius: '50%', 
+                      backgroundColor: '#f8fafc', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      marginBottom: '16px',
+                      border: '1px solid #e2e8f0',
+                      color: '#94a3b8'
+                    }}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                     </div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No activities found</div>
+                    <div style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '280px' }}>Try adjusting your search query or selecting a different filter.</div>
+                  </div>
+                ) : (
+                  filteredActivities.map((act) => (
+                    <div key={act.id} className="timeline-item-container">
+
+                      {/* Timeline Node Badge Icon (Snug size) */}
+                      <div
+                        className="timeline-node"
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: act.badgeColor === '#f97316' ? '#fffbeb' : act.badgeColor === '#1e3a8a' ? '#eff6ff' : act.badgeColor === '#8b5cf6' ? '#faf5ff' : '#f1f5f9',
+                          color: act.badgeColor,
+                          border: '3px solid #fff',
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                          flexShrink: 0,
+                          zIndex: 2
+                        }}
+                      >
+                        {act.icon}
+                      </div>
+
+                      {/* Timeline snug info card */}
+                      <div style={{
+                        flex: 1,
+                        backgroundColor: '#ffffff',
+                        padding: '6px 0px 8px 0px',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: '16px'
+                      }}>
+                        {/* LEFT COLUMN: Title & Description */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
+                              {act.title}
+                            </h4>
+                            {act.subTitle && (
+                              <div style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb', marginBottom: '1px' }}>
+                                {act.subTitle}
+                              </div>
+                            )}
+                            <div
+                              style={{ fontSize: '12.5px', color: '#475569', lineHeight: '1.5', wordBreak: 'break-word', fontWeight: '400' }}
+                              dangerouslySetInnerHTML={{ __html: act.description }}
+                            />
+                          </div>
+
+                          {act.type === 'note' && act.attachments && act.attachments.length > 0 && (
+                            <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {act.attachments.map((file, idx) => (
+                                <a
+                                  key={idx}
+                                  href={getFileUrl(file.url)}
+                                  download
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '3px 8px',
+                                    backgroundColor: '#fff',
+                                    borderRadius: '4px',
+                                    textDecoration: 'none',
+                                    color: 'var(--primary)',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    border: '1px solid #e2e8f0'
+                                  }}
+                                >
+                                  📎 {file.name}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+
+                          {act.type === 'note' && act.deal && (
+                            <Link
+                              to={`/deals/${act.deal.id}`}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '4px 10px',
+                                backgroundColor: '#eff6ff',
+                                borderRadius: '6px',
+                                textDecoration: 'none',
+                                color: '#1e40af',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                border: '1px solid #bfdbfe',
+                                marginTop: '6px',
+                                width: 'fit-content',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#dbeafe';
+                                e.currentTarget.style.borderColor = '#93c5fd';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#eff6ff';
+                                e.currentTarget.style.borderColor = '#bfdbfe';
+                              }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#2563eb' }}>
+                                <rect width="20" height="14" x="2" y="6" rx="2" />
+                                <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                              </svg>
+                              <span>Linked Deal: <strong>{act.deal.deal_name}</strong> (₹{Number(act.deal.value).toLocaleString('en-IN')})</span>
+                            </Link>
+                          )}
+                        </div>
+
+                        {/* RIGHT COLUMN: Date & Avatar/Name */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
+                          <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '500' }}>
+                            {formatRelativeDate(act.date)}
+                          </span>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              backgroundColor: '#f1f5f9',
+                              color: '#475569',
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              overflow: 'hidden'
+                            }}>
+                              <span style={{ textTransform: 'uppercase' }}>{(act.author || 'U')[0]}</span>
+                            </div>
+                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>
+                              {act.author || 'User'}
+                            </span>
+                          </div>
+
+                          {act.type === 'note' && (
+                            <button
+                              onClick={() => handleDeleteNote(act.originalId)}
+                              style={{
+                                border: 'none',
+                                background: 'transparent',
+                                color: '#dc2626',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                opacity: 0.7,
+                                marginTop: '4px',
+                                padding: 0
+                              }}
+                              onMouseOver={(e) => e.currentTarget.style.opacity = 1}
+                              onMouseOut={(e) => e.currentTarget.style.opacity = 0.7}
+                            >
+                              Delete note
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Horizontal Line Partition intersecting with Vertical Line */}
+                      <div style={{
+                        position: 'absolute',
+                        left: '8px',
+                        right: '0',
+                        bottom: '0',
+                        height: '1px',
+                        backgroundColor: '#f1f5f9',
+                        zIndex: 1
+                      }} />
+                    </div>
+                  ))
+                )}
+
+                {(activitiesRemaining > 0 || activities.length > 5) && (
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', marginBottom: '12px' }}>
+                    {activitiesRemaining > 0 && (
+                      <button
+                        onClick={handleActivityLoadMore}
+                        style={{
+                          padding: '4px 6px',
+                          backgroundColor: 'transparent',
+                          color: 'hsl(219.81deg 84.06% 50.78%)',
+                          border: 'none',
+                          borderRadius: '0',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'color 0.15s'
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.color = 'rgb(24 82 215)'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.color = 'hsl(219.81deg 84.06% 50.78%)'; }}
+                      >
+                        Load More ({activitiesRemaining})
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </button>
+                    )}
+                    {activities.length > 5 && (
+                      <button
+                        onClick={handleActivityCollapse}
+                        style={{
+                          padding: '4px 6px',
+                          backgroundColor: 'transparent',
+                          color: '#dc2626',
+                          border: 'none',
+                          borderRadius: '0',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'color 0.15s'
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.color = '#b91c1c'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.color = '#dc2626'; }}
+                      >
+                        Show Less
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
+                          <path d="m18 15-6-6-6 6" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 2: Notes Detailed View */}
+            {activeTab === 'notes' && (
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                {filteredNotes.length > 0 && <div className="timeline-line" />}
+
+                {filteredNotes.length === 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
+                    <div style={{ 
+                      width: '56px', 
+                      height: '56px', 
+                      borderRadius: '50%', 
+                      backgroundColor: '#fff7ed', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      marginBottom: '16px',
+                      border: '1px solid #ffedd5',
+                      color: '#ea580c'
+                    }}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                    </div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No notes found</div>
+                    <div style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '280px' }}>Try adding a note above or adjusting your search criteria.</div>
+                  </div>
+                ) : (
+                  filteredNotes.map((act) => (
+                    <div key={act.id} className="timeline-item-container">
+                      {/* Timeline Node Badge Icon (Snug size) */}
+                      <div
+                        className="timeline-node"
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: '#fffbeb',
+                          color: '#f97316',
+                          border: '3px solid #fff',
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                          flexShrink: 0,
+                          zIndex: 2
+                        }}
+                      >
+                        {act.icon}
+                      </div>
+
+                      {/* Timeline snug info card */}
+                      <div style={{
+                        flex: 1,
+                        backgroundColor: '#ffffff',
+                        padding: '6px 0px 8px 0px',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: '16px'
+                      }}>
+                        {/* LEFT COLUMN: Title & Description */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
+                              {act.title}
+                            </h4>
+                            {act.subTitle && (
+                              <div style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb', marginBottom: '1px' }}>
+                                {act.subTitle}
+                              </div>
+                            )}
+                            <div
+                              style={{ fontSize: '12.5px', color: '#475569', lineHeight: '1.5', wordBreak: 'break-word', fontWeight: '400' }}
+                              dangerouslySetInnerHTML={{ __html: act.description }}
+                            />
+                          </div>
+
+                          {act.attachments && act.attachments.length > 0 && (
+                            <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {act.attachments.map((file, idx) => (
+                                <a
+                                  key={idx}
+                                  href={getFileUrl(file.url)}
+                                  download
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '3px 8px',
+                                    backgroundColor: '#fff',
+                                    borderRadius: '4px',
+                                    textDecoration: 'none',
+                                    color: 'var(--primary)',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    border: '1px solid #e2e8f0'
+                                  }}
+                                >
+                                  📎 {file.name}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+
+                          {act.deal && (
+                            <Link
+                              to={`/deals/${act.deal.id}`}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '4px 10px',
+                                backgroundColor: '#eff6ff',
+                                borderRadius: '6px',
+                                textDecoration: 'none',
+                                color: '#1e40af',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                border: '1px solid #bfdbfe',
+                                marginTop: '6px',
+                                width: 'fit-content',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#dbeafe';
+                                e.currentTarget.style.borderColor = '#93c5fd';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#eff6ff';
+                                e.currentTarget.style.borderColor = '#bfdbfe';
+                              }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#2563eb' }}>
+                                <rect width="20" height="14" x="2" y="6" rx="2" />
+                                <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                              </svg>
+                              <span>Linked Deal: <strong>{act.deal.deal_name}</strong> (₹{Number(act.deal.value).toLocaleString('en-IN')})</span>
+                            </Link>
+                          )}
+                        </div>
+
+                        {/* RIGHT COLUMN: Date & Avatar/Name */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
+                          <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '500' }}>
+                            {formatRelativeDate(act.date)}
+                          </span>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              backgroundColor: '#f1f5f9',
+                              color: '#475569',
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              overflow: 'hidden'
+                            }}>
+                              <span style={{ textTransform: 'uppercase' }}>{act.author[0] || 'U'}</span>
+                            </div>
+                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>
+                              {act.author || 'User'}
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={() => handleDeleteNote(act.originalId)}
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              color: '#dc2626',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              opacity: 0.7,
+                              marginTop: '4px',
+                              padding: 0
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.opacity = 1}
+                            onMouseOut={(e) => e.currentTarget.style.opacity = 0.7}
+                          >
+                            Delete note
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Horizontal Line Partition intersecting with Vertical Line */}
+                      <div style={{
+                        position: 'absolute',
+                        left: '8px',
+                        right: '0',
+                        bottom: '0',
+                        height: '1px',
+                        backgroundColor: '#f1f5f9',
+                        zIndex: 1
+                      }} />
+                    </div>
+                  ))
+                )}
+
+                {(notesRemaining > 0 || notes.length > 5) && (
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', marginBottom: '12px' }}>
+                    {notesRemaining > 0 && (
+                      <button
+                        onClick={handleNoteLoadMore}
+                        style={{
+                          padding: '4px 6px',
+                          backgroundColor: 'transparent',
+                          color: 'hsl(219.81deg 84.06% 50.78%)',
+                          border: 'none',
+                          borderRadius: '0',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'color 0.15s'
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.color = 'rgb(24 82 215)'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.color = 'hsl(219.81deg 84.06% 50.78%)'; }}
+                      >
+                        Load More ({notesRemaining})
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </button>
+                    )}
+                    {notes.length > 5 && (
+                      <button
+                        onClick={handleNoteCollapse}
+                        style={{
+                          padding: '4px 6px',
+                          backgroundColor: 'transparent',
+                          color: '#dc2626',
+                          border: 'none',
+                          borderRadius: '0',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'color 0.15s'
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.color = '#b91c1c'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.color = '#dc2626'; }}
+                      >
+                        Show Less
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
+                          <path d="m18 15-6-6-6 6" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 3: Deals Detailed View */}
+            {activeTab === 'deals' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  {filteredDeals.length > 0 && <div className="timeline-line" />}
+
+                  {filteredDeals.length === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
+                      <div style={{ 
+                        width: '56px', 
+                        height: '56px', 
+                        borderRadius: '50%', 
+                        backgroundColor: '#f0fdf4', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        marginBottom: '16px',
+                        border: '1px solid #dcfce7',
+                        color: '#16a34a'
+                      }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>
+                      </div>
+                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No deals associated</div>
+                      <div style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '280px' }}>This contact doesn't have any deals linked. Click "Add Deal" above to link one.</div>
+                    </div>
+                  ) : (
+                    <>
+                      {filteredDeals.map((act) => (
+                        <div key={act.id} className="timeline-item-container">
+                          {/* Timeline Node Badge Icon */}
+                          <div
+                            className="timeline-node"
+                            style={{
+                              width: '42px',
+                              height: '42px',
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#eff6ff',
+                              color: '#1e3a8a',
+                              border: '3px solid #fff',
+                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                              flexShrink: 0,
+                              zIndex: 2
+                            }}
+                          >
+                            {act.icon}
+                          </div>
+
+                          {/* Timeline snug info card */}
+                          <div style={{
+                            flex: 1,
+                            backgroundColor: '#ffffff',
+                            padding: '6px 0px 8px 0px',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            justifyContent: 'space-between',
+                            gap: '16px'
+                          }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
+                                  {act.title}
+                                </h4>
+                                {act.subTitle && (
+                                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb', marginBottom: '1px' }}>
+                                    {act.subTitle}
+                                  </div>
+                                )}
+                                <div
+                                  style={{ fontSize: '12.5px', color: '#475569', lineHeight: '1.5', wordBreak: 'break-word', fontWeight: '400' }}
+                                  dangerouslySetInnerHTML={{ __html: act.description }}
+                                />
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
+                              <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '500' }}>
+                                {formatRelativeDate(act.date)}
+                              </span>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{
+                                  width: '20px',
+                                  height: '20px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#f1f5f9',
+                                  color: '#475569',
+                                  fontSize: '10px',
+                                  fontWeight: '700',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  overflow: 'hidden'
+                                }}>
+                                  <span style={{ textTransform: 'uppercase' }}>{act.author[0] || 'U'}</span>
+                                </div>
+                                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>
+                                  {act.author || 'User'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Horizontal Line Partition intersecting with Vertical Line */}
+                          <div style={{
+                            position: 'absolute',
+                            left: '8px',
+                            right: '0',
+                            bottom: '0',
+                            height: '1px',
+                            backgroundColor: '#f1f5f9',
+                            zIndex: 1
+                          }} />
+                        </div>
+                      ))}
+                      {(dealsRemaining > 0 || deals.length > 5) && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', marginBottom: '12px' }}>
+                          {dealsRemaining > 0 && (
+                            <button
+                              onClick={handleDealLoadMore}
+                              style={{
+                                padding: '4px 6px',
+                                backgroundColor: 'transparent',
+                                color: 'hsl(219.81deg 84.06% 50.78%)',
+                                border: 'none',
+                                borderRadius: '0',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'color 0.15s'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.color = 'rgb(24 82 215)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.color = 'hsl(219.81deg 84.06% 50.78%)'; }}
+                            >
+                              Load More ({dealsRemaining})
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
+                            </button>
+                          )}
+                          {deals.length > 5 && (
+                            <button
+                              onClick={handleDealCollapse}
+                              style={{
+                                padding: '4px 6px',
+                                backgroundColor: 'transparent',
+                                color: '#dc2626',
+                                border: 'none',
+                                borderRadius: '0',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'color 0.15s'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.color = '#b91c1c'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.color = '#dc2626'; }}
+                            >
+                              Show Less
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
+                                <path d="m18 15-6-6-6 6" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
             )}
 
+            {/* Tab 4: Tasks Detailed View */}
             {activeTab === 'tasks' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '8px' }}>
-                   <Button size="sm" type="primary" onClick={handleOpenAddTask} style={{ gap: '6px' }}>
-                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
-                     Add Task
-                   </Button>
-                   <Button size="sm" type="secondary" onClick={() => navigate('/tasks')}>Manage All Tasks</Button>
-                </div>
-                {tasks.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No tasks linked to this contact.</div>
-                ) : (
-                  <>
-                    {tasks.slice((taskPage - 1) * ITEMS_PER_PAGE, taskPage * ITEMS_PER_PAGE).map(task => (
-                      <div key={task.id} style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ 
-                            width: '10px', height: '10px', borderRadius: '50%', 
-                            backgroundColor: task.status === 'completed' ? 'var(--success)' : 'var(--warning)' 
-                          }} />
-                          <div>
-                            <div style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-main)' }}>{task.title}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '6px', flexWrap: 'wrap' }}>
-                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <span>📅</span> {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No date'}
-                              </div>
-                              <div style={{ 
-                                fontSize: '11px', 
-                                fontWeight: '700', 
-                                textTransform: 'uppercase', 
-                                color: task.priority === 'high' ? 'var(--danger)' : task.priority === 'medium' ? 'var(--warning)' : '#64748b',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}>
-                                ⚡ {task.priority || 'medium'}
-                              </div>
-                              <div style={{ 
-                                fontSize: '11px', 
-                                fontWeight: '700', 
-                                textTransform: 'uppercase', 
-                                color: task.status === 'completed' ? 'var(--success)' : 'var(--warning)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}>
-                                📊 {task.status}
-                              </div>
-                              <div style={{ 
-                                fontSize: '11px', 
-                                fontWeight: '600', 
-                                color: 'var(--primary)', 
-                                backgroundColor: '#f0f7ff', 
-                                padding: '2px 8px', 
-                                borderRadius: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                border: '1px solid #e0f0ff'
-                              }}>
-                                🏢 {task.vendor_name || 'Individual'}
-                              </div>
-                              <div style={{ 
-                                fontSize: '11px', 
-                                fontWeight: '600', 
-                                color: '#475569', 
-                                backgroundColor: '#f1f5f9', 
-                                padding: '2px 8px', 
-                                borderRadius: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                border: '1px solid #e2e8f0'
-                              }}>
-                                👤 {task.assignee_name || 'Unassigned'}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <Button size="sm" type="primary" onClick={() => setViewingTask(task)}>View</Button>
-                        </div>
-                      </div>
-                    ))}
-                    <PaginationControls 
-                      currentPage={taskPage} 
-                      totalItems={tasks.length} 
-                      itemsPerPage={ITEMS_PER_PAGE} 
-                      onPageChange={setTaskPage} 
-                    />
-                  </>
-                )}
-              </div>
-            )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-            {activeTab === 'deals' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginBottom: '8px' }}>
-                   <Button size="sm" type="primary" onClick={handleOpenAddDeal} style={{ gap: '6px' }}>
-                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-                     Add Deal
-                   </Button>
-                   <Button size="sm" type="secondary" onClick={() => navigate('/deals')}>Manage All Deals</Button>
-                </div>
-                {deals.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No deals associated with this contact.</div>
-                ) : (
-                  <>
-                    {deals.slice((dealPage - 1) * ITEMS_PER_PAGE, dealPage * ITEMS_PER_PAGE).map(deal => (
-                      <div key={deal.id} style={{ padding: '20px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <div style={{ fontWeight: '700', fontSize: '16px', color: 'var(--text-main)' }}>{deal.deal_name}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '6px', flexWrap: 'wrap' }}>
-                            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Value: <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>${deal.value}</span></div>
-                            <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              🏁 {deal.stage}
-                            </div>
-                            <div style={{ 
-                              fontSize: '11px', 
-                              fontWeight: '700', 
-                              textTransform: 'uppercase', 
-                              color: deal.status === 'won' ? 'var(--success)' : deal.status === 'lost' ? 'var(--danger)' : 'var(--warning)',
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  {filteredTasks.length > 0 && <div className="timeline-line" />}
+
+                  {filteredTasks.length === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
+                      <div style={{ 
+                        width: '56px', 
+                        height: '56px', 
+                        borderRadius: '50%', 
+                        backgroundColor: '#f5f3ff', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        marginBottom: '16px',
+                        border: '1px solid #ede9fe',
+                        color: '#8b5cf6'
+                      }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                      </div>
+                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No tasks linked</div>
+                      <div style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '280px' }}>This contact doesn't have any tasks linked. Click "Add Task" above to link one.</div>
+                    </div>
+                  ) : (
+                    <>
+                      {filteredTasks.map((act) => (
+                        <div key={act.id} className="timeline-item-container">
+                          {/* Timeline Node Badge Icon */}
+                          <div
+                            className="timeline-node"
+                            style={{
+                              width: '42px',
+                              height: '42px',
+                              borderRadius: '50%',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '4px'
-                            }}>
-                              📈 {deal.status}
+                              justifyContent: 'center',
+                              backgroundColor: '#faf5ff',
+                              color: '#8b5cf6',
+                              border: '3px solid #fff',
+                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                              flexShrink: 0,
+                              zIndex: 2
+                            }}
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                          </div>
+
+                          {/* Timeline snug info card */}
+                          <div style={{
+                            flex: 1,
+                            backgroundColor: '#ffffff',
+                            padding: '6px 0px 8px 0px',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            justifyContent: 'space-between',
+                            gap: '16px'
+                          }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <h4 style={{ margin: 0, fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>
+                                  {act.subTitle || 'Untitled Task'}
+                                </h4>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                                    Priority:
+                                  </span>
+                                  <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: '800',
+                                    textTransform: 'uppercase',
+                                    color: act.priority === 'high' ? '#b91c1c' : act.priority === 'medium' ? '#d97706' : '#475569',
+                                    backgroundColor: act.priority === 'high' ? '#fee2e2' : act.priority === 'medium' ? '#fef3c7' : '#f1f5f9',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px'
+                                  }}>
+                                    {act.priority || 'medium'}
+                                  </span>
+
+                                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', marginLeft: '6px' }}>
+                                    Status:
+                                  </span>
+                                  <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: '800',
+                                    textTransform: 'uppercase',
+                                    color: act.status === 'completed' ? '#2563eb' : '#d97706',
+                                    backgroundColor: act.status === 'completed' ? '#eff6ff' : '#fef3c7',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px'
+                                  }}>
+                                    {act.status?.replace('_', ' ') || 'pending'}
+                                  </span>
+
+                                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500', marginLeft: '6px' }}>
+                                    Due: {act.due_date ? new Date(act.due_date).toLocaleDateString() : 'No date'}
+                                  </span>
+                                </div>
+                                {act.taskDescription && (
+                                  <div style={{
+                                    fontSize: '12.5px',
+                                    color: '#475569',
+                                    marginTop: '6px',
+                                    lineHeight: '1.5',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                    fontWeight: '400'
+                                  }}>
+                                    {act.taskDescription}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div style={{ 
-                              fontSize: '11px', 
-                              fontWeight: '600', 
-                              color: 'var(--primary)', 
-                              backgroundColor: '#f0f7ff', 
-                              padding: '2px 8px', 
-                              borderRadius: '4px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              border: '1px solid #e0f0ff'
-                            }}>
-                              🏢 {deal.vendor_name || 'Individual'}
-                            </div>
-                            <div style={{ 
-                              fontSize: '11px', 
-                              fontWeight: '600', 
-                              color: '#475569', 
-                              backgroundColor: '#f1f5f9', 
-                              padding: '2px 8px', 
-                              borderRadius: '4px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              border: '1px solid #e2e8f0'
-                            }}>
-                              👤 {deal.assignee_name || 'Unassigned'}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
+                              <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '500' }}>
+                                {formatRelativeDate(act.date)}
+                              </span>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{
+                                  width: '20px',
+                                  height: '20px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#f1f5f9',
+                                  color: '#475569',
+                                  fontSize: '10px',
+                                  fontWeight: '700',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  overflow: 'hidden'
+                                }}>
+                                  <span style={{ textTransform: 'uppercase' }}>{act.author[0] || 'U'}</span>
+                                </div>
+                                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>
+                                  {act.author || 'User'}
+                                </span>
+                              </div>
                             </div>
                           </div>
+
+                          {/* Horizontal Line Partition intersecting with Vertical Line */}
+                          <div style={{
+                            position: 'absolute',
+                            left: '8px',
+                            right: '0',
+                            bottom: '0',
+                            height: '1px',
+                            backgroundColor: '#f1f5f9',
+                            zIndex: 1
+                          }} />
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <Button size="sm" type="primary" onClick={() => setViewingDeal(deal)}>View</Button>
+                      ))}
+                      {(tasksRemaining > 0 || tasks.length > 5) && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', marginBottom: '12px' }}>
+                          {tasksRemaining > 0 && (
+                            <button
+                              onClick={handleTaskLoadMore}
+                              style={{
+                                padding: '4px 6px',
+                                backgroundColor: 'transparent',
+                                color: 'hsl(219.81deg 84.06% 50.78%)',
+                                border: 'none',
+                                borderRadius: '0',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'color 0.15s'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.color = 'rgb(24 82 215)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.color = 'hsl(219.81deg 84.06% 50.78%)'; }}
+                            >
+                              Load More ({tasksRemaining})
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
+                            </button>
+                          )}
+                          {tasks.length > 5 && (
+                            <button
+                              onClick={handleTaskCollapse}
+                              style={{
+                                padding: '4px 6px',
+                                backgroundColor: 'transparent',
+                                color: '#dc2626',
+                                border: 'none',
+                                borderRadius: '0',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'color 0.15s'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.color = '#b91c1c'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.color = '#dc2626'; }}
+                            >
+                              Show Less
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
+                                <path d="m18 15-6-6-6 6" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
-                      </div>
-                    ))}
-                    <PaginationControls 
-                      currentPage={dealPage} 
-                      totalItems={deals.length} 
-                      itemsPerPage={ITEMS_PER_PAGE} 
-                      onPageChange={setDealPage} 
-                    />
-                  </>
-                )}
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
-          </div>
+          </CRMWorkspaceTabs>
         </main>
       </div>
+      {/* MODALS */}
 
-      <Modal 
-        isOpen={isEditModalOpen} 
-        onClose={() => setIsEditModalOpen(false)} 
+      {/* Edit Details Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
         title="Edit Contact Details"
         footer={<>
           <Button type="secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
@@ -782,138 +3044,215 @@ export default function ContactDetail() {
         </>}
       >
         <form onSubmit={formik.handleSubmit}>
+          {/* Avatar Upload */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              backgroundColor: '#e2e8f0',
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '2px solid var(--border)'
+            }}>
+              {formik.values.profile_image_url ? (
+                <img src={getFileUrl(formik.values.profile_image_url)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <span style={{ color: 'var(--text-muted)', fontSize: '24px' }}>👤</span>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                onChange={async (e) => {
+                  const file = e.currentTarget.files[0];
+                  if (file) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    try {
+                      const res = await api.post('/upload', formData);
+                      formik.setFieldValue('profile_image_url', res.data.url);
+                    } catch (err) {
+                      console.error("Upload failed", err);
+                    }
+                  }
+                }}
+              />
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '500' }}>Click avatar to upload profile picture</p>
+          </div>
+
           {isGlobalAdmin && (
             <Select
-                label="Assign to Company"
-                name="tenant_id"
-                value={formik.values.tenant_id}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                error={formik.errors.tenant_id}
-                touched={formik.touched.tenant_id}
-                required
+              label="Assign to Company"
+              name="tenant_id"
+              value={formik.values.tenant_id}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.tenant_id}
+              touched={formik.touched.tenant_id}
+              required
             >
-                <option value="">Select a Company</option>
-                {tenants.map(t => <option key={t.id} value={t.id}>{t.tenant_name}</option>)}
+              <option value="">Select a Company</option>
+              {tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
             </Select>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
-                label="First Name" 
-                name="first_name"
-                placeholder="John"
-                value={formik.values.first_name} 
-                onChange={formik.handleChange} 
-                onBlur={formik.handleBlur}
-                error={formik.errors.first_name}
-                touched={formik.touched.first_name}
-                required 
+            <Input
+              label="First Name"
+              name="first_name"
+              placeholder="John"
+              value={formik.values.first_name}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.first_name}
+              touched={formik.touched.first_name}
+              required
             />
-            <Input 
-                label="Last Name" 
-                name="last_name"
-                placeholder="Doe"
-                value={formik.values.last_name} 
-                onChange={formik.handleChange} 
-                onBlur={formik.handleBlur}
-            />
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
-                label="Email" 
-                name="email"
-                type="email" 
-                placeholder="john.doe@example.com"
-                value={formik.values.email} 
-                onChange={formik.handleChange} 
-                onBlur={formik.handleBlur}
-                error={formik.errors.email}
-                touched={formik.touched.email}
-                required
-            />
-            <PhoneInput 
-                label="Phone" 
-                name="phone"
-                value={formik.values.phone} 
-                onChange={formik.handleChange} 
-                onBlur={formik.handleBlur}
-                error={formik.errors.phone}
-                touched={formik.touched.phone}
-                required
+            <Input
+              label="Last Name"
+              name="last_name"
+              placeholder="Doe"
+              value={formik.values.last_name}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
             />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
-                label="Workplace Name" 
-                name="company_name"
-                placeholder="Acme Corp"
-                value={formik.values.company_name} 
-                onChange={formik.handleChange} 
-                onBlur={formik.handleBlur}
-                error={formik.errors.company_name}
-                touched={formik.touched.company_name}
-                required
+            <Input
+              label="Email"
+              name="email"
+              type="email"
+              placeholder="john.doe@example.com"
+              value={formik.values.email}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.email}
+              touched={formik.touched.email}
+              required
             />
-            <Input 
-                label="Profession" 
-                name="profession"
-                placeholder="e.g. Attorney, Realtor"
-                value={formik.values.profession} 
-                onChange={formik.handleChange} 
-                onBlur={formik.handleBlur}
-                error={formik.errors.profession}
-                touched={formik.touched.profession}
-                required
+            <PhoneInput
+              label="Phone"
+              name="phone"
+              value={formik.values.phone}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.phone}
+              touched={formik.touched.phone}
+              required
             />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
-                label="Job Title" 
-                name="job_title"
-                placeholder="CEO"
-                value={formik.values.job_title} 
-                onChange={formik.handleChange} 
-                onBlur={formik.handleBlur}
+            <Input
+              label="Workplace Name"
+              name="company_name"
+              placeholder="Acme Corp"
+              value={formik.values.company_name}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.company_name}
+              touched={formik.touched.company_name}
             />
+            <Input
+              label="Profession"
+              name="profession"
+              placeholder="e.g. Attorney, Realtor"
+              value={formik.values.profession}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.profession}
+              touched={formik.touched.profession}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Input
+              label="Address"
+              name="address"
+              placeholder="e.g. 123 Main St"
+              value={formik.values.address}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.address}
+              touched={formik.touched.address}
+            />
+            <Input
+              label="GST Number"
+              name="gst_no"
+              placeholder="e.g. 22AAAAA0000A1Z5"
+              value={formik.values.gst_no}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.gst_no}
+              touched={formik.touched.gst_no}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Select
-                label="Lead Status"
-                name="status"
-                value={formik.values.status}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
+              label="Assigned To"
+              name="assigned_to"
+              value={formik.values.assigned_to}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
             >
-                <option value="lead">Lead</option>
-                <option value="active">Active Customer</option>
-                <option value="lost">Lost</option>
+              <option value="">Unassigned</option>
+              {tenantUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.roles?.role_name})</option>)}
+            </Select>
+
+            <Input
+              label="Job Title"
+              name="job_title"
+              placeholder="CEO"
+              value={formik.values.job_title}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Select
+              label="Lead Status"
+              name="status"
+              value={formik.values.status}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+            >
+              <option value="lead">Lead</option>
+              <option value="active">Active Customer</option>
+              <option value="lost">Lost</option>
+              <option value="vip">VIP</option>
             </Select>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
-                label="Source" 
-                name="source"
-                placeholder="e.g. LinkedIn"
-                value={formik.values.source} 
-                onChange={formik.handleChange} 
-                onBlur={formik.handleBlur}
+            <Input
+              label="Source"
+              name="source"
+              placeholder="e.g. LinkedIn"
+              value={formik.values.source}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
             />
-            <Input 
-              label="Tags" 
+            <Input
+              label="Tags"
               name="tags"
               placeholder="e.g. VIP, Prospect"
-              value={formik.values.tags} 
-              onChange={formik.handleChange} 
+              value={formik.values.tags}
+              onChange={formik.handleChange}
               onBlur={formik.handleBlur}
             />
           </div>
         </form>
       </Modal>
 
-      {/* Task Detail Modal */}
+      {/* Task Details Modal */}
       <Modal
         isOpen={!!viewingTask}
         onClose={() => setViewingTask(null)}
@@ -923,30 +3262,30 @@ export default function ContactDetail() {
         {viewingTask && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px' }}>{viewingTask.title}</h2>
+              <h2 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>{viewingTask.title}</h2>
               <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6' }}>{viewingTask.description || 'No description provided.'}</p>
             </div>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <InfoRow label="Status" value={<Badge type={viewingTask.status === 'completed' ? 'success' : 'warning'}>{viewingTask.status}</Badge>} icon="📊" />
-              <InfoRow label="Priority" value={<Badge type={viewingTask.priority === 'high' ? 'danger' : viewingTask.priority === 'medium' ? 'warning' : 'secondary'}>{viewingTask.priority?.toUpperCase()}</Badge>} icon="⚡" />
-              <InfoRow label="Vendor" value={viewingTask.vendor_name || 'N/A'} icon="🏢" />
-              <InfoRow label="Assignee" value={viewingTask.assignee_name || 'Unassigned'} icon="👤" />
-              <InfoRow label="Contact Partner" value={`${data?.contact?.first_name} ${data?.contact?.last_name}`} icon="🤝" />
-              <InfoRow label="Due Date" value={viewingTask.due_date ? new Date(viewingTask.due_date).toLocaleDateString() : 'No date'} icon="📅" />
-              <InfoRow label="Created At" value={new Date(viewingTask.created_at).toLocaleDateString()} icon="⏲️" />
+              <InfoRow label="Status" value={<Badge type={viewingTask.status === 'completed' ? 'success' : 'warning'}>{viewingTask.status}</Badge>} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>} />
+              <InfoRow label="Priority" value={<Badge type={viewingTask.priority === 'high' ? 'danger' : viewingTask.priority === 'medium' ? 'warning' : 'secondary'}>{viewingTask.priority?.toUpperCase()}</Badge>} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>} />
+              <InfoRow label="Vendor" value={viewingTask.vendor_name || 'N/A'} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2" /><path d="M9 22v-4h6v4" /><path d="M8 6h.01" /><path d="M16 6h.01" /><path d="M12 6h.01" /><path d="M12 10h.01" /><path d="M12 14h.01" /><path d="M16 10h.01" /><path d="M16 14h.01" /><path d="M8 10h.01" /><path d="M8 14h.01" /></svg>} />
+              <InfoRow label="Assignee" value={viewingTask.assignee_name || 'Unassigned'} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} />
+              <InfoRow label="Contact Partner" value={`${data?.contact?.first_name} ${data?.contact?.last_name}`} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} />
+              <InfoRow label="Due Date" value={viewingTask.due_date ? new Date(viewingTask.due_date).toLocaleDateString() : 'No date'} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>} />
+              <InfoRow label="Created At" value={new Date(viewingTask.created_at).toLocaleDateString()} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>} />
             </div>
 
             {viewingTask.document_url && (
               <div style={{ marginTop: '12px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Attached Document</div>
-                <a 
-                  href={getFileUrl(viewingTask.document_url)} 
-                  target="_blank" 
+                <div style={{ fontSize: '12px', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Attached Document</div>
+                <a
+                  href={getFileUrl(viewingTask.document_url)}
+                  target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'var(--primary)', fontWeight: '600' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'var(--primary)', fontWeight: '750' }}
                 >
-                  <span>📄</span> View Document
+                  <span style={{ display: 'flex' }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg></span> View Document
                 </a>
               </div>
             )}
@@ -954,7 +3293,7 @@ export default function ContactDetail() {
         )}
       </Modal>
 
-      {/* Deal Detail Modal */}
+      {/* Deal Details Modal */}
       <Modal
         isOpen={!!viewingDeal}
         onClose={() => setViewingDeal(null)}
@@ -964,23 +3303,23 @@ export default function ContactDetail() {
         {viewingDeal && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px' }}>{viewingDeal.deal_name}</h2>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)' }}>${viewingDeal.value}</div>
+              <h2 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>{viewingDeal.deal_name}</h2>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--primary)' }}>₹{viewingDeal.value.toLocaleString()}</div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <InfoRow label="Stage" value={<Badge type="primary">{viewingDeal.stage}</Badge>} icon="🏁" />
-              <InfoRow label="Status" value={<Badge type={viewingDeal.status === 'won' ? 'success' : viewingDeal.status === 'lost' ? 'danger' : 'warning'}>{viewingDeal.status}</Badge>} icon="📈" />
-              <InfoRow label="Vendor" value={viewingDeal.vendor_name || 'N/A'} icon="🏢" />
-              <InfoRow label="Assignee" value={viewingDeal.assignee_name || 'Unassigned'} icon="👤" />
-              <InfoRow label="Expected Close" value={viewingDeal.expected_close_date ? new Date(viewingDeal.expected_close_date).toLocaleDateString() : 'No date'} icon="📅" />
-              <InfoRow label="Probability" value={`${viewingDeal.probability || 0}%`} icon="🎲" />
-              <InfoRow label="Created At" value={new Date(viewingDeal.created_at).toLocaleDateString()} icon="⏲️" />
+              <InfoRow label="Stage" value={<Badge type="primary">{viewingDeal.stage}</Badge>} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>} />
+              <InfoRow label="Status" value={<Badge type={viewingDeal.status === 'won' ? 'success' : viewingDeal.status === 'lost' ? 'danger' : 'warning'}>{viewingDeal.status}</Badge>} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>} />
+              <InfoRow label="Vendor" value={viewingDeal.vendor_name || 'N/A'} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2" /><path d="M9 22v-4h6v4" /><path d="M8 6h.01" /><path d="M16 6h.01" /><path d="M12 6h.01" /><path d="M12 10h.01" /><path d="M12 14h.01" /><path d="M16 10h.01" /><path d="M16 14h.01" /><path d="M8 10h.01" /><path d="M8 14h.01" /></svg>} />
+              <InfoRow label="Assignee" value={viewingDeal.assignee_name || 'Unassigned'} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>} />
+              <InfoRow label="Expected Close" value={viewingDeal.expected_close_date ? new Date(viewingDeal.expected_close_date).toLocaleDateString() : 'No date'} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>} />
+              <InfoRow label="Probability" value={`${viewingDeal.probability || 0}%`} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="5" x2="5" y2="19" /><circle cx="6.5" cy="6.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" /></svg>} />
+              <InfoRow label="Created At" value={new Date(viewingDeal.created_at).toLocaleDateString()} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>} />
             </div>
 
             {viewingDeal.description && (
               <div style={{ marginTop: '12px' }}>
-                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Description / Notes</div>
+                <div style={{ fontSize: '11px', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Description / Notes</div>
                 <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: '1.6', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                   {viewingDeal.description}
                 </p>
@@ -990,6 +3329,7 @@ export default function ContactDetail() {
         )}
       </Modal>
 
+      {/* Delete Contact Modal */}
       <ConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
@@ -1001,9 +3341,9 @@ export default function ContactDetail() {
       />
 
       {/* Add Task Modal */}
-      <Modal 
-        isOpen={isAddTaskModalOpen} 
-        onClose={() => setIsAddTaskModalOpen(false)} 
+      <Modal
+        isOpen={isAddTaskModalOpen}
+        onClose={() => setIsAddTaskModalOpen(false)}
         title="Add New Task"
         footer={<>
           <Button type="secondary" onClick={() => setIsAddTaskModalOpen(false)}>Cancel</Button>
@@ -1013,27 +3353,27 @@ export default function ContactDetail() {
         </>}
       >
         <form onSubmit={addTaskFormik.handleSubmit}>
-          <Input 
-            label="Task Title" 
+          <Input
+            label="Task Title"
             name="title"
             placeholder="Enter task title"
-            value={addTaskFormik.values.title} 
-            onChange={addTaskFormik.handleChange} 
+            value={addTaskFormik.values.title}
+            onChange={addTaskFormik.handleChange}
             onBlur={addTaskFormik.handleBlur}
             error={addTaskFormik.errors.title}
             touched={addTaskFormik.touched.title}
-            required 
+            required
           />
 
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Description</label>
-            <textarea 
+            <textarea
               name="description"
               placeholder="Provide a detailed description of the task..."
               value={addTaskFormik.values.description}
               onChange={addTaskFormik.handleChange}
               onBlur={addTaskFormik.handleBlur}
-               style={{
+              style={{
                 width: '100%',
                 padding: '10px 12px',
                 minHeight: '80px',
@@ -1048,59 +3388,76 @@ export default function ContactDetail() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
-                label="Due Date" 
-                type="date" 
-                name="due_date"
-                value={addTaskFormik.values.due_date} 
-                onChange={addTaskFormik.handleChange} 
-                onBlur={addTaskFormik.handleBlur}
+            <Input
+              label="Due Date"
+              type="date"
+              name="due_date"
+              value={addTaskFormik.values.due_date}
+              onChange={addTaskFormik.handleChange}
+              onBlur={addTaskFormik.handleBlur}
             />
-            
+
             <Select
-                label="Priority"
-                name="priority"
-                value={addTaskFormik.values.priority}
-                onChange={addTaskFormik.handleChange}
-                onBlur={addTaskFormik.handleBlur}
-                required
+              label="Priority"
+              name="priority"
+              value={addTaskFormik.values.priority}
+              onChange={addTaskFormik.handleChange}
+              onBlur={addTaskFormik.handleBlur}
+              required
             >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
             </Select>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Select
-                label="Assign To"
-                name="assigned_to"
-                value={addTaskFormik.values.assigned_to}
-                onChange={addTaskFormik.handleChange}
-                onBlur={addTaskFormik.handleBlur}
+              label="Assign To"
+              name="assigned_to"
+              value={addTaskFormik.values.assigned_to}
+              onChange={addTaskFormik.handleChange}
+              onBlur={addTaskFormik.handleBlur}
             >
-                <option value="">Select Staff</option>
-                {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              <option value="">Select Staff</option>
+              {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </Select>
 
             <Select
-                label="Status"
-                name="status"
-                value={addTaskFormik.values.status}
-                onChange={addTaskFormik.handleChange}
-                onBlur={addTaskFormik.handleBlur}
+              label="Status"
+              name="status"
+              value={addTaskFormik.values.status}
+              onChange={addTaskFormik.handleChange}
+              onBlur={addTaskFormik.handleBlur}
             >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
+              <option value="pending">Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </Select>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <Select
+              label="Associated Deal"
+              name="deal_id"
+              value={addTaskFormik.values.deal_id}
+              onChange={addTaskFormik.handleChange}
+              onBlur={addTaskFormik.handleBlur}
+            >
+              <option value="">Select Deal (Optional)</option>
+              {deals.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.deal_name} (₹{Number(d.value || 0).toLocaleString()} - {d.stage})
+                </option>
+              ))}
             </Select>
           </div>
 
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Reference Document</label>
-            
-            <div 
+
+            <div
               onDragEnter={handleDrag}
               onDragOver={handleDrag}
               onDragLeave={handleDrag}
@@ -1123,21 +3480,21 @@ export default function ContactDetail() {
               }}
               onClick={() => document.getElementById('task-file-upload').click()}
             >
-              <input 
+              <input
                 id="task-file-upload"
-                type="file" 
+                type="file"
                 style={{ display: 'none' }}
                 onChange={handleFileUpload}
                 disabled={uploading}
               />
-              
+
               {uploading ? (
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ 
-                    width: '32px', 
-                    height: '32px', 
-                    border: '3px solid rgba(var(--primary-rgb), 0.1)', 
-                    borderTopColor: 'var(--primary)', 
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    border: '3px solid rgba(var(--primary-rgb), 0.1)',
+                    borderTopColor: 'var(--primary)',
                     borderRadius: '50%',
                     animation: 'spin 1s linear infinite',
                     margin: '0 auto 12px'
@@ -1147,13 +3504,13 @@ export default function ContactDetail() {
                 </div>
               ) : addTaskFormik.values.document_url ? (
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>📄</div>
-                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#059669', marginBottom: '4px' }}>Document Uploaded!</div>
+                  <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center', color: 'var(--primary)' }}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg></div>
+                  <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--primary)', marginBottom: '4px' }}>Document Uploaded!</div>
                   {uploadedFileName && <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{uploadedFileName}</div>}
                 </div>
               ) : (
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '32px', marginBottom: '8px', opacity: 0.5 }}>📤</div>
+                  <div style={{ marginBottom: '8px', opacity: 0.5, display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg></div>
                   <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-main)' }}>Click or drag file to upload</div>
                 </div>
               )}
@@ -1163,9 +3520,9 @@ export default function ContactDetail() {
       </Modal>
 
       {/* Add Deal Modal */}
-      <Modal 
-        isOpen={isAddDealModalOpen} 
-        onClose={() => setIsAddDealModalOpen(false)} 
+      <Modal
+        isOpen={isAddDealModalOpen}
+        onClose={() => setIsAddDealModalOpen(false)}
         title="Add New Deal"
         footer={<>
           <Button type="secondary" onClick={() => setIsAddDealModalOpen(false)}>Cancel</Button>
@@ -1175,107 +3532,114 @@ export default function ContactDetail() {
         </>}
       >
         <form onSubmit={addDealFormik.handleSubmit}>
-          <Input 
-            label="Deal Name" 
+          {isGlobalAdmin && (
+            <SearchableSelect
+              label="Assign to Company"
+              name="tenant_id"
+              value={addDealFormik.values.tenant_id}
+              options={Array.isArray(tenants) ? tenants.map(t => ({ value: t.id, label: t.owner_name || t.tenant_name || t.name || 'Unknown Company' })) : []}
+              onChange={addDealFormik.handleChange}
+              onBlur={addDealFormik.handleBlur}
+              error={addDealFormik.errors.tenant_id}
+              touched={addDealFormik.touched.tenant_id}
+              required
+            />
+          )}
+          <Input
+            label="Deal Name"
             name="deal_name"
             placeholder="e.g. Enterprise License"
-            value={addDealFormik.values.deal_name} 
-            onChange={addDealFormik.handleChange} 
+            value={addDealFormik.values.deal_name}
+            onChange={addDealFormik.handleChange}
             onBlur={addDealFormik.handleBlur}
             error={addDealFormik.errors.deal_name}
             touched={addDealFormik.touched.deal_name}
-            required 
+            required
           />
-          
-          <Input 
-            label="Value ($)" 
-            type="number" 
+
+          <Input
+            label="Value (₹)"
+            type="number"
             name="value"
             placeholder="0.00"
-            value={addDealFormik.values.value} 
-            onChange={addDealFormik.handleChange} 
+            value={addDealFormik.values.value}
+            onChange={addDealFormik.handleChange}
             onBlur={addDealFormik.handleBlur}
+            onKeyDown={(e) => {
+              if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+            }}
             error={addDealFormik.errors.value}
             touched={addDealFormik.touched.value}
-            required 
+            required
           />
-          
-          <Select
+
+          <SearchableSelect
             label="Assigned To"
             name="assigned_to"
             value={addDealFormik.values.assigned_to}
+            options={staff.map(s => ({ value: s.id, label: s.name }))}
             onChange={addDealFormik.handleChange}
             onBlur={addDealFormik.handleBlur}
-          >
-            <option value="">Unassigned</option>
-            {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </Select>
+            placeholder="Unassigned"
+          />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Select
-                label="Pipeline Stage"
-                name="stage"
-                value={addDealFormik.values.stage}
-                onChange={addDealFormik.handleChange}
-                onBlur={addDealFormik.handleBlur}
+              label="Pipeline Stage"
+              name="stage"
+              value={addDealFormik.values.stage}
+              onChange={addDealFormik.handleChange}
+              onBlur={addDealFormik.handleBlur}
             >
-                <option value="prospecting">Prospecting</option>
-                <option value="qualification">Qualification</option>
-                <option value="proposal">Proposal</option>
-                <option value="negotiation">Negotiation</option>
-                <option value="closed">Closed</option>
+              <option value="lead">Lead</option>
+              <option value="qualification">Qualification</option>
+              <option value="proposal">Proposal</option>
+              <option value="negotiation">Negotiation</option>
+              <option value="won">Won</option>
+              <option value="lost">Lost</option>
             </Select>
 
             <Select
-                label="Status"
-                name="status"
-                value={addDealFormik.values.status}
-                onChange={addDealFormik.handleChange}
-                onBlur={addDealFormik.handleBlur}
+              label="Status"
+              name="status"
+              value={addDealFormik.values.status}
+              onChange={addDealFormik.handleChange}
+              onBlur={addDealFormik.handleBlur}
             >
-                <option value="open">Open</option>
-                <option value="won">Won</option>
-                <option value="lost">Lost</option>
+              <option value="open">Open</option>
+              <option value="won">Won</option>
+              <option value="lost">Lost</option>
             </Select>
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={communicationModal.isOpen}
+        onClose={() => setCommunicationModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={handleConfirmCommunication}
+        title={communicationModal.title}
+        message={communicationModal.message}
+        confirmLabel="Proceed"
+        cancelLabel="Cancel"
+        type="primary"
+      />
     </div>
   );
 }
 
 function InfoRow({ label, value, icon, isBadge }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-      <span style={{ fontSize: '16px', width: '20px', textAlign: 'center' }}>{icon}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', backgroundColor: 'var(--bg-main)', borderRadius: '8px' }}>{icon}</span>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '2px' }}>{label}</div>
         {isBadge && value ? (
-          <Badge type="info">{value}</Badge>
+          <div style={{ marginTop: '2px' }}><Badge type="info">{value}</Badge></div>
         ) : (
-          <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: '500' }}>{value || 'Not provided'}</div>
+          <div style={{ fontSize: '14px', color: 'var(--text-main)', fontWeight: '600' }}>{value || 'Not provided'}</div>
         )}
       </div>
-    </div>
-  );
-}
-
-function TabItem({ children, active, onClick }) {
-  return (
-    <div 
-      onClick={onClick}
-      style={{
-        padding: '16px 20px',
-        fontSize: '14px',
-        fontWeight: '600',
-        color: active ? 'var(--primary)' : 'var(--text-muted)',
-        borderBottom: active ? '2px solid var(--primary)' : '2px solid transparent',
-        cursor: 'pointer',
-        transition: 'all 0.2s',
-        marginBottom: '-1px'
-      }}
-    >
-      {children}
     </div>
   );
 }
@@ -1285,32 +3649,32 @@ function PaginationControls({ currentPage, totalItems, itemsPerPage, onPageChang
   if (totalPages <= 1) return null;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginTop: '24px', padding: '16px 0', borderTop: '1px solid var(--border)' }}>
-      <button 
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '16px', padding: '10px 0', borderTop: '1px solid var(--border)' }}>
+      <button
         disabled={currentPage === 1}
         onClick={() => onPageChange(currentPage - 1)}
         style={{
-          padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)',
+          padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)',
           backgroundColor: currentPage === 1 ? 'var(--bg-main)' : '#fff',
           color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-main)',
           cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-          fontSize: '13px', fontWeight: '600', transition: 'all 0.2s'
+          fontSize: '12px', fontWeight: '600', transition: 'all 0.15s'
         }}
       >
         Previous
       </button>
-      <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-muted)' }}>
+      <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)' }}>
         Page <span style={{ color: 'var(--text-main)' }}>{currentPage}</span> of {totalPages}
       </span>
-      <button 
+      <button
         disabled={currentPage === totalPages}
         onClick={() => onPageChange(currentPage + 1)}
         style={{
-          padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)',
+          padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)',
           backgroundColor: currentPage === totalPages ? 'var(--bg-main)' : '#fff',
           color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-main)',
           cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-          fontSize: '13px', fontWeight: '600', transition: 'all 0.2s'
+          fontSize: '12px', fontWeight: '600', transition: 'all 0.15s'
         }}
       >
         Next
@@ -1321,7 +3685,7 @@ function PaginationControls({ currentPage, totalItems, itemsPerPage, onPageChang
 
 function ContactDetailSkeleton() {
   return (
-    <div style={{ padding: '40px' }}>
+    <div style={{ padding: '24px' }}>
       <style>{`
         @keyframes shimmer {
           0% { background-position: -200% 0; }
@@ -1336,30 +3700,29 @@ function ContactDetailSkeleton() {
       `}</style>
 
       {/* Breadcrumbs Skeleton */}
-      <div className="skeleton" style={{ width: '200px', height: '20px', marginBottom: '24px' }} />
+      <div className="skeleton" style={{ width: '150px', height: '18px', marginBottom: '16px' }} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) 2.5fr', gap: '32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(290px, 1fr) 3fr', gap: '16px' }}>
         {/* Left Column Skeleton */}
-        <aside style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{ backgroundColor: '#fff', borderRadius: '16px', padding: '32px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div className="skeleton" style={{ width: '100px', height: '100px', borderRadius: '50%', marginBottom: '20px' }} />
-            <div className="skeleton" style={{ width: '150px', height: '24px', marginBottom: '12px' }} />
-            <div className="skeleton" style={{ width: '100px', height: '18px', marginBottom: '24px' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', width: '100%' }}>
-              <div className="skeleton" style={{ height: '36px' }} />
-              <div className="skeleton" style={{ height: '36px' }} />
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '16px 14px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="skeleton" style={{ width: '48px', height: '48px', borderRadius: '50%', marginBottom: '12px' }} />
+            <div className="skeleton" style={{ width: '120px', height: '18px', marginBottom: '8px' }} />
+            <div className="skeleton" style={{ width: '80px', height: '14px', marginBottom: '16px' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%' }}>
+              <div className="skeleton" style={{ height: '30px' }} />
+              <div className="skeleton" style={{ height: '30px' }} />
             </div>
           </div>
 
-          <div style={{ backgroundColor: '#fff', borderRadius: '16px', padding: '24px', border: '1px solid var(--border)' }}>
-            <div className="skeleton" style={{ width: '120px', height: '20px', marginBottom: '20px' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} style={{ display: 'flex', gap: '12px' }}>
-                  <div className="skeleton" style={{ width: '20px', height: '20px' }} />
+          <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '16px 14px', border: '1px solid var(--border)' }}>
+            <div className="skeleton" style={{ width: '100px', height: '16px', marginBottom: '12px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} style={{ display: 'flex', gap: '8px' }}>
+                  <div className="skeleton" style={{ width: '14px', height: '14px' }} />
                   <div style={{ flex: 1 }}>
-                    <div className="skeleton" style={{ width: '60px', height: '10px', marginBottom: '4px' }} />
-                    <div className="skeleton" style={{ width: '100px', height: '14px' }} />
+                    <div className="skeleton" style={{ width: '80px', height: '12px' }} />
                   </div>
                 </div>
               ))}
@@ -1368,26 +3731,24 @@ function ContactDetailSkeleton() {
         </aside>
 
         {/* Right Column Skeleton */}
-        <main style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 24px', gap: '24px' }}>
-            <div className="skeleton" style={{ width: '100px', height: '48px', borderRadius: '0' }} />
-            <div className="skeleton" style={{ width: '100px', height: '48px', borderRadius: '0' }} />
-            <div className="skeleton" style={{ width: '100px', height: '48px', borderRadius: '0' }} />
+        <main style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 16px', gap: '16px' }}>
+            <div className="skeleton" style={{ width: '80px', height: '36px', borderRadius: '0' }} />
+            <div className="skeleton" style={{ width: '80px', height: '36px', borderRadius: '0' }} />
+            <div className="skeleton" style={{ width: '80px', height: '36px', borderRadius: '0' }} />
           </div>
-          <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            {/* Note Creation Skeleton */}
-            <div style={{ padding: '24px', border: '1px solid var(--border)', borderRadius: '16px' }}>
-              <div className="skeleton" style={{ width: '200px', height: '24px', marginBottom: '20px' }} />
-              <div className="skeleton" style={{ width: '100%', height: '150px', marginBottom: '20px' }} />
+          <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderRadius: '8px' }}>
+              <div className="skeleton" style={{ width: '150px', height: '18px', marginBottom: '12px' }} />
+              <div className="skeleton" style={{ width: '100%', height: '100px', marginBottom: '12px' }} />
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div className="skeleton" style={{ width: '100px', height: '40px' }} />
+                <div className="skeleton" style={{ width: '80px', height: '32px' }} />
               </div>
             </div>
 
-            {/* Note Items Skeleton */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {[1, 2, 3].map(i => (
-                <div key={i} className="skeleton" style={{ height: '70px', borderRadius: '12px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {[1, 2].map(i => (
+                <div key={i} className="skeleton" style={{ height: '50px', borderRadius: '8px' }} />
               ))}
             </div>
           </div>

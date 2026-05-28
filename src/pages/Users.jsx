@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
@@ -66,6 +66,10 @@ export default function Users() {
   const [userToToggle, setUserToToggle] = useState(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+
   const formik = useFormik({
     initialValues: {
       name: '',
@@ -81,7 +85,7 @@ export default function Users() {
       name: Yup.string().required('Full name is required'),
       email: Yup.string().email('Invalid email address').required('Email is required'),
       password: editingUser
-        ? Yup.string().min(6, 'Password must be at least 6 characters')
+        ? Yup.string().test('min-6', 'Password must be at least 6 characters', val => !val || val.length >= 6)
         : Yup.string().required('Password is required').min(6, 'Password must be at least 6 characters'),
       re_password: Yup.string()
         .oneOf([Yup.ref('password'), null], 'Passwords must match')
@@ -158,8 +162,8 @@ export default function Users() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ 
-        page, 
+      const params = new URLSearchParams({
+        page,
         limit: pageSize,
         sortField,
         sortOrder
@@ -178,6 +182,36 @@ export default function Users() {
       setLoading(false);
     }
   }, [viewScope, filterTenantId, page, debouncedSearch, statusFilter, isGlobalAdmin, pageSize, sortField, sortOrder]);
+
+  const handleExport = async () => {
+    try {
+      const params = new URLSearchParams({
+        sortField,
+        sortOrder,
+        export: 'true'
+      });
+      if (isGlobalAdmin) params.append('scope', viewScope);
+      if (filterTenantId) params.append('tenant_id', filterTenantId);
+      if (debouncedSearch) params.append('search', debouncedSearch);
+      if (statusFilter) params.append('status', statusFilter);
+
+      toast.loading('Exporting users...', { id: 'export-users' });
+      const response = await api.get(`/users?${params.toString()}`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `users_export_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      toast.success('Users exported successfully', { id: 'export-users' });
+    } catch (err) {
+      console.error("Export users failed", err);
+      toast.error('Failed to export users', { id: 'export-users' });
+    }
+  };
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -198,15 +232,17 @@ export default function Users() {
   const handleOpenModal = (user = null) => {
     if (user) {
       setEditingUser(user);
-      formik.setValues({
-        name: user.name,
-        email: user.email,
-        password: '',
-        re_password: '',
-        role_id: user.role_id || '',
-        target_tenant_id: user.tenant_id || '',
-        status: user.status || 'active',
-        profile_image_url: user.profile_image_url || '',
+      formik.resetForm({
+        values: {
+          name: user.name,
+          email: user.email,
+          password: '',
+          re_password: '',
+          role_id: user.role_id || '',
+          target_tenant_id: user.tenant_id || '',
+          status: user.status || 'active',
+          profile_image_url: user.profile_image_url || '',
+        }
       });
     } else {
       setEditingUser(null);
@@ -229,6 +265,26 @@ export default function Users() {
 
   const handleCloseModal = () => { setIsModalOpen(false); setEditingUser(null); };
 
+  const handleDeleteUser = (user) => {
+    setUserToDelete(user);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    setIsDeletingUser(true);
+    try {
+      await api.delete(`/users/${userToDelete.id}`);
+      toast.success('User deleted successfully');
+      fetchUsers();
+      setDeleteConfirmOpen(false);
+    } catch (err) {
+      console.error('Delete User Error:', err);
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
+
   const toggleStatus = (user) => {
     setUserToToggle(user);
     setStatusConfirmOpen(true);
@@ -245,7 +301,6 @@ export default function Users() {
       setStatusConfirmOpen(false);
     } catch (err) {
       console.error('Status Update Error:', err);
-      toast.error(err.response?.data?.error || 'Failed to update status');
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -277,7 +332,6 @@ export default function Users() {
       setPasswordConfirmOpen(false);
     } catch (err) {
       console.error('Password Update Error:', err);
-      toast.error(err.response?.data?.error || 'Failed to update password');
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -291,7 +345,7 @@ export default function Users() {
       sortKey: 'name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
+          <Link to={`/users/${row.id}`} style={{
             width: '34px',
             height: '34px',
             borderRadius: '50%',
@@ -301,7 +355,9 @@ export default function Users() {
             alignItems: 'center',
             justifyContent: 'center',
             border: '1px solid var(--border)',
-            flexShrink: 0
+            flexShrink: 0,
+            cursor: 'pointer',
+            textDecoration: 'none'
           }}>
             {row.profile_image_url ? (
               <img src={getFileUrl(row.profile_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -310,11 +366,13 @@ export default function Users() {
                 {(row.name || 'U')[0].toUpperCase()}
               </span>
             )}
-          </div>
-          <div>
-            <p style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '14px' }}>{row.name}</p>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{row.email}</p>
-          </div>
+          </Link>
+          <Link to={`/users/analytics?userId=${row.id}`} style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+            <span style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '14px', display: 'block' }}>
+              {row.name}
+            </span>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{row.email}</p>
+          </Link>
         </div>
       )
     },
@@ -364,115 +422,158 @@ export default function Users() {
           <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>User Management</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Manage access, roles, and account status.</p>
         </div>
-        {hasPermission('users.manage') && (
-          <Button onClick={() => handleOpenModal()}>
-            + Add {isAddingPlatformUser ? 'Platform Admin' : 'Tenant User'}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
           </Button>
-        )}
+          {hasPermission('users.manage') && (
+            <Button onClick={() => handleOpenModal()}>
+              + Add {isAddingPlatformUser ? 'Platform Admin' : 'Tenant User'}
+            </Button>
+          )}
+        </div>
       </div>
-
       {/* Sticky Filter Bar */}
-      <div style={{ 
-        position: 'sticky', 
-        top: 'var(--header-height)', 
-        zIndex: 40, 
-        backgroundColor: 'var(--bg-main)', 
-        paddingTop: '8px',
-        paddingBottom: '16px',
-        margin: '0 -24px 16px -24px',
-        paddingLeft: '24px',
-        paddingRight: '24px',
-        borderBottom: '1px solid var(--border)'
+      <div style={{
+        backgroundColor: '#fff',
+        borderRadius: '16px',
+        border: '1px solid var(--border)',
+        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
+        padding: '16px 20px',
+        margin: '0 0 20px 0',
+        display: 'flex',
+        width: '100%',
+        boxSizing: 'border-box',
+        flexWrap: 'wrap',
+        gap: '16px',
+        alignItems: 'flex-end'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Scope Toggle — Super Admin ONLY sees this */}
-          {isSuperAdmin && (
-            <div style={{ display: 'flex', gap: '4px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '12px' }}>
+        {/* Scope Toggle — Super Admin ONLY sees this */}
+        {isSuperAdmin && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>View Scope</span>
+            <div style={{ display: 'flex', gap: '4px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '12px', height: '38px', alignItems: 'center' }}>
               {['platform', 'tenant'].map(scope => (
                 <button
                   key={scope}
                   onClick={() => { setViewScope(scope); setFilterTenantId(''); setSearch(''); setPage(1); }}
                   style={{
-                    padding: '7px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                    fontSize: '13px', fontWeight: '600', transition: 'all 0.2s',
+                    padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    fontSize: '12px', fontWeight: '600', transition: 'all 0.2s',
                     backgroundColor: viewScope === scope ? '#fff' : 'transparent',
                     color: viewScope === scope ? 'var(--primary)' : 'var(--text-muted)',
                     boxShadow: viewScope === scope ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                    height: '30px',
+                    display: 'flex',
+                    alignItems: 'center'
                   }}
                 >
                   {scope === 'platform' ? '🛡️ Platform Admins' : '🏢 Tenant Users'}
                 </button>
               ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Company Filter — Global Admins when viewing tenant users */}
-          {isGlobalAdmin && viewScope === 'tenant' && (
+        {/* Company Filter — Global Admins when viewing tenant users */}
+        {isGlobalAdmin && viewScope === 'tenant' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Filter by Company</span>
             <select
               value={filterTenantId}
               onChange={(e) => { setFilterTenantId(e.target.value); setPage(1); }}
-              style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
+              style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', height: '38px', minWidth: '180px', cursor: 'pointer' }}
             >
               <option value="">All Companies</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
             </select>
-          )}
+          </div>
+        )}
 
-          {/* Status Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: isGlobalAdmin ? '12px' : '0' }}>
-            <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(1);
-              }}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '12px',
-                border: '1px solid var(--border)',
-                fontSize: '13px',
-                outline: 'none',
-                backgroundColor: '#fff',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="suspended">Suspended</option>
-            </select>
+        {/* Status Filter */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+            style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', height: '38px', minWidth: '140px', cursor: 'pointer' }}
+          >
+            <option value="">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="suspended">Suspended</option>
+          </select>
+        </div>
+
+        {/* Search Filter */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '280px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Search</span>
+          <div style={{ position: 'relative', width: '100%' }}>
+            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '100%', padding: '10px 32px 10px 36px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', transition: 'border-color 0.2s', height: '38px' }}
+              onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+              onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#334155', padding: 0 }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Search */}
-        <div style={{ position: 'relative', width: '300px' }}>
-          <span style={{ 
-            position: 'absolute', 
-            left: '12px', 
-            top: '50%', 
-            transform: 'translateY(-50%)', 
-            color: 'var(--text-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </span>
-          <input
-            type="text"
-            placeholder="Search by name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '100%', padding: '8px 12px 8px 36px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
-          />
-        </div>
+        {/* Restore Button */}
+        {(() => {
+          const hasFilters = !!(filterTenantId || statusFilter || search);
+          return (
+            <button
+              title={hasFilters ? 'Clear all filters' : 'No active filters'}
+              onClick={() => {
+                if (!hasFilters) return;
+                setFilterTenantId('');
+                setStatusFilter('');
+                setSearch('');
+                setPage(1);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '38px',
+                height: '38px',
+                borderRadius: '12px',
+                border: `1px solid ${hasFilters ? '#f87171' : 'var(--border)'}`,
+                backgroundColor: hasFilters ? '#fff1f2' : '#f8fafc',
+                color: hasFilters ? '#dc2626' : '#cbd5e1',
+                cursor: hasFilters ? 'pointer' : 'default',
+                transition: 'all 0.2s',
+                alignSelf: 'flex-end'
+              }}
+              onMouseOver={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = '#fee2e2'; }}
+              onMouseOut={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = '#fff1f2'; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            </button>
+          );
+        })()}
       </div>
-    </div>
 
       {/* Table */}
       <DataTable
@@ -490,15 +591,56 @@ export default function Users() {
           setSortOrder(order);
         }}
         actions={(row) => (
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {hasPermission('users.manage') && (
-              <Button size="sm" type="secondary" onClick={() => handleOpenModal(row)}>Edit</Button>
+              <Button
+                size="sm"
+                type="secondary"
+                onClick={() => handleOpenModal(row)}
+                title="Edit User"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 8px' }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </Button>
             )}
-            {hasPermission('users.manage') && (
-              <Button type="ghost" size="sm" onClick={() => toggleStatus(row)}>
-                <span style={{ color: row.status === 'active' ? 'var(--danger)' : 'var(--success)' }}>
-                  {row.status === 'active' ? 'Suspend' : 'Activate'}
-                </span>
+            {hasPermission('users.manage') && row.user_type !== 'platform' && (
+              <Button
+                type="ghost"
+                size="sm"
+                onClick={() => toggleStatus(row)}
+                title={row.status === 'active' ? "Suspend User" : "Activate User"}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 8px' }}
+              >
+                {row.status === 'active' ? (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', color: 'var(--danger)' }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                  </svg>
+                ) : (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', color: 'var(--success)' }}>
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                )}
+              </Button>
+            )}
+            {hasPermission('users.manage') && row.user_type !== 'platform' && row.id !== loggedInUser?.id && (
+              <Button
+                type="ghost"
+                size="sm"
+                onClick={() => handleDeleteUser(row)}
+                title="Delete User"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 8px' }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', color: 'var(--danger)' }}>
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
               </Button>
             )}
           </div>
@@ -597,7 +739,7 @@ export default function Users() {
               required
             >
               <option value="">— Select a Company —</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
             </Select>
           )}
 
@@ -679,10 +821,10 @@ export default function Users() {
               {editingUser && (
                 <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
                   <Button
-                    type="secondary"
+                    type="primary"
                     size="sm"
                     onClick={(e) => { e.preventDefault(); handlePasswordChange(); }}
-                    style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                    style={{ border: '1px solid rgba(255, 255, 255, 0.4)' }}
                   >
                     Change Password
                   </Button>
@@ -699,8 +841,9 @@ export default function Users() {
         onConfirm={confirmPasswordUpdate}
         title="Confirm Password Change"
         message="Are you sure you want to change this user's password? The user will need to use the new password for their next login."
-        confirmText={isUpdatingPassword ? "Updating..." : "Yes, Change Password"}
-        confirmType="danger"
+        confirmLabel={isUpdatingPassword ? "Updating..." : "Yes, Change Password"}
+        type="danger"
+        disabled={isUpdatingPassword}
       />
 
       <ConfirmModal
@@ -709,8 +852,20 @@ export default function Users() {
         onConfirm={handleConfirmStatusChange}
         title={`Confirm Account ${userToToggle?.status === 'active' ? 'Suspension' : 'Activation'}`}
         message={`Are you sure you want to ${userToToggle?.status === 'active' ? 'suspend' : 'activate'} this user account (${userToToggle?.email})?`}
-        confirmText={isUpdatingStatus ? "Updating..." : `Yes, ${userToToggle?.status === 'active' ? 'Suspend' : 'Activate'}`}
-        confirmType={userToToggle?.status === 'active' ? "danger" : "primary"}
+        confirmLabel={isUpdatingStatus ? "Updating..." : `Yes, ${userToToggle?.status === 'active' ? 'Suspend' : 'Activate'}`}
+        type={userToToggle?.status === 'active' ? "danger" : "primary"}
+        disabled={isUpdatingStatus}
+      />
+
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Confirm Delete Account"
+        message={`Are you sure you want to permanently delete user account (${userToDelete?.email})? This action is irreversible.`}
+        confirmLabel={isDeletingUser ? "Deleting..." : "Yes, Delete Account"}
+        type="danger"
+        disabled={isDeletingUser}
       />
     </div>
   );

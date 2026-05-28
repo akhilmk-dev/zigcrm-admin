@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api from '../api/axiosConfig';
@@ -12,6 +12,28 @@ export default function ForgotPassword() {
   const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  useEffect(() => {
+    let interval;
+    if (step === 2 && resendCountdown > 0) {
+      interval = setInterval(() => {
+        setResendCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [step, resendCountdown]);
+
+  const handleResendOtp = async () => {
+    if (resendCountdown > 0) return;
+    try {
+      await api.post('/auth/forgot-password', { email });
+      setResendCountdown(30);
+      toast.success('OTP resent successfully.');
+    } catch (err) {
+      console.error('Failed to resend OTP', err);
+    }
+  };
 
   // Step 1: Email Formik
   const emailFormik = useFormik({
@@ -24,9 +46,10 @@ export default function ForgotPassword() {
         await api.post('/auth/forgot-password', { email: values.email });
         setEmail(values.email);
         setStep(2);
-        toast.success('OTP sent successfully (Dummy: 5555)');
+        setResendCountdown(30);
+        toast.success('OTP sent successfully.');
       } catch (err) {
-        toast.error(err.response?.data?.error || 'Failed to send OTP');
+        console.error('Failed to send OTP', err);
       } finally {
         setSubmitting(false);
       }
@@ -46,7 +69,7 @@ export default function ForgotPassword() {
         setStep(3);
         toast.success('OTP verified');
       } catch (err) {
-        toast.error(err.response?.data?.error || 'Invalid or expired OTP');
+        console.error('Invalid or expired OTP', err);
       } finally {
         setSubmitting(false);
       }
@@ -64,15 +87,15 @@ export default function ForgotPassword() {
     }),
     onSubmit: async (values, { setSubmitting }) => {
       try {
-        await api.post('/auth/reset-password', { 
-          email, 
-          otp, 
-          newPassword: values.newPassword 
+        await api.post('/auth/reset-password', {
+          email,
+          otp,
+          newPassword: values.newPassword
         });
         toast.success('Password reset successful. Please login.');
         navigate('/login');
       } catch (err) {
-        toast.error(err.response?.data?.error || 'Failed to reset password');
+        console.error('Failed to reset password', err);
       } finally {
         setSubmitting(false);
       }
@@ -89,7 +112,7 @@ export default function ForgotPassword() {
       fontFamily: "'Inter', sans-serif"
     }}>
       {/* Left Side: Branding (Desktop only) */}
-      <div 
+      <div
         id="branding-side"
         style={{
           flex: '1.2',
@@ -130,7 +153,7 @@ export default function ForgotPassword() {
       </div>
 
       {/* Right Side: Step Forms */}
-      <div 
+      <div
         id="form-container"
         style={{
           flex: '1',
@@ -231,6 +254,32 @@ export default function ForgotPassword() {
             <button type="submit" disabled={otpFormik.isSubmitting} style={buttonStyle(otpFormik.isSubmitting)}>
               {otpFormik.isSubmitting ? 'Verifying...' : 'Verify OTP'}
             </button>
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+              {resendCountdown > 0 ? (
+                <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+                  Resend code in <strong style={{ color: 'var(--primary)', fontWeight: '600' }}>{resendCountdown}s</strong>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    transition: 'opacity 0.2s',
+                  }}
+                  onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                  onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                >
+                  Resend OTP Code
+                </button>
+              )}
+            </div>
             <button type="button" onClick={() => setStep(1)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '14px', cursor: 'pointer' }}>
               Change email address
             </button>

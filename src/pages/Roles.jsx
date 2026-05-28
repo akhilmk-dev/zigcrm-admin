@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api from '../api/axiosConfig';
@@ -29,6 +30,7 @@ export default function Roles() {
   const [isPermsModalOpen, setIsPermsModalOpen] = useState(false);
   const [rolePerms, setRolePerms] = useState([]);
   const [roleToDelete, setRoleToDelete] = useState(null);
+  const [isUpdateConfirmOpen, setIsUpdateConfirmOpen] = useState(false);
 
   // ─── New Role Modal ───────────────────────────────────────────────────────────
   const [isNewRoleModalOpen, setIsNewRoleModalOpen] = useState(false);
@@ -40,7 +42,7 @@ export default function Roles() {
     },
     validationSchema: Yup.object({
       role_name: Yup.string().required('Role name is required').min(3, 'Min 3 characters'),
-      description: Yup.string().max(200, 'Max 200 characters')
+      description: Yup.string().max(500, 'Max 500 characters')
     }),
     onSubmit: async (values) => {
       try {
@@ -63,15 +65,15 @@ export default function Roles() {
 
   // ─── Load Permissions (once) ─────────────────────────────────────────────────
   useEffect(() => {
-    api.get('/permissions').then(res => setAllPermissions(res.data || [])).catch(() => {});
+    api.get('/permissions').then(res => setAllPermissions(res.data || [])).catch(() => { });
   }, []);
 
   // ─── Load Roles ──────────────────────────────────────────────────────────────
   const fetchRoles = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ 
-        page, 
+      const params = new URLSearchParams({
+        page,
         limit: pageSize,
         sortField,
         sortOrder
@@ -104,17 +106,22 @@ export default function Roles() {
   };
 
   // ─── Toggle a Permission ──────────────────────────────────────────────────────
-  const togglePermission = async (permId) => {
+  const togglePermission = (permId) => {
     const newPerms = rolePerms.includes(permId)
       ? rolePerms.filter(id => id !== permId)
       : [...rolePerms, permId];
     setRolePerms(newPerms);
+  };
 
+  const handleUpdatePermissions = async () => {
     try {
-      await api.post(`/roles/${selectedRole.id}/permissions`, { permissionIds: newPerms });
-      toast.success('Permissions updated');
+      await api.post(`/roles/${selectedRole.id}/permissions`, { permissionIds: rolePerms });
+      toast.success('Permissions updated successfully');
+      setIsPermsModalOpen(false);
+      setIsUpdateConfirmOpen(false);
     } catch (err) {
       console.error('Save Permissions Error:', err);
+      toast.error('Failed to update permissions');
     }
   };
 
@@ -151,19 +158,35 @@ export default function Roles() {
       sortKey: 'role_name',
       render: (row) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontWeight: '600', color: row.role_name.startsWith('tenant-') ? '#0ea5e9' : 'var(--text-main)' }}>
-            {row.role_name}
-          </span>
+          {row.role_name === 'Super Admin' ? (
+            <span style={{ fontWeight: '600', color: 'var(--text-main)' }}>
+              {row.role_name}
+            </span>
+          ) : (
+            <Link
+              to={`/roles/${row.id}`}
+              style={{
+                fontWeight: '600',
+                color: row.role_name.startsWith('tenant-') ? '#0ea5e9' : 'var(--text-main)',
+                textDecoration: 'none',
+                transition: 'color 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.color = 'var(--primary)'}
+              onMouseLeave={(e) => e.target.style.color = row.role_name.startsWith('tenant-') ? '#0ea5e9' : 'var(--text-main)'}
+            >
+              {row.role_name}
+            </Link>
+          )}
           {row.is_system_role && <Badge>System</Badge>}
           {row.role_name.startsWith('tenant-') && <Badge type="info">Tenant</Badge>}
         </div>
       )
     },
-    { 
-      header: 'Description', 
-      key: 'description', 
+    {
+      header: 'Description',
+      key: 'description',
       sortKey: 'description',
-      render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{row.description || '—'}</span> 
+      render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{row.description || '—'}</span>
     },
     {
       header: 'Created',
@@ -198,53 +221,58 @@ export default function Roles() {
       </div>
 
       {/* Sticky Filter Bar */}
-      <div style={{ 
-        position: 'sticky', 
-        top: 'var(--header-height)', 
-        zIndex: 40, 
-        backgroundColor: 'var(--bg-main)', 
-        paddingTop: '8px',
-        paddingBottom: '16px',
-        margin: '0 -24px 16px -24px',
-        paddingLeft: '24px',
-        paddingRight: '24px',
-        borderBottom: '1px solid var(--border)'
+      <div style={{
+        backgroundColor: '#fff',
+        borderRadius: '16px',
+        border: '1px solid var(--border)',
+        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
+        padding: '16px 20px',
+        margin: '0 0 20px 0',
+        display: 'flex',
+        width: '100%',
+        boxSizing: 'border-box',
+        flexWrap: 'wrap',
+        gap: '16px',
+        alignItems: 'flex-end'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          {/* Role Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>Filter by Role:</span>
-            <select
-              value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
-                setPage(1);
-              }}
-              style={{
-                padding: '8px 12px',
-                borderRadius: '12px',
-                border: '1px solid var(--border)',
-                fontSize: '14px',
-                outline: 'none',
-                backgroundColor: '#fff',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="">All Roles</option>
-              <option value="super_admin">Super Admin</option>
-              <option value="admin">Admins</option>
-              <option value="tenant">Tenants</option>
-              <option value="tenant_user">Tenant Users</option>
-            </select>
-          </div>
+        {/* Role Filter */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Filter by Role</span>
+          <select
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+              fontSize: '13px',
+              outline: 'none',
+              backgroundColor: '#f8fafc',
+              height: '38px',
+              minWidth: '160px',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="">All Roles</option>
+            <option value="super_admin">Super Admin</option>
+            <option value="admin">Admins</option>
+            <option value="tenant">Tenants</option>
+            <option value="tenant_user">Tenant Users</option>
+          </select>
+        </div>
 
-          {/* Search */}
-          <div style={{ position: 'relative', width: '280px' }}>
-            <span style={{ 
-              position: 'absolute', 
-              left: '12px', 
-              top: '50%', 
-              transform: 'translateY(-50%)', 
+        {/* Search Filter */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '280px' }}>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Search</span>
+          <div style={{ position: 'relative', width: '100%' }}>
+            <span style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
               color: 'var(--text-muted)',
               display: 'flex',
               alignItems: 'center',
@@ -260,10 +288,64 @@ export default function Roles() {
               placeholder="Search roles..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: '100%', padding: '8px 12px 8px 36px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
+              style={{
+                width: '100%',
+                padding: '10px 32px 10px 36px',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                fontSize: '13px',
+                outline: 'none',
+                backgroundColor: '#f8fafc',
+                transition: 'border-color 0.2s',
+                height: '38px'
+              }}
+              onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+              onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
             />
+            {search && (
+              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#334155', padding: 0 }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Restore Button */}
+        {(() => {
+          const hasFilters = !!(roleFilter || search);
+          return (
+            <button
+              title={hasFilters ? 'Clear all filters' : 'No active filters'}
+              onClick={() => {
+                if (!hasFilters) return;
+                setRoleFilter('');
+                setSearch('');
+                setPage(1);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '38px',
+                height: '38px',
+                borderRadius: '12px',
+                border: `1px solid ${hasFilters ? '#f87171' : 'var(--border)'}`,
+                backgroundColor: hasFilters ? '#fff1f2' : '#f8fafc',
+                color: hasFilters ? '#dc2626' : '#cbd5e1',
+                cursor: hasFilters ? 'pointer' : 'default',
+                transition: 'all 0.2s',
+                alignSelf: 'flex-end'
+              }}
+              onMouseOver={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = '#fee2e2'; }}
+              onMouseOut={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = '#fff1f2'; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            </button>
+          );
+        })()}
       </div>
 
       {/* Table */}
@@ -282,19 +364,44 @@ export default function Roles() {
           setSortOrder(order);
         }}
         actions={(row) => (
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Button 
-              type="secondary" 
-              size="sm" 
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {row.role_name !== 'Super Admin' && (
+              <Link to={`/roles/${row.id}`} style={{ textDecoration: 'none' }}>
+                <Button
+                  size="sm"
+                  title="View / Edit Role Details"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 8px' }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </Button>
+              </Link>
+            )}
+            <Button
+              type="secondary"
+              size="sm"
               onClick={() => handleOpenPerms(row)}
               disabled={row.role_name === 'Super Admin'}
-              title={row.role_name === 'Super Admin' ? "Super Admin permissions are locked for system safety" : ""}
+              title={row.role_name === 'Super Admin' ? "Super Admin permissions are locked for system safety" : "Edit Permissions"}
             >
-              Edit Permissions
+              Edit Permission
             </Button>
             {!row.is_system_role && (
-              <Button type="ghost" size="sm" onClick={() => setRoleToDelete(row.id)}>
-                <span style={{ color: 'var(--danger)' }}>Delete</span>
+              <Button 
+                type="ghost" 
+                size="sm" 
+                onClick={() => setRoleToDelete(row.id)}
+                title="Delete Role"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 8px' }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', color: 'var(--danger)' }}>
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
               </Button>
             )}
           </div>
@@ -307,6 +414,10 @@ export default function Roles() {
         onClose={() => setIsPermsModalOpen(false)}
         title={`Permissions: ${selectedRole?.role_name}`}
         width="820px"
+        footer={<>
+          <Button type="secondary" onClick={() => setIsPermsModalOpen(false)}>Cancel</Button>
+          <Button onClick={() => setIsUpdateConfirmOpen(true)}>Update Permissions</Button>
+        </>}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxHeight: '62vh', overflowY: 'auto', padding: '4px 8px' }}>
           {Object.keys(groupedPermissions).map(module => (
@@ -401,7 +512,7 @@ export default function Roles() {
             touched={formik.touched.role_name}
             required
           />
-          <Input
+          <textarea
             label="Description"
             name="description"
             placeholder="Brief description of what this role can do"
@@ -410,16 +521,37 @@ export default function Roles() {
             onBlur={formik.handleBlur}
             error={formik.errors.description}
             touched={formik.touched.description}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              minHeight: '80px',
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+              fontSize: '13px',
+              backgroundColor: '#fff',
+              outline: 'none',
+              resize: 'vertical',
+              fontFamily: 'inherit',
+              color: 'var(--text-main)'
+            }}
           />
         </form>
       </Modal>
 
-      <ConfirmModal 
+      <ConfirmModal
         isOpen={!!roleToDelete}
         onClose={() => setRoleToDelete(null)}
         onConfirm={handleDeleteRole}
         title="Delete Role"
         message="Are you sure you want to delete this role? This might affect users assigned to it."
+      />
+
+      <ConfirmModal
+        isOpen={isUpdateConfirmOpen}
+        onClose={() => setIsUpdateConfirmOpen(false)}
+        onConfirm={handleUpdatePermissions}
+        title="Update Permissions"
+        message={`Are you sure you want to update the permissions for the role "${selectedRole?.role_name}"?`}
       />
     </div>
   );
