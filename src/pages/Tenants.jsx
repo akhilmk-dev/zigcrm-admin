@@ -58,7 +58,7 @@ export default function Tenants() {
       name: '',
       email: '',
       phone: '',
-      country: '',
+      country: 'India',
       status: 'active',
       password: '',
       re_password: '',
@@ -70,22 +70,12 @@ export default function Tenants() {
       email: Yup.string().email('Invalid email address').required('Owner email is required'),
       phone: Yup.string()
         .required('Phone number is required')
-        .matches(/^[0-9]+$/, 'Phone number must contain only digits')
-        .test('is-valid-phone', 'Invalid phone number for selected country', function (value) {
-          const { country } = this.parent;
-          if (!country || !value) return true;
-          const selectedCountry = countries.find(c => c.name === country);
-          if (!selectedCountry) return true;
-          try {
-            const dialCode = selectedCountry.code.split(',')[0].trim().replace(/[^\d+]/g, '');
-            const phoneWithoutSpaces = value.replace(/\s+/g, '');
-            const fullPhone = phoneWithoutSpaces.startsWith('+') ? phoneWithoutSpaces : `${dialCode}${phoneWithoutSpaces}`;
-            return isValidPhoneNumber(fullPhone);
-          } catch (e) {
-            return false;
-          }
+        .test('is-indian-phone', 'Invalid mobile number. Enter a valid phone number.', function (value) {
+          if (!value) return false;
+          const sanitized = value.replace(/[\s()-]/g, '');
+          const indianPhoneRegex = /^(?:\+91|91|0)?[6-9]\d{9}$/;
+          return indianPhoneRegex.test(sanitized);
         }),
-      country: Yup.string().required('Country is required'),
       plan_id: Yup.string().required('Subscription plan is required'),
       status: Yup.string().required('Status is required'),
       password: editingTenant
@@ -101,12 +91,19 @@ export default function Tenants() {
     }),
     onSubmit: async (values) => {
       try {
-        const selectedCountry = countries.find(c => c.name === values.country);
-        const dialCode = selectedCountry ? selectedCountry.code.split(',')[0].trim().replace(/[^\d+]/g, '') : '';
-        const phoneWithoutSpaces = values.phone?.replace(/\s+/g, '') || '';
-        const fullPhone = phoneWithoutSpaces.startsWith('+') ? phoneWithoutSpaces : `${dialCode}${phoneWithoutSpaces}`;
+        const phoneWithoutSpaces = values.phone?.replace(/[\s()-]/g, '') || '';
+        let formattedPhone = phoneWithoutSpaces;
+        if (/^[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = `+91${phoneWithoutSpaces}`;
+        } else if (/^91[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = `+91${phoneWithoutSpaces.substring(2)}`;
+        } else if (/^0[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = `+91${phoneWithoutSpaces.substring(1)}`;
+        } else if (/^\+91[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = phoneWithoutSpaces;
+        }
 
-        const payload = { ...values, phone: fullPhone };
+        const payload = { ...values, phone: formattedPhone, country: 'India' };
         if (editingTenant) {
           await api.patch(`/tenants/${editingTenant.id}`, payload);
           toast.success('Tenant updated successfully');
@@ -216,18 +213,15 @@ export default function Tenants() {
       setEditingTenant(tenant);
 
       let phoneVal = tenant.owner_phone || '';
-      if (phoneVal && tenant.country) {
-        const selectedCountry = countries.find(c => c.name === tenant.country);
-        if (selectedCountry) {
-          const cleanPhone = phoneVal.replace(/[^\d+]/g, '');
-          const codes = selectedCountry.code.split(',').map(c => c.trim().replace(/[^\d+]/g, ''));
-          for (const code of codes) {
-            if (cleanPhone.startsWith(code)) {
-              phoneVal = cleanPhone.substring(code.length);
-              break;
-            }
-          }
-        }
+      const cleanPhone = phoneVal.replace(/[^\d+]/g, '');
+      if (cleanPhone.startsWith('91') && cleanPhone.length === 12) {
+        phoneVal = cleanPhone.substring(2);
+      } else if (cleanPhone.startsWith('+91') || cleanPhone.startsWith('091')) {
+        phoneVal = cleanPhone.replace(/^\+91|^091/, '');
+      } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
+        phoneVal = cleanPhone.substring(1);
+      } else {
+        phoneVal = cleanPhone;
       }
 
       formik.resetForm({
@@ -236,7 +230,7 @@ export default function Tenants() {
           name: tenant.owner_name || '',
           email: tenant.owner_email || '',
           phone: phoneVal,
-          country: tenant.country || '',
+          country: 'India',
           status: tenant.owner_status || tenant.status || 'active',
           password: '',
           re_password: '',
@@ -252,7 +246,7 @@ export default function Tenants() {
           name: '',
           email: '',
           phone: '',
-          country: '',
+          country: 'India',
           status: 'active',
           password: '',
           re_password: '',
@@ -593,7 +587,7 @@ export default function Tenants() {
             required
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
             <Input
               label="Owner Email"
               name="email"
@@ -606,57 +600,34 @@ export default function Tenants() {
               touched={formik.touched.email}
               required
             />
-            <Select
-              label="Country"
-              name="country"
-              value={formik.values.country}
-              onChange={(e) => {
-                formik.setFieldValue('country', e.target.value);
-              }}
+            <Input
+              label="Phone Number"
+              name="phone"
+              type="tel"
+              placeholder="e.g. 9876543210"
+              value={formik.values.phone}
+              onChange={formik.handleChange}
               onBlur={formik.handleBlur}
-              error={formik.errors.country}
-              touched={formik.touched.country}
+              onKeyDown={(e) => {
+                if (
+                  ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', '+'].includes(e.key) ||
+                  (e.key === 'a' && (e.ctrlKey === true || e.metaKey === true)) ||
+                  (e.key === 'c' && (e.ctrlKey === true || e.metaKey === true)) ||
+                  (e.key === 'v' && (e.ctrlKey === true || e.metaKey === true)) ||
+                  (e.key === 'x' && (e.ctrlKey === true || e.metaKey === true))
+                ) {
+                  return;
+                }
+                if (!/^[0-9]$/.test(e.key)) {
+                  e.preventDefault();
+                }
+              }}
+              error={formik.errors.phone}
+              touched={formik.touched.phone}
               required
-            >
-              <option value="">Select Country</option>
-              {countries.map(c => (
-                <option key={c.name} value={c.name}>{c.name} ({c.code})</option>
-              ))}
-            </Select>
+              helperText="Enter 10-digit Indian mobile number"
+            />
           </div>
-
-          <Input
-            label="Phone Number"
-            name="phone"
-            type="tel"
-            placeholder="e.g. 9876543210"
-            value={formik.values.phone}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            onKeyDown={(e) => {
-              if (
-                ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) ||
-                (e.key === 'a' && (e.ctrlKey === true || e.metaKey === true)) ||
-                (e.key === 'c' && (e.ctrlKey === true || e.metaKey === true)) ||
-                (e.key === 'v' && (e.ctrlKey === true || e.metaKey === true)) ||
-                (e.key === 'x' && (e.ctrlKey === true || e.metaKey === true))
-              ) {
-                return;
-              }
-              if (!/^[0-9]$/.test(e.key)) {
-                e.preventDefault();
-              }
-            }}
-            error={formik.errors.phone}
-            touched={formik.touched.phone}
-            required
-            helperText={
-              (() => {
-                const sel = countries.find(c => c.name === formik.values.country);
-                return sel ? `Enter mobile number without country code (starts with ${sel.code})` : 'Enter mobile number without country code';
-              })()
-            }
-          />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Input
