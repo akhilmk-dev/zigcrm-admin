@@ -133,8 +133,8 @@ export default function ContactDetail() {
         noteTitle = 'contacted through mail';
         noteContent = 'contacted through mail';
       } else if (type === 'call') {
-        noteTitle = 'connected to call';
-        noteContent = 'connected to call';
+        noteTitle = 'Outgoing call';
+        noteContent = 'Outgoing call';
       } else if (type === 'whatsapp') {
         noteTitle = 'contacted through whatsapp';
         noteContent = 'contacted through whatsapp';
@@ -3299,10 +3299,10 @@ export default function ContactDetail() {
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
             >
-              <option value="lead">Lead</option>
-              <option value="active">Active Customer</option>
-              <option value="lost">Lost</option>
-              <option value="vip">VIP</option>
+              <option value="new">New</option>
+              <option value="discussion">Discussion</option>
+              <option value="won">Won</option>
+              <option value="loss">Loss</option>
             </Select>
           </div>
 

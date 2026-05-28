@@ -825,10 +825,10 @@ export default function Contacts() {
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
             >
-              <option value="lead">Lead</option>
-              <option value="active">Active Customer</option>
-              <option value="lost">Lost</option>
-              <option value="vip">VIP</option>
+              <option value="new">New</option>
+              <option value="discussion">Discussion</option>
+              <option value="won">Won</option>
+              <option value="loss">Loss</option>
             </Select>
           </div>
 
