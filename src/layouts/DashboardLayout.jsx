@@ -114,6 +114,13 @@ export default function DashboardLayout() {
       )
     },
     {
+      label: 'Analytics', path: '/users/analytics', requireTenantUser: true, icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+        </svg>
+      )
+    },
+    {
       label: 'Deals', path: '/deals', permission: 'deals.read', icon: (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /><path d="M22 13a18.15 18.15 0 0 1-20 0" /><path d="M12 12h.01" />
@@ -134,6 +141,9 @@ export default function DashboardLayout() {
   const filteredNav = navItems.filter(item => {
     // Hide items explicitly flagged for platform admins (e.g. Contacts)
     if (item.hideForPlatformAdmin && isPlatformAdmin) return false;
+
+    // Validate tenant user specific visibility
+    if (item.requireTenantUser && user?.user_type !== 'tenant_user') return false;
 
     let isVisible = true;
     if (item.requireSuperAdmin) isVisible = user?.isSuperAdmin;

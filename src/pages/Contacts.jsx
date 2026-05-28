@@ -42,6 +42,57 @@ export default function Contacts() {
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
   const showAssigneeFilter = loggedInUser?.user_type !== 'tenant_user';
 
+  // ─── Google Places API Integration ──────────────────────────────────────────
+  useEffect(() => {
+    // 1. Inject CSS for Google Places dropdown z-index to overlay on modal
+    if (!document.getElementById('google-places-zindex-style')) {
+      const style = document.createElement('style');
+      style.id = 'google-places-zindex-style';
+      style.innerHTML = `.pac-container { z-index: 99999 !important; }`;
+      document.head.appendChild(style);
+    }
+
+    // 2. Load Google Maps Places Script
+    if (!window.google) {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCWLkCZ_vmkXi9OnXB3PECFTHx8qHuE3j8&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  useEffect(() => {
+    let autocomplete = null;
+    let timer = null;
+
+    if (isModalOpen) {
+      timer = setTimeout(() => {
+        const inputElement = document.querySelector('input[name="address"]');
+        if (inputElement && window.google && window.google.maps && window.google.maps.places) {
+          autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
+            types: ['geocode', 'establishment'],
+          });
+          autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace();
+            if (place && place.formatted_address) {
+              formik.setFieldValue('address', place.formatted_address);
+            } else if (place && place.name) {
+              formik.setFieldValue('address', place.name);
+            }
+          });
+        }
+      }, 300);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (autocomplete && window.google && window.google.maps && window.google.maps.event) {
+        window.google.maps.event.clearInstanceListeners(autocomplete);
+      }
+    };
+  }, [isModalOpen]);
+
   const formik = useFormik({
     initialValues: {
       first_name: '',
@@ -63,7 +114,7 @@ export default function Contacts() {
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
-      email: Yup.string().email('Invalid email address').required('Email is required'),
+      email: Yup.string().email('Invalid email address'),
       phone: Yup.string()
         .required('Phone number is required')
         .matches(/^\+?[\d\s-]{7,15}$/, 'Invalid phone number format'),
@@ -356,6 +407,7 @@ export default function Contacts() {
         </div>
       )
     },
+    { header: 'Phone', key: 'phone', sortKey: 'phone' },
     { header: 'Email', key: 'email', sortKey: 'email' },
     { header: 'Workplace', key: 'company_name', sortKey: 'company_name' },
     { header: 'Profession', key: 'profession', sortKey: 'profession', render: (row) => row.profession || '—' },
@@ -667,7 +719,6 @@ export default function Contacts() {
               onBlur={formik.handleBlur}
               error={formik.errors.email}
               touched={formik.touched.email}
-              required
             />
             <Input
               label="Phone"
