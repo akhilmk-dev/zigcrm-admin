@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api, { getFileUrl } from '../api/axiosConfig';
+import { toast } from 'react-hot-toast';
 
 export default function UserAnalytics() {
   const [searchParams] = useSearchParams();
@@ -52,6 +53,14 @@ export default function UserAnalytics() {
 
 
   const applyCustomRange = () => {
+    if (tempFromDate && tempToDate) {
+      const fDate = new Date(tempFromDate);
+      const tDate = new Date(tempToDate);
+      if (fDate > tDate) {
+        toast.error('From date cannot be greater than To date');
+        return;
+      }
+    }
     setFromDate(tempFromDate);
     setToDate(tempToDate);
     setShowDatePopover(false);
@@ -464,6 +473,7 @@ export default function UserAnalytics() {
                       <input
                         type="date"
                         value={tempFromDate}
+                        max={tempToDate}
                         onChange={(e) => setTempFromDate(e.target.value)}
                         style={{
                           padding: '10px 14px',
@@ -487,6 +497,7 @@ export default function UserAnalytics() {
                       <input
                         type="date"
                         value={tempToDate}
+                        min={tempFromDate}
                         onChange={(e) => setTempToDate(e.target.value)}
                         style={{
                           padding: '10px 14px',
