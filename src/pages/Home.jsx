@@ -58,15 +58,14 @@ export default function Home() {
     const isMobile = windowWidth < 768;
     const isTablet = windowWidth >= 768 && windowWidth < 1024;
 
-    // Derived stats or mockup fallbacks to match visual precisely
-    const totalRevenue = stats?.revenue ?? 10577;
-    const activeDeals = stats?.activeDeals ?? 5;
-    const newLeads = stats?.newLeads ?? 18;
-    const totalContacts = stats?.totalContacts ?? 24;
-    const openTasks = stats?.openTasks ?? 17;
+    const totalRevenue = stats?.revenue ?? 0;
+    const activeDeals = stats?.activeDeals ?? 0;
+    const newLeads = stats?.newLeads ?? 0;
+    const totalContacts = stats?.totalContacts ?? 0;
+    const openTasks = stats?.openTasks ?? 0;
 
-    const averageDealValue = stats?.averageDealValue ?? 2115.4;
-    const dealsWon = stats?.dealsWon ?? 5;
+    const averageDealValue = stats?.averageDealValue ?? 0;
+    const dealsWon = stats?.dealsWon ?? 0;
 
     // Custom curves matching sparklines of mockup
     const sparklineDataBlue = [
@@ -133,98 +132,7 @@ export default function Home() {
         return acc;
     }, {});
 
-    const renderActivities = (Object.keys(groupedActivities).length > 0 || activitySearch || activityType !== 'all') 
-        ? groupedActivities 
-        : {
-        "May 24, 2026": [
-            {
-                id: 1,
-                activity_type: 'call',
-                contact_name: 'Rahul Sharma',
-                contact_id: 'mock-1',
-                description: 'Outgoing call • 2m 15s',
-                created_at: new Date('2026-05-24T11:35:00').toISOString()
-            },
-            {
-                id: 2,
-                activity_type: 'whatsapp',
-                contact_name: 'Priya Mehta',
-                contact_id: 'mock-2',
-                description: 'Sent: Deal update and documents',
-                created_at: new Date('2026-05-24T11:28:00').toISOString()
-            },
-            {
-                id: 3,
-                activity_type: 'note',
-                author_name: 'Leetcode',
-                contact_id: 'mock-3',
-                description: 'Added note: Discussed automation',
-                created_at: new Date('2026-05-24T11:20:00').toISOString()
-            },
-            {
-                id: 4,
-                activity_type: 'task',
-                author_name: 'Leetcode',
-                contact_id: 'mock-4',
-                description: 'Updated task: Follow up on integration',
-                created_at: new Date('2026-05-24T11:12:00').toISOString(),
-                status: 'PENDING',
-                priority: 'MEDIUM'
-            },
-            {
-                id: 5,
-                activity_type: 'email',
-                contact_name: 'Arjun Verma',
-                contact_id: 'mock-5',
-                description: 'Re: Proposal for CRM implementation',
-                created_at: new Date('2026-05-24T10:58:00').toISOString()
-            },
-            {
-                id: 6,
-                activity_type: 'sms',
-                contact_name: 'Sneha Iyer',
-                contact_id: 'mock-6',
-                description: 'Sent SMS: Meeting confirmed for tomorrow',
-                created_at: new Date('2026-05-24T10:45:00').toISOString()
-            }
-        ],
-        "May 23, 2026": [
-            {
-                id: 7,
-                activity_type: 'call',
-                contact_name: 'Vikram Singh',
-                contact_id: 'mock-7',
-                description: 'Incoming call • 4m 32s',
-                created_at: new Date('2026-05-23T16:30:00').toISOString()
-            },
-            {
-                id: 8,
-                activity_type: 'note',
-                author_name: 'Leetcode',
-                contact_id: 'mock-8',
-                description: 'Added note: Client interested in advanced plan',
-                created_at: new Date('2026-05-23T15:15:00').toISOString()
-            },
-            {
-                id: 9,
-                activity_type: 'email',
-                contact_name: 'Neha Kapoor',
-                contact_id: 'mock-9',
-                description: 'Sent: Pricing details and terms',
-                created_at: new Date('2026-05-23T13:05:00').toISOString()
-            },
-            {
-                id: 10,
-                activity_type: 'task',
-                author_name: 'Leetcode',
-                contact_id: 'mock-10',
-                description: 'Created task: Prepare demo for new client',
-                created_at: new Date('2026-05-23T12:40:00').toISOString(),
-                status: 'PENDING',
-                priority: 'HIGH'
-            }
-        ]
-    };
+    const renderActivities = groupedActivities;
 
     const getActivityStyles = (type) => {
         const normalType = (type || '').toLowerCase();
@@ -399,7 +307,7 @@ export default function Home() {
                             </div>
                             <div>
                                 <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>Total Revenue</div>
-                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>₹{totalRevenue.toLocaleString('en-IN')}</div>
+                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{loading ? '—' : `₹${totalRevenue.toLocaleString('en-IN')}`}</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
@@ -436,7 +344,7 @@ export default function Home() {
                             </div>
                             <div>
                                 <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>Active Deals</div>
-                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{activeDeals}</div>
+                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{loading ? '—' : activeDeals}</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
@@ -472,7 +380,7 @@ export default function Home() {
                             </div>
                             <div>
                                 <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>New Leads</div>
-                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{newLeads}</div>
+                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{loading ? '—' : newLeads}</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
@@ -507,7 +415,7 @@ export default function Home() {
                             </div>
                             <div>
                                 <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>Total Contacts</div>
-                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{totalContacts}</div>
+                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{loading ? '—' : totalContacts}</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
@@ -542,7 +450,7 @@ export default function Home() {
                             </div>
                             <div>
                                 <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>Open Tasks</div>
-                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{openTasks}</div>
+                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{loading ? '—' : openTasks}</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
@@ -742,9 +650,24 @@ export default function Home() {
                                 </div>
                             </div>
                         ))}
-                        {Object.keys(renderActivities).length === 0 && (
-                            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8', fontSize: '14px', fontWeight: '500' }}>
-                                No activities found matching your criteria.
+                        {Object.keys(renderActivities).length === 0 && !logsLoading && (
+                            <div style={{ textAlign: 'center', padding: '48px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                                    </svg>
+                                </div>
+                                <div style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>
+                                    {activitySearch || activityType !== 'all' ? 'No activities match your filter.' : 'No activities yet.'}
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '400' }}>
+                                    {activitySearch || activityType !== 'all' ? 'Try changing the filter or search term.' : 'Activity will appear here once your team starts using the CRM.'}
+                                </div>
+                            </div>
+                        )}
+                        {logsLoading && (
+                            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8', fontSize: '14px' }}>
+                                Loading activities...
                             </div>
                         )}
                     </div>
@@ -762,7 +685,7 @@ export default function Home() {
                         </div>
                         <div>
                             <div style={{ fontSize: '13.5px', color: '#64748b', fontWeight: '600' }}>Average Deal Value</div>
-                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>₹{averageDealValue.toLocaleString('en-IN')}</div>
+                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{loading ? '—' : `₹${averageDealValue.toLocaleString('en-IN')}`}</div>
                             <div style={{ fontSize: '12px', fontWeight: '700', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 12.4% <span style={{ color: '#64748b', fontWeight: '500' }}>vs last period</span>
                             </div>
@@ -778,7 +701,7 @@ export default function Home() {
                         </div>
                         <div>
                             <div style={{ fontSize: '13.5px', color: '#64748b', fontWeight: '600' }}>Deals Won</div>
-                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{dealsWon}</div>
+                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{loading ? '—' : dealsWon}</div>
                             <div style={{ fontSize: '12px', fontWeight: '700', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 18.7% <span style={{ color: '#64748b', fontWeight: '500' }}>vs last period</span>
                             </div>
