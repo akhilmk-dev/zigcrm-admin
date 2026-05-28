@@ -528,9 +528,9 @@ export default function DashboardLayout() {
         display: 'flex',
         flexDirection: 'column',
         transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        width: '100%',
         minWidth: 0,
-        backgroundColor: location.pathname.includes('/contacts/') ? 'hsl(0deg 0% 98.04%)' : undefined
+        overflow: 'hidden',
+        backgroundColor: location.pathname.includes('/contacts/') ? 'hsl(0deg 0% 98.04%)' : '#F8FAFC'
       }}>
         <header style={{
           height: 'var(--header-height)',
@@ -921,7 +921,7 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main style={{ padding: isMobile ? '16px' : '24px', flex: 1, backgroundColor: location.pathname.includes('/contacts/') ? 'hsl(0deg 0% 98.04%)' : undefined }}>
+        <main style={{ padding: isMobile ? '16px' : '28px', flex: 1, backgroundColor: location.pathname.includes('/contacts/') ? 'hsl(0deg 0% 98.04%)' : '#F8FAFC', minWidth: 0 }}>
           <Outlet />
         </main>
       </div>

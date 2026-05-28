@@ -329,10 +329,10 @@ export default function Home() {
     };
 
     return (
-        <div style={{ maxWidth: '1440px', margin: '0 auto', fontFamily: 'Inter, sans-serif', padding: isMobile ? '16px' : '24px', paddingBottom: '60px', backgroundColor: '#fafbfc', minHeight: '100vh' }}>
+        <div style={{ fontFamily: 'Inter, sans-serif', backgroundColor: '#fafbfc', minHeight: '100%', width: '100%', paddingBottom: '24px' }}>
 
             {/* Header section */}
-            <div style={{ marginBottom: '32px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '16px' }}>
+            <div style={{ marginBottom: '28px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '16px' }}>
                 <div>
                     <div style={{ fontSize: isMobile ? '24px' : '28px', fontWeight: '800', color: '#0f172a', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         Welcome back, {user?.name?.split(' ')[0] || 'leetcode'}! 👋
@@ -384,7 +384,7 @@ export default function Home() {
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : (isTablet ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)'),
                 gap: '16px',
-                marginBottom: '32px',
+                marginBottom: '24px',
                 width: '100%'
             }}>
                 {/* Metric Card 1: Total Revenue */}
@@ -568,7 +568,7 @@ export default function Home() {
             </div>
 
             {/* Split layout: All Activities and Right-hand Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile || isTablet ? '1fr' : '1.8fr 1fr', gap: '24px', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile || isTablet ? '1fr' : 'minmax(0, 2fr) minmax(0, 1.1fr)', gap: '20px', alignItems: 'start' }}>
 
                 {/* Left Column: All Activities */}
                 <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column' }}>
