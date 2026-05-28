@@ -327,9 +327,9 @@ export default function Users() {
     try {
       await api.patch(`/users/${editingUser.id}`, { password: formik.values.password });
       toast.success('Password updated successfully');
-      formik.setFieldValue('password', '');
-      formik.setFieldValue('re_password', '');
       setPasswordConfirmOpen(false);
+      handleCloseModal();
+      fetchUsers();
     } catch (err) {
       console.error('Password Update Error:', err);
     } finally {
