@@ -184,14 +184,19 @@ export default function NoteEditor({
   const handleSave = async () => {
     if (!content.trim() || content === '<p><br></p>') return;
 
+    const plainTextContent = content
+      .replace(/<\/p><p>/g, '\n') // Preserve paragraph line breaks
+      .replace(/<[^>]*>/g, '')    // Strip all HTML tags
+      .trim();
+
     setIsSaving(true);
     try {
       await api.post('/notes', {
         contact_id: contactId,
         deal_id: dealId,
         tenant_id: tenantId,
-        title,
-        content,
+        title: title?.trim() ? title.trim() : 'Untitled',
+        content: plainTextContent,
         attachments
       });
       setTitle('');

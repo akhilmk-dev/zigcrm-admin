@@ -133,8 +133,8 @@ export default function ContactDetail() {
         noteTitle = 'contacted through mail';
         noteContent = 'contacted through mail';
       } else if (type === 'call') {
-        noteTitle = 'connected to call';
-        noteContent = 'connected to call';
+        noteTitle = 'Outgoing call';
+        noteContent = 'Outgoing call';
       } else if (type === 'whatsapp') {
         noteTitle = 'contacted through whatsapp';
         noteContent = 'contacted through whatsapp';
@@ -299,8 +299,9 @@ export default function ContactDetail() {
 
     // 2. Load Google Maps Places Script
     if (!window.google) {
+      const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCWLkCZ_vmkXi9OnXB3PECFTHx8qHuE3j8&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
       document.head.appendChild(script);
@@ -309,10 +310,12 @@ export default function ContactDetail() {
 
   useEffect(() => {
     let autocomplete = null;
+    let companyAutocomplete = null;
     let timer = null;
 
     if (isEditModalOpen) {
       timer = setTimeout(() => {
+        // 1. Autocomplete for address field
         const inputElement = document.querySelector('input[name="address"]');
         if (inputElement && window.google && window.google.maps && window.google.maps.places) {
           autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
@@ -327,6 +330,25 @@ export default function ContactDetail() {
             }
           });
         }
+
+        // 2. Autocomplete for workplace (company_name) field
+        const companyInputElement = document.querySelector('input[name="company_name"]');
+        if (companyInputElement && window.google && window.google.maps && window.google.maps.places) {
+          companyAutocomplete = new window.google.maps.places.Autocomplete(companyInputElement, {
+            types: ['establishment'],
+          });
+          companyAutocomplete.addListener('place_changed', () => {
+            const place = companyAutocomplete.getPlace();
+            if (place) {
+              if (place.name) {
+                formik.setFieldValue('company_name', place.name);
+              }
+              if (place.formatted_address) {
+                formik.setFieldValue('address', place.formatted_address);
+              }
+            }
+          });
+        }
       }, 300);
     }
 
@@ -334,6 +356,9 @@ export default function ContactDetail() {
       if (timer) clearTimeout(timer);
       if (autocomplete && window.google && window.google.maps && window.google.maps.event) {
         window.google.maps.event.clearInstanceListeners(autocomplete);
+      }
+      if (companyAutocomplete && window.google && window.google.maps && window.google.maps.event) {
+        window.google.maps.event.clearInstanceListeners(companyAutocomplete);
       }
     };
   }, [isEditModalOpen]);
@@ -3275,10 +3300,10 @@ export default function ContactDetail() {
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
             >
-              <option value="lead">Lead</option>
-              <option value="active">Active Customer</option>
-              <option value="lost">Lost</option>
-              <option value="vip">VIP</option>
+              <option value="new">New</option>
+              <option value="discussion">Discussion</option>
+              <option value="won">Won</option>
+              <option value="loss">Loss</option>
             </Select>
           </div>
 
