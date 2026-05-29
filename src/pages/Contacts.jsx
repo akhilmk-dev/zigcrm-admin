@@ -54,8 +54,9 @@ export default function Contacts() {
 
     // 2. Load Google Maps Places Script
     if (!window.google) {
+      const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCWLkCZ_vmkXi9OnXB3PECFTHx8qHuE3j8&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
       document.head.appendChild(script);
