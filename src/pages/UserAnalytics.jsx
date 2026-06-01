@@ -638,14 +638,34 @@ export default function UserAnalytics() {
           gap: '16px',
           marginBottom: '16px'
         }}>
-          {/* Card 1: Users - hidden for tenant_user or when viewing an individual user */}
-          {!isTenantUser && !selectedUserId && (
-          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+          {loading ? (
+            <>
+              {!isTenantUser && !selectedUserId && <MetricCardSkeleton />}
+              <MetricCardSkeleton />
+              <MetricCardSkeleton />
+              <MetricCardSkeleton />
+              <MetricCardSkeleton />
+            </>
+          ) : (
+            <>
+              {/* Card 1: Users - hidden for tenant_user or when viewing an individual user */}
+              {!isTenantUser && !selectedUserId && (
+                <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>Users</span>
               </div>
-              )}
+              <h2 style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0', letterSpacing: '-1px' }}>{metrics?.users?.count || 0}</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+                <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                  {formatDateRangeLabel()}
+                </span>
+              </div>
+            </div>
+          )}
 
               {/* Card 2: Contacts */}
               <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
@@ -752,7 +772,7 @@ export default function UserAnalytics() {
                 <span style={{ color: '#2563eb', fontWeight: '750' }}>0</span>
               </div>
             </div>
-          </div>
+            </div>
           </>
           )}
         </div>
