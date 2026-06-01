@@ -105,15 +105,34 @@ export default function Profile() {
     validationSchema: Yup.object({
       name: Yup.string().required('Name is required'),
       email: Yup.string().email('Invalid email').required('Email is required'),
-      phone: Yup.string().nullable(),
+      phone: Yup.string()
+        .required('Phone number is required')
+        .test('is-indian-phone', 'Invalid mobile number. Enter a valid phone number.', function (value) {
+          if (!value) return false;
+          const sanitized = value.replace(/[\s()-]/g, '');
+          const indianPhoneRegex = /^(?:\+91|91|0)?[6-9]\d{9}$/;
+          return indianPhoneRegex.test(sanitized);
+        }),
     }),
     onSubmit: async (values) => {
       setIsSavingProfile(true);
       try {
+        const phoneWithoutSpaces = values.phone?.replace(/[\s()-]/g, '') || '';
+        let formattedPhone = phoneWithoutSpaces;
+        if (/^[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = `+91${phoneWithoutSpaces}`;
+        } else if (/^91[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = `+91${phoneWithoutSpaces.substring(2)}`;
+        } else if (/^0[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = `+91${phoneWithoutSpaces.substring(1)}`;
+        } else if (/^\+91[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = phoneWithoutSpaces;
+        }
+
         const formData = new FormData();
         formData.append('name', values.name);
         formData.append('email', values.email);
-        formData.append('phone', values.phone || '');
+        formData.append('phone', formattedPhone);
         formData.append('address', values.address || '');
         formData.append('country', values.country || '');
         if (values.profileImage) {
@@ -684,12 +703,29 @@ export default function Profile() {
             <Input
               label="Phone Number"
               name="phone"
-              placeholder="+1 234 567 890"
+              type="tel"
+              placeholder="e.g. 9876543210"
               value={editFormik.values.phone}
               onChange={editFormik.handleChange}
               onBlur={editFormik.handleBlur}
+              onKeyDown={(e) => {
+                if (
+                  ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', '+'].includes(e.key) ||
+                  (e.key === 'a' && (e.ctrlKey === true || e.metaKey === true)) ||
+                  (e.key === 'c' && (e.ctrlKey === true || e.metaKey === true)) ||
+                  (e.key === 'v' && (e.ctrlKey === true || e.metaKey === true)) ||
+                  (e.key === 'x' && (e.ctrlKey === true || e.metaKey === true))
+                ) {
+                  return;
+                }
+                if (!/^[0-9]$/.test(e.key)) {
+                  e.preventDefault();
+                }
+              }}
               error={editFormik.errors.phone}
               touched={editFormik.touched.phone}
+              required
+              helperText="Enter 10-digit Indian mobile number"
             />
 
             {(user?.user_type === 'tenant_admin' || user?.isSuperAdmin) && (

@@ -273,6 +273,49 @@ export default function Contacts() {
     }
   };
 
+  const downloadCSVFormat = () => {
+    const headers = [
+      'First Name *',
+      'Last Name',
+      'Email',
+      'Phone *',
+      'Workplace Name',
+      'Profession',
+      'Address',
+      'GST Number',
+      'Source',
+      'Tags'
+    ];
+    
+    const sampleRow = [
+      'John',
+      'Doe',
+      'johndoe@example.com',
+      '+919876543210',
+      'Acme Corp',
+      'Software Engineer',
+      '123 Tech Park, Bangalore',
+      '29AAAAA1111A1Z1',
+      'Website',
+      'Premium,Tech'
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      sampleRow.map(val => `"${val.replace(/"/g, '""')}"`).join(',')
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'contacts_import_format.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleImportCSV = async (e) => {
     if (!hasPermission('contacts.import')) {
       toast.error("Permission denied: You do not have permission to import contacts");
@@ -322,13 +365,15 @@ export default function Contacts() {
           });
 
           // Match header aliases
-          const name = rowData.name || rowData.first_name || rowData['first name'] || '';
-          const phone = rowData.phone || rowData.mobile || rowData['phone number'] || rowData['mobile number'] || '';
+          const name = rowData.name || rowData.first_name || rowData['first name'] || rowData['first name *'] || '';
+          const phone = rowData.phone || rowData.mobile || rowData['phone number'] || rowData['mobile number'] || rowData['phone *'] || '';
           const email = rowData.email || rowData['email address'] || '';
           const company = rowData.company_name || rowData.company || rowData.workplace || rowData['workplace name'] || rowData['company name'] || '';
           const profession = rowData.profession || '';
           const address = rowData.address || '';
-          const gst = rowData.gst_no || rowData.gst || '';
+          const gst = rowData.gst_no || rowData.gst || rowData['gst number'] || '';
+          const source = rowData.source || '';
+          const tags = rowData.tags || '';
 
           let first_name = name;
           let last_name = '';
@@ -349,7 +394,9 @@ export default function Contacts() {
             company_name: company,
             profession,
             address,
-            gst_no: gst
+            gst_no: gst,
+            source,
+            tags
           });
         }
 
@@ -600,6 +647,18 @@ export default function Contacts() {
               />
               <Button
                 type="secondary"
+                onClick={downloadCSVFormat}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                CSV Format
+              </Button>
+              <Button
+                type="secondary"
                 onClick={() => document.getElementById('csv-import-file-input').click()}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
               >
@@ -612,11 +671,10 @@ export default function Contacts() {
               </Button>
             </>
           )}
-          {/* Temporarily hidden Export button */}
-          {/* <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
-          </Button> */}
+          </Button>
           {hasPermission('contacts.create') && (
             <Button onClick={() => handleOpenModal()}>+ Add Contact</Button>
           )}

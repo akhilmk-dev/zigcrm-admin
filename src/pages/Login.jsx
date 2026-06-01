@@ -296,22 +296,7 @@ export default function Login() {
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input 
-              type="checkbox" 
-              id="remember" 
-              style={{ 
-                width: '18px', 
-                height: '18px', 
-                borderRadius: '4px', 
-                accentColor: 'var(--primary)',
-                cursor: 'pointer'
-              }} 
-            />
-            <label htmlFor="remember" style={{ fontSize: '14px', color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
-              Remember for 30 days
-            </label>
-          </div>
+
 
           <button
             type="submit"
