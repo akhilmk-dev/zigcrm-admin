@@ -48,7 +48,7 @@ export default function Deals() {
     initialValues: {
       deal_name: '',
       value: '',
-      currency: 'INR',
+      currency: 'USD',
       stage: 'lead',
       contact_id: '',
       status: 'open',
@@ -61,7 +61,6 @@ export default function Deals() {
         .typeError('Invalid value. Only numbers are allowed')
         .min(0, 'Value cannot be negative')
         .required('Deal value is required'),
-      currency: Yup.string().required('Currency is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
       contact_id: Yup.string().required('Contact partner is required'),
       assigned_to: Yup.string().nullable()
@@ -288,10 +287,10 @@ export default function Deals() {
     }
   };
 
-  const formatCurrency = (val, currencyCode = 'INR') => {
-    const code = currencyCode || 'INR';
+  const formatCurrency = (val, currencyCode = 'USD') => {
+    const code = currencyCode || 'USD';
     const locales = { INR: 'en-IN', USD: 'en-US', EUR: 'de-DE', GBP: 'en-GB' };
-    return new Intl.NumberFormat(locales[code] || 'en-IN', { style: 'currency', currency: code }).format(val);
+    return new Intl.NumberFormat(locales[code] || 'en-US', { style: 'currency', currency: code }).format(val);
   };
 
   const columns = [
@@ -326,7 +325,7 @@ export default function Deals() {
       header: 'Value',
       key: 'value',
       sortKey: 'value',
-      render: (row) => formatCurrency(row.value, row.currency)
+      render: (row) => formatCurrency(row.value, 'USD')
     },
     {
       header: 'Stage',
@@ -605,37 +604,21 @@ export default function Deals() {
             required
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '16px' }}>
-            <Input
-              label={`Value (${formik.values.currency === 'INR' ? '₹' : formik.values.currency === 'USD' ? '$' : formik.values.currency === 'EUR' ? '€' : '£'})`}
-              type="number"
-              name="value"
-              placeholder="0.00"
-              value={formik.values.value}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              onKeyDown={(e) => {
-                if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
-              }}
-              error={formik.errors.value}
-              touched={formik.touched.value}
-              required
-            />
-
-            <Select
-              label="Currency"
-              name="currency"
-              value={formik.values.currency}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              required
-            >
-              <option value="INR">INR (₹)</option>
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="GBP">GBP (£)</option>
-            </Select>
-          </div>
+          <Input
+            label="Value ($)"
+            type="number"
+            name="value"
+            placeholder="0.00"
+            value={formik.values.value}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            onKeyDown={(e) => {
+              if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+            }}
+            error={formik.errors.value}
+            touched={formik.touched.value}
+            required
+          />
 
           <SearchableSelect
             label="Contact Partner"

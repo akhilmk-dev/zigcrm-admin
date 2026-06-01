@@ -330,7 +330,7 @@ export default function Home() {
                             </div>
                             <div>
                                 <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>Total Revenue</div>
-                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{loading ? '—' : `₹${totalRevenue.toLocaleString('en-IN')}`}</div>
+                                <div style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a', marginTop: '2px' }}>{loading ? '—' : `$${totalRevenue.toLocaleString('en-US')}`}</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
@@ -745,7 +745,7 @@ export default function Home() {
                         </div>
                         <div>
                             <div style={{ fontSize: '13.5px', color: '#64748b', fontWeight: '600' }}>Average Deal Value</div>
-                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{loading ? '—' : `₹${averageDealValue.toLocaleString('en-IN')}`}</div>
+                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{loading ? '—' : `$${averageDealValue.toLocaleString('en-US')}`}</div>
                             <div style={{ fontSize: '12px', fontWeight: '700', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 12.4% <span style={{ color: '#64748b', fontWeight: '500' }}>vs last period</span>
                             </div>
