@@ -59,8 +59,7 @@ export default function Users() {
   // ─── Modal State ─────────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [passwordConfirmOpen, setPasswordConfirmOpen] = useState(false);
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
 
   const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
   const [userToToggle, setUserToToggle] = useState(null);
@@ -306,36 +305,7 @@ export default function Users() {
     }
   };
 
-  const handlePasswordChange = async () => {
-    if (!formik.values.password) {
-      toast.error('Please enter a new password');
-      return;
-    }
-    if (formik.values.password !== formik.values.re_password) {
-      toast.error('Passwords do not match');
-      return;
-    }
-    if (formik.values.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
-    setPasswordConfirmOpen(true);
-  };
 
-  const confirmPasswordUpdate = async () => {
-    setIsUpdatingPassword(true);
-    try {
-      await api.patch(`/users/${editingUser.id}`, { password: formik.values.password });
-      toast.success('Password updated successfully');
-      setPasswordConfirmOpen(false);
-      handleCloseModal();
-      fetchUsers();
-    } catch (err) {
-      console.error('Password Update Error:', err);
-    } finally {
-      setIsUpdatingPassword(false);
-    }
-  };
 
   // ─── Table Columns ────────────────────────────────────────────────────────────
   const columns = [
@@ -781,71 +751,38 @@ export default function Users() {
 
           {/* Password Section - Bottom Placement + Conditional Rendering */}
           {(!editingUser || hasPermission('users.change_password') || hasPermission('users.manage') || loggedInUser?.user_type === 'tenant_admin') && (
-            <div style={{
-              marginTop: '24px',
-              padding: '20px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '16px',
-              border: '1px solid var(--border)'
-            }}>
-              <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {editingUser ? '🔐 Security & Password' : '🔑 Initial Access'}
-              </h3>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <Input
-                  label={editingUser ? 'New Password' : 'Temporary Password'}
-                  name="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={formik.values.password}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.errors.password}
-                  touched={formik.touched.password}
-                  required={!editingUser}
-                />
-                <Input
-                  label="Confirm Password"
-                  name="re_password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={formik.values.re_password}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.errors.re_password}
-                  touched={formik.touched.re_password}
-                  required={!editingUser}
-                />
-              </div>
-
-              {editingUser && (
-                <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    type="primary"
-                    size="sm"
-                    onClick={(e) => { e.preventDefault(); handlePasswordChange(); }}
-                    style={{ border: '1px solid rgba(255, 255, 255, 0.4)' }}
-                  >
-                    Change Password
-                  </Button>
-                </div>
-              )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+              <Input
+                label={editingUser ? 'New Password' : 'Password'}
+                name="password"
+                type="password"
+                placeholder="••••••••"
+                value={formik.values.password}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.errors.password}
+                touched={formik.touched.password}
+                required={!editingUser}
+                helperText={editingUser ? "Leave blank to keep current password" : undefined}
+              />
+              <Input
+                label="Confirm Password"
+                name="re_password"
+                type="password"
+                placeholder="••••••••"
+                value={formik.values.re_password}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.errors.re_password}
+                touched={formik.touched.re_password}
+                required={!editingUser}
+              />
             </div>
           )}
         </form>
       </Modal>
 
-      <ConfirmModal
-        isOpen={passwordConfirmOpen}
-        onClose={() => setPasswordConfirmOpen(false)}
-        onConfirm={confirmPasswordUpdate}
-        title="Confirm Password Change"
-        message="Are you sure you want to change this user's password? The user will need to use the new password for their next login."
-        confirmLabel={isUpdatingPassword ? "Updating..." : "Yes, Change Password"}
-        type="danger"
-        disabled={isUpdatingPassword}
-      />
+
 
       <ConfirmModal
         isOpen={statusConfirmOpen}
