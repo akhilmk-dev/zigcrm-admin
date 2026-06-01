@@ -25,8 +25,8 @@ export default function Deals() {
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [stageFilter, setStageFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
+  const [stageFilter, setStageFilter] = useState(searchParams.get('stage') || '');
   const [assigneeFilter, setAssigneeFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);

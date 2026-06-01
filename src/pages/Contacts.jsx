@@ -22,7 +22,7 @@ export default function Contacts() {
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status')?.toLowerCase() || '');
   const [assigneeFilter, setAssigneeFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -413,7 +413,7 @@ export default function Contacts() {
 
     const urlStatus = searchParams.get('status');
     if (urlStatus !== null) {
-      setStatusFilter(urlStatus);
+      setStatusFilter(urlStatus.toLowerCase());
     } else {
       setStatusFilter('');
     }

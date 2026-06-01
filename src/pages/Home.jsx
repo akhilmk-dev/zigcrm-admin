@@ -392,7 +392,7 @@ export default function Home() {
                 </Link>
 
                 {/* Metric Card 3: New Leads */}
-                <Link to="/contacts?status=lead" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', width: '100%' }}>
+                <Link to="/contacts?status=new" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', width: '100%' }}>
                     <div className="hover-card" style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', flex: 1, cursor: 'pointer', transition: 'all 0.2s ease-in-out' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                             <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#f5efff', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
