@@ -499,8 +499,8 @@ export default function Roles() {
                 </div>
               )}
 
-              {/* Tenant-wide permissions */}
-              {groupedPermissions[module].all.length > 0 && (
+              {/* Tenant-wide permissions (temporarily hidden) */}
+              {false && groupedPermissions[module].all.length > 0 && (
                 <div style={{ backgroundColor: '#fffbeb', borderRadius: '10px', padding: '12px', border: '1px dashed #fcd34d' }}>
                   <p style={{ fontSize: '11px', fontWeight: '700', color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
                     🏢 Tenant-Wide (all records in company)
