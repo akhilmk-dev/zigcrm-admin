@@ -557,12 +557,12 @@ export default function UserAnalytics() {
         {/* 3. Analytics Grid (Row 1) */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: isMobile ? 'repeat(auto-fit, minmax(220px, 1fr))' : (isTenantUser ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)'),
+          gridTemplateColumns: isMobile ? 'repeat(auto-fit, minmax(220px, 1fr))' : (isTenantUser || selectedUserId ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)'),
           gap: '16px',
           marginBottom: '16px'
         }}>
-          {/* Card 1: Users - hidden for tenant_user */}
-          {!isTenantUser && (
+          {/* Card 1: Users - hidden for tenant_user or when viewing an individual user */}
+          {!isTenantUser && !selectedUserId && (
           <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
               <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
