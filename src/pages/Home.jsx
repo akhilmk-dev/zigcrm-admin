@@ -41,7 +41,7 @@ export default function Home() {
         const fetchLogs = async () => {
             try {
                 setLogsLoading(true);
-                const res = await api.get(`/logs?activity_type=${activityType}&search=${encodeURIComponent(activitySearch)}&page=1&limit=20&sortOrder=desc`);
+                const res = await api.get(`/logs?activity_type=${activityType}&search=${encodeURIComponent(activitySearch)}&dateFilter=${timeFilter}&page=1&limit=20&sortOrder=desc`);
                 setActivityLogs(res.data?.data || []);
             } catch (err) {
                 console.error("Dashboard Logs Fetch Error:", err);
@@ -53,7 +53,7 @@ export default function Home() {
             fetchLogs();
         }, 300);
         return () => clearTimeout(timer);
-    }, [activityType, activitySearch]);
+    }, [activityType, activitySearch, timeFilter]);
 
     const isMobile = windowWidth < 768;
     const isTablet = windowWidth >= 768 && windowWidth < 1024;
@@ -241,14 +241,19 @@ export default function Home() {
             };
         }
         return {
-            bg: '#f0fdfa',
-            color: '#0d9488',
-            badgeBg: '#f0fdfa',
-            badgeText: '#0d9488',
-            badgeLabel: 'SMS',
+            bg: '#f1f5f9',
+            color: '#475569',
+            badgeBg: '#e2e8f0',
+            badgeText: '#475569',
+            badgeLabel: 'LOG',
             icon: (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
                 </svg>
             )
         };
@@ -587,7 +592,7 @@ export default function Home() {
                                     {renderActivities[dateKey].map((log, idx, arr) => {
                                         const styles = getActivityStyles(log.activity_type);
                                         const showAuthor = ['note', 'task'].includes((log.activity_type || '').toLowerCase());
-                                        const mainName = showAuthor ? (log.author_name || 'Leetcode') : (log.contact_name || 'Rahul Sharma');
+                                        const mainName = log.contact_name || log.author_name || 'System';
 
                                         return (
                                             <div 
@@ -638,6 +643,43 @@ export default function Home() {
                                                         <div style={{ fontSize: '13.5px', color: '#475569', fontWeight: '500', marginTop: '4px', lineHeight: '1.4' }}>
                                                             {log.description}
                                                         </div>
+                                                        {log.attachments && log.attachments.length > 0 && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                                                                {log.attachments.map((file, idx) => {
+                                                                    const isAudio = file.type?.startsWith('audio/') || file.name?.match(/\.(webm|wav|ogg|mp3|m4a)$/i);
+                                                                    if (isAudio && file.url) {
+                                                                        return (
+                                                                            <div key={idx} style={{
+                                                                                display: 'flex', alignItems: 'center', gap: '6px',
+                                                                                padding: '5px 8px', backgroundColor: '#fff1f2',
+                                                                                border: '1px solid #fecdd3', borderRadius: '8px',
+                                                                                width: 'fit-content'
+                                                                            }}>
+                                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                                                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                                                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                                                                </svg>
+                                                                                <audio controls src={getFileUrl(file.url)} style={{ height: '26px', outline: 'none' }} preload="metadata" />
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return (
+                                                                        <a key={idx} href={getFileUrl(file.url)} download target="_blank" rel="noopener noreferrer"
+                                                                            style={{
+                                                                                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                                                padding: '2px 8px', backgroundColor: '#fff',
+                                                                                borderRadius: '4px', textDecoration: 'none',
+                                                                                color: '#2563eb', fontSize: '11px', fontWeight: '700',
+                                                                                border: '1px solid #dbeafe',
+                                                                                width: 'fit-content'
+                                                                            }}
+                                                                        >
+                                                                            📎 {file.name}
+                                                                        </a>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                         {/* Task Badges in Mockup: PENDING / MEDIUM / HIGH */}
                                                         {log.activity_type === 'task' && (
                                                             <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>

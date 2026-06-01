@@ -88,7 +88,12 @@ export default function TenantDetail() {
       email: Yup.string().email('Invalid email address').required('Owner email is required'),
       phone: Yup.string()
         .required('Phone number is required')
-        .matches(/^[0-9]+$/, 'Phone number must contain only digits'),
+        .test('is-indian-phone', 'Invalid mobile number. Enter a valid phone number.', function (value) {
+          if (!value) return false;
+          const sanitized = value.replace(/[\s()-]/g, '');
+          const indianPhoneRegex = /^(?:\+91|91|0)?[6-9]\d{9}$/;
+          return indianPhoneRegex.test(sanitized);
+        }),
       country: Yup.string().required('Country is required'),
       plan_id: Yup.string().required('Subscription plan is required'),
       status: Yup.string().required('Status is required'),
@@ -100,16 +105,35 @@ export default function TenantDetail() {
       try {
         const selectedCountry = countries.find(c => c.name === values.country);
         const dialCode = selectedCountry ? selectedCountry.code.split(',')[0].trim().replace(/[^\d+]/g, '') : '';
-        const phoneWithoutSpaces = values.phone?.replace(/\s+/g, '') || '';
-        const fullPhone = phoneWithoutSpaces.startsWith('+') ? phoneWithoutSpaces : `${dialCode}${phoneWithoutSpaces}`;
+        const phoneWithoutSpaces = values.phone?.replace(/[\s()-]/g, '') || '';
+        let formattedPhone = phoneWithoutSpaces;
+        if (/^[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = `+91${phoneWithoutSpaces}`;
+        } else if (/^91[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = `+91${phoneWithoutSpaces.substring(2)}`;
+        } else if (/^0[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = `+91${phoneWithoutSpaces.substring(1)}`;
+        } else if (/^\+91[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
+          formattedPhone = phoneWithoutSpaces;
+        }
 
-        const payload = { ...values, phone: fullPhone };
+        const payload = { ...values, phone: formattedPhone };
         await api.patch(`/tenants/${id}`, payload);
         toast.success('Tenant details updated successfully');
         setIsEditModalOpen(false);
         fetchTenantData(true);
       } catch (err) {
         console.error('Failed to update tenant:', err);
+        const errMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to update tenant';
+        if (errMsg.toLowerCase().includes('email')) {
+          formik.setFieldError('email', errMsg);
+          formik.setFieldTouched('email', true, false);
+        } else if (errMsg.toLowerCase().includes('phone')) {
+          formik.setFieldError('phone', errMsg);
+          formik.setFieldTouched('phone', true, false);
+        } else {
+          toast.error(errMsg);
+        }
       }
     }
   });
@@ -967,9 +991,24 @@ export default function TenantDetail() {
             value={formik.values.phone}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            onKeyDown={(e) => {
+              if (
+                ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', '+'].includes(e.key) ||
+                (e.key === 'a' && (e.ctrlKey === true || e.metaKey === true)) ||
+                (e.key === 'c' && (e.ctrlKey === true || e.metaKey === true)) ||
+                (e.key === 'v' && (e.ctrlKey === true || e.metaKey === true)) ||
+                (e.key === 'x' && (e.ctrlKey === true || e.metaKey === true))
+              ) {
+                return;
+              }
+              if (!/^[0-9]$/.test(e.key)) {
+                e.preventDefault();
+              }
+            }}
             error={formik.errors.phone}
             touched={formik.touched.phone}
             required
+            helperText="Enter 10-digit Indian mobile number"
           />
 
           <Select

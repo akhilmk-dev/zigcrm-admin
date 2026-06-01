@@ -24,7 +24,8 @@ export default function NoteItem({ note, onDelete, isExpanded, onToggle }) {
 
   const attachments = Array.isArray(note.attachments) ? note.attachments : [];
   const images = attachments.filter(a => a.type?.startsWith('image/'));
-  const files = attachments.filter(a => !a.type?.startsWith('image/'));
+  const audios = attachments.filter(a => a.type?.startsWith('audio/') || a.name?.match(/\.(webm|wav|ogg|mp3|m4a)$/i));
+  const files = attachments.filter(a => !a.type?.startsWith('image/') && !(a.type?.startsWith('audio/') || a.name?.match(/\.(webm|wav|ogg|mp3|m4a)$/i)));
 
   const handleDelete = () => {
     setIsDeleteModalOpen(false);
@@ -70,6 +71,20 @@ export default function NoteItem({ note, onDelete, isExpanded, onToggle }) {
              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                {note.title || 'Note'}
              </span>
+             {note.category && (
+                <span style={{ 
+                  fontSize: '10.5px', 
+                  backgroundColor: '#eff6ff', 
+                  padding: '2px 8px', 
+                  borderRadius: '12px', 
+                  color: '#2563eb',
+                  fontWeight: '700',
+                  border: '1px solid #bfdbfe',
+                  flexShrink: 0
+                }}>
+                  {note.category}
+                </span>
+             )}
              {attachments.length > 0 && (
                 <span style={{ 
                   fontSize: '10px', 
@@ -221,6 +236,45 @@ export default function NoteItem({ note, onDelete, isExpanded, onToggle }) {
                 <a key={idx} href={getFileUrl(img.url)} target="_blank" rel="noopener noreferrer" style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
                   <img src={getFileUrl(img.url)} alt={img.name} style={{ width: '100%', height: '120px', objectFit: 'cover' }} />
                 </a>
+              ))}
+            </div>
+          )}
+
+          {/* Audio Players */}
+          {audios.length > 0 && (
+            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                🎤 Audio Recording{audios.length > 1 ? 's' : ''}
+              </div>
+              {audios.map((audio, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '10px 16px',
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fecdd3',
+                    borderRadius: '10px',
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                  <audio
+                    controls
+                    src={getFileUrl(audio.url)}
+                    style={{ flex: 1, height: '34px', outline: 'none', borderRadius: '6px' }}
+                    preload="metadata"
+                  />
+                  <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {audio.name}
+                  </span>
+                </div>
               ))}
             </div>
           )}

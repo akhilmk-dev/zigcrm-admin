@@ -147,6 +147,7 @@ export default function DealDetail() {
     initialValues: {
       deal_name: '',
       value: '',
+      currency: 'INR',
       stage: 'lead',
       contact_id: '',
       status: 'open',
@@ -159,6 +160,7 @@ export default function DealDetail() {
         .typeError('Invalid value. Only numbers are allowed')
         .min(0, 'Value cannot be negative')
         .required('Deal value is required'),
+      currency: Yup.string().required('Currency is required'),
       tenant_id: Yup.string().required('Company assignment is required')
     }),
     onSubmit: async (values) => {
@@ -180,6 +182,7 @@ export default function DealDetail() {
     formik.setValues({
       deal_name: deal.deal_name,
       value: deal.value,
+      currency: deal.currency || 'INR',
       stage: deal.stage,
       contact_id: deal.contact_id || '',
       status: deal.status,
@@ -492,8 +495,10 @@ function DealDetailSkeleton() {
     return 'default';
   };
 
-  const formatCurrency = (val) => {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
+  const formatCurrency = (val, currencyCode = 'INR') => {
+    const code = currencyCode || 'INR';
+    const locales = { INR: 'en-IN', USD: 'en-US', EUR: 'de-DE', GBP: 'en-GB' };
+    return new Intl.NumberFormat(locales[code] || 'en-IN', { style: 'currency', currency: code }).format(val);
   };
 
   const formatRelativeDate = (dateString) => {
@@ -875,7 +880,7 @@ function DealDetailSkeleton() {
                   <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Deal Value</span>
                     <span style={{ fontSize: '13px', fontWeight: '750', color: 'var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {formatCurrency(deal.value)}
+                      {formatCurrency(deal.value, deal.currency)}
                     </span>
                   </div>
                 </div>
@@ -1882,21 +1887,37 @@ function DealDetailSkeleton() {
             required
           />
 
-          <Input
-            label="Value (₹)"
-            type="number"
-            name="value"
-            placeholder="0.00"
-            value={formik.values.value}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            onKeyDown={(e) => {
-              if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
-            }}
-            error={formik.errors.value}
-            touched={formik.touched.value}
-            required
-          />
+          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '16px' }}>
+            <Input
+              label={`Value (${formik.values.currency === 'INR' ? '₹' : formik.values.currency === 'USD' ? '$' : formik.values.currency === 'EUR' ? '€' : '£'})`}
+              type="number"
+              name="value"
+              placeholder="0.00"
+              value={formik.values.value}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              onKeyDown={(e) => {
+                if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+              }}
+              error={formik.errors.value}
+              touched={formik.touched.value}
+              required
+            />
+
+            <Select
+              label="Currency"
+              name="currency"
+              value={formik.values.currency}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              required
+            >
+              <option value="INR">INR (₹)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+            </Select>
+          </div>
 
           <SearchableSelect
             label="Contact Partner"

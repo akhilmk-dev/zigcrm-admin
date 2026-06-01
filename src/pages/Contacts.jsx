@@ -129,7 +129,7 @@ export default function Contacts() {
       job_title: '',
       source: '',
       tags: '',
-      status: 'lead',
+      status: 'new',
       tenant_id: '',
       assigned_to: '',
       profile_image_url: '',
@@ -271,6 +271,129 @@ export default function Contacts() {
       console.error("Export contacts failed", err);
       toast.error('Failed to export contacts', { id: 'export-contacts' });
     }
+  };
+
+  const handleImportCSV = async (e) => {
+    if (!hasPermission('contacts.import')) {
+      toast.error("Permission denied: You do not have permission to import contacts");
+      return;
+    }
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split(/\r?\n/);
+        if (lines.length < 2) {
+          toast.error("CSV file is empty or missing headers");
+          return;
+        }
+
+        // Clean headers and normalize them
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
+        
+        const contacts = [];
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          // Intelligently parse fields keeping commas inside quotes safe
+          const values = [];
+          let currentVal = '';
+          let insideQuotes = false;
+          for (let charIdx = 0; charIdx < line.length; charIdx++) {
+            const char = line[charIdx];
+            if (char === '"' || char === "'") {
+              insideQuotes = !insideQuotes;
+            } else if (char === ',' && !insideQuotes) {
+              values.push(currentVal.trim().replace(/^["']|["']$/g, ''));
+              currentVal = '';
+            } else {
+              currentVal += char;
+            }
+          }
+          values.push(currentVal.trim().replace(/^["']|["']$/g, ''));
+
+          const rowData = {};
+          headers.forEach((header, index) => {
+            rowData[header] = values[index] || '';
+          });
+
+          // Match header aliases
+          const name = rowData.name || rowData.first_name || rowData['first name'] || '';
+          const phone = rowData.phone || rowData.mobile || rowData['phone number'] || rowData['mobile number'] || '';
+          const email = rowData.email || rowData['email address'] || '';
+          const company = rowData.company_name || rowData.company || rowData.workplace || rowData['workplace name'] || rowData['company name'] || '';
+          const profession = rowData.profession || '';
+          const address = rowData.address || '';
+          const gst = rowData.gst_no || rowData.gst || '';
+
+          let first_name = name;
+          let last_name = '';
+          if (name && !rowData.first_name) {
+            const parts = name.trim().split(/\s+/);
+            first_name = parts[0];
+            last_name = parts.slice(1).join(' ');
+          } else if (rowData.first_name) {
+            first_name = rowData.first_name;
+            last_name = rowData.last_name || '';
+          }
+
+          contacts.push({
+            first_name,
+            last_name,
+            phone,
+            email,
+            company_name: company,
+            profession,
+            address,
+            gst_no: gst
+          });
+        }
+
+        if (contacts.length === 0) {
+          toast.error("No contacts found in CSV");
+          return;
+        }
+
+        toast.loading("Importing contacts...", { id: "import-contacts" });
+        const response = await api.post('/contacts/bulk-import', { contacts });
+        
+        const { importedCount, skippedCount } = response.data;
+        
+        toast.success(`Successfully imported ${importedCount} contact(s).`, { id: "import-contacts" });
+        if (skippedCount > 0) {
+          toast.error(`${skippedCount} contact(s) were skipped (invalid mobile number or duplicate).`, { id: "import-skipped", duration: 6000 });
+        }
+        
+        const dismissToasts = () => {
+          toast.dismiss("import-contacts");
+          toast.dismiss("import-skipped");
+          document.removeEventListener('click', dismissToasts);
+        };
+        setTimeout(() => {
+          document.addEventListener('click', dismissToasts);
+        }, 100);
+
+        fetchData();
+      } catch (err) {
+        console.error(err);
+        toast.error(err.response?.data?.error || "Failed to parse or import CSV", { id: "import-contacts" });
+
+        const dismissToasts = () => {
+          toast.dismiss("import-contacts");
+          document.removeEventListener('click', dismissToasts);
+        };
+        setTimeout(() => {
+          document.addEventListener('click', dismissToasts);
+        }, 100);
+      } finally {
+        e.target.value = ''; // Reset file input
+      }
+    };
+    reader.readAsText(file);
   };
 
   useEffect(() => {
@@ -466,10 +589,34 @@ export default function Contacts() {
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Keep track of your prospects and customer relations.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {hasPermission('contacts.import') && (
+            <>
+              <input
+                type="file"
+                accept=".csv"
+                id="csv-import-file-input"
+                style={{ display: 'none' }}
+                onChange={handleImportCSV}
+              />
+              <Button
+                type="secondary"
+                onClick={() => document.getElementById('csv-import-file-input').click()}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Import
+              </Button>
+            </>
+          )}
+          {/* Temporarily hidden Export button */}
+          {/* <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
-          </Button>
+          </Button> */}
           {hasPermission('contacts.create') && (
             <Button onClick={() => handleOpenModal()}>+ Add Contact</Button>
           )}
@@ -513,10 +660,10 @@ export default function Contacts() {
             style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', cursor: 'pointer', height: '38px', minWidth: '140px' }}
           >
             <option value="">All Statuses</option>
-            <option value="lead">Lead</option>
-            <option value="active">Active Customer</option>
-            <option value="lost">Lost</option>
-            <option value="vip">VIP</option>
+            <option value="new">New</option>
+            <option value="discussion">Discussion</option>
+            <option value="won">Won</option>
+            <option value="loss">Loss</option>
           </select>
         </div>
 

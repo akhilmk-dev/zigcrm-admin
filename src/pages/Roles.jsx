@@ -9,8 +9,9 @@ import { usePermission } from '../hooks/usePermission';
 import { toast } from 'react-hot-toast';
 
 export default function Roles() {
-  const { user: loggedInUser } = usePermission();
+  const { hasPermission, user: loggedInUser } = usePermission();
   const isSuperAdmin = loggedInUser?.isSuperAdmin;
+  const canManage = isSuperAdmin || hasPermission('roles.manage');
 
   // ─── List State ──────────────────────────────────────────────────────────────
   const [roles, setRoles] = useState([]);
@@ -226,11 +227,11 @@ export default function Roles() {
     }
   ];
 
-  if (!isSuperAdmin) {
+  if (!canManage) {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
         <h2>Access Denied</h2>
-        <p>Only Super Admins can manage roles and permissions.</p>
+        <p>You do not have permission to manage roles and permissions.</p>
       </div>
     );
   }

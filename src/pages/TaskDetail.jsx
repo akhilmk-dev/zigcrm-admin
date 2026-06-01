@@ -6,6 +6,7 @@ import api, { getFileUrl } from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { toast } from 'react-hot-toast';
+import CRMWorkspaceTabs from '../components/common/CRMWorkspaceTabs';
 
 const InfoRow = ({ label, value, icon, isBadge = false, isLink = false, linkUrl = '' }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>
@@ -45,11 +46,43 @@ const getDealStageBadgeType = (stage) => {
   return 'default';
 };
 
+const formatRelativeDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'N/A';
+  const now = new Date();
+
+  const isToday = date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.getDate() === yesterday.getDate() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getFullYear() === yesterday.getFullYear();
+
+  const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  if (isToday) {
+    return `Today, ${timeStr}`;
+  } else if (isYesterday) {
+    return `Yesterday, ${timeStr}`;
+  } else {
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${dateStr}, ${timeStr}`;
+  }
+};
+
 export default function TaskDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Workspace Tab States
+  const [activeTab, setActiveTab] = useState('task_list');
+  const [searchQuery, setSearchQuery] = useState('');
   
   // States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -60,15 +93,62 @@ export default function TaskDetail() {
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [tasks, setTasks] = useState([]);
+  const [tasksRemaining, setTasksRemaining] = useState(0);
+  const [taskPage, setTaskPage] = useState(1);
+
+  const handleTaskLoadMore = () => {
+    const nextPage = taskPage + 1;
+    setTaskPage(nextPage);
+    if (data?.contact?.id) {
+      fetchTasks(data.contact.id, nextPage, true);
+    }
+  };
+
+  const handleTaskCollapse = () => {
+    setTaskPage(1);
+    setTasks(prev => prev.slice(0, 5));
+    if (data?.contact?.id) {
+      fetchTasks(data.contact.id, 1, false);
+    }
+  };
 
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
+
+  const fetchTasks = async (contactId, pageNum = 1, append = false) => {
+    if (!contactId) return;
+    try {
+      const response = await api.get(`/contacts/${contactId}?type=tasks&page=${pageNum}&limit=100`);
+      const responseData = response.data.tasks;
+      if (responseData) {
+        const newItems = responseData.data || [];
+        setTasks(prev => {
+          const currentItems = append ? prev : [];
+          const mergedData = [...currentItems];
+          newItems.forEach(item => {
+            if (!mergedData.some(existing => existing.id === item.id)) {
+              mergedData.push(item);
+            }
+          });
+          return mergedData;
+        });
+        const totalCount = responseData.pagination?.totalCount || 0;
+        setTasksRemaining(totalCount - (append ? (tasks.length + newItems.length) : newItems.length));
+      }
+    } catch (err) {
+      console.error("Fetch tasks error", err);
+    }
+  };
 
   const fetchDetail = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const response = await api.get(`/tasks/${id}`);
       setData(response.data);
+      if (response.data.task?.contact_id) {
+        fetchTasks(response.data.task.contact_id, 1, false);
+      }
     } catch (err) {
       console.error("Fetch task detail error", err);
       if (err.response?.status === 404) {
@@ -414,6 +494,39 @@ function TaskDetailSkeleton() {
 
   const { task, contact } = data;
 
+  const mapTask = (t) => ({
+    id: `task-${t.id}`,
+    originalId: t.id,
+    type: 'task',
+    date: t.created_at ? new Date(t.created_at) : new Date(),
+    title: 'Task created',
+    subTitle: t.title,
+    taskDescription: t.description || 'No description provided.',
+    description: `Task assigned. Priority: ${t.priority.toUpperCase()}. Due Date: ${t.due_date ? new Date(t.due_date).toLocaleDateString() : 'No limit'}`,
+    author: t.assignee_name || 'System',
+    priority: t.priority,
+    status: t.status,
+    due_date: t.due_date,
+    badgeColor: '#8b5cf6',
+    icon: (
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </svg>
+    )
+  });
+
+  const tasksToShow = tasks.map(mapTask);
+  const filteredTasks = tasksToShow.filter(act => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchTitle = act.title.toLowerCase().includes(query);
+      const matchSub = (act.subTitle || '').toLowerCase().includes(query);
+      const matchDesc = (act.taskDescription || '').toLowerCase().includes(query);
+      if (!matchTitle && !matchSub && !matchDesc) return false;
+    }
+    return true;
+  });
+
   const getStatusBadgeType = (status) => {
     const types = { pending: 'warning', in_progress: 'primary', completed: 'success', cancelled: 'secondary' };
     return types[status] || 'default';
@@ -469,6 +582,40 @@ function TaskDetailSkeleton() {
 
         .info-row-item:last-child {
           border-bottom: none;
+        }
+
+        .timeline-line {
+          position: absolute;
+          left: 21px;
+          top: 28px;
+          bottom: 4px;
+          width: 2px;
+          background-color: #f1f5f9;
+        }
+
+        .timeline-node {
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          display: flex;
+          alignItems: center;
+          justifyContent: center;
+          z-index: 2;
+          flex-shrink: 0;
+          border: 3px solid #fff;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .timeline-item-container {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding-bottom: 8px;
+        }
+
+        .timeline-item-container:last-child {
+          padding-bottom: 0;
         }
 
         @media (max-width: 1024px) {
@@ -585,6 +732,49 @@ function TaskDetailSkeleton() {
             {/* Key-Value Fields as premium card rows */}
             <div className="profile-structured-rows" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '10px' }}>
               
+              {/* Row: Associated Contact */}
+              {contact && (
+                <div 
+                  onClick={() => navigate(`/contacts/${contact.id}`)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    backgroundColor: '#fff',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#2563eb';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.08)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                    e.currentTarget.style.transform = 'none';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Associated Contact</span>
+                      <span style={{ fontSize: '13px', fontWeight: '750', color: '#2563eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {contact.first_name} {contact.last_name || ''}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{ color: '#2563eb', display: 'flex', alignItems: 'center' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                  </span>
+                </div>
+              )}
+
               {/* Row 1: Assigned To */}
               <div 
                 onClick={() => task.assigned_to && navigate(`/users/${task.assigned_to}`)}
@@ -892,7 +1082,7 @@ function TaskDetailSkeleton() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
                       <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.5 19.5 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                         <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Phone Number</span>
@@ -960,189 +1150,252 @@ function TaskDetailSkeleton() {
 
         {/* Right Workspace Column (70%) */}
         <main className="crm-right-col">
-          <div className="crm-card" style={{ minHeight: '500px', display: 'flex', flexDirection: 'column' }}>
-            
-            {/* Workspace Header */}
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#fdfdfd' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--text-muted)' }}><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
-              <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>Task Workspace</h3>
-            </div>
+          <CRMWorkspaceTabs
+            tabs={[
+              {
+                id: 'task_list',
+                label: 'Tasks',
+                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: activeTab === 'task_list' ? '#2563eb' : '#64748b' }}><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
+                count: contact ? (tasks.length + tasksRemaining) : 1
+              }
+            ]}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            searchPlaceholder="Search tasks..."
+            showFilterType={false}
+            showFilterTime={false}
+          >
+            {activeTab === 'task_list' && (
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  {filteredTasks.length > 0 && <div className="timeline-line" />}
 
-            {/* Task Title & Details */}
-            <div style={{ padding: '24px 20px 24px 20px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.5px' }}>{task.title}</h1>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <Badge type={getStatusBadgeType(task.status)}>{task.status?.replace('_', ' ')}</Badge>
-                <Badge type={getPriorityBadgeType(task.priority)}>{task.priority?.toUpperCase()}</Badge>
-              </div>
-            </div>
-
-            {/* Task Description Body */}
-            <div style={{ padding: '0 20px 24px 20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                {task.description ? (
-                  <div style={{ padding: '20px', backgroundColor: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                    <h4 style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.05em' }}>Description / Notes</h4>
-                    <p style={{ fontSize: '14.5px', color: 'var(--text-main)', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>{task.description}</p>
-                  </div>
-                ) : (
-                  <div style={{ padding: '32px 20px', backgroundColor: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13.5px' }}>
-                    No description provided for this task.
-                  </div>
-                )}
-                {/* Linked Deal Section */}
-                {data.deal && (
-                  <div style={{ marginTop: '28px' }}>
-                    <h4 style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--text-muted)' }}><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                      Linked Deal
-                    </h4>
-                    
-                    <div style={{
-                      backgroundColor: 'var(--bg-main)',
-                      borderRadius: '16px',
-                      border: '1px solid var(--border)',
-                      padding: '24px',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)',
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
-                      gridTemplateRows: 'repeat(3, auto)',
-                      gap: '24px',
-                      transition: 'all 0.2s ease'
-                    }}>
-                      {/* Row 1, Col 1: Deal Name */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deal Name</span>
-                        <Link to={`/deals/${data.deal.id}`} style={{ fontSize: '14.5px', fontWeight: '800', color: 'var(--primary)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {data.deal.deal_name || data.deal.name}
-                        </Link>
+                  {filteredTasks.length === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
+                      <div style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '50%',
+                        backgroundColor: '#f5f3ff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: '16px',
+                        border: '1px solid #ede9fe',
+                        color: '#8b5cf6'
+                      }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
                       </div>
+                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No tasks linked</div>
+                      <div style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '280px' }}>This contact doesn't have any tasks linked.</div>
+                    </div>
+                  ) : (
+                    <>
+                      {filteredTasks.map((act) => {
+                        return (
+                          <div key={act.id} className="timeline-item-container">
+                            {/* Timeline Node Badge Icon */}
+                            <div
+                              className="timeline-node"
+                              style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#faf5ff',
+                                color: '#8b5cf6',
+                                border: '3px solid #fff',
+                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                                flexShrink: 0,
+                                zIndex: 2
+                              }}
+                            >
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                            </div>
 
-                      {/* Row 1, Col 2: Deal Value */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deal Value</span>
-                        <span style={{ fontSize: '15px', fontWeight: '800', color: '#10b981' }}>
-                          ₹{Number(data.deal.value || 0).toLocaleString('en-IN')}
-                        </span>
-                      </div>
+                            {/* Timeline snug info card */}
+                            <div style={{
+                              flex: 1,
+                              backgroundColor: '#ffffff',
+                              padding: '6px 0px 8px 0px',
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              justifyContent: 'space-between',
+                              gap: '16px'
+                            }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <Link 
+                                      to={`/tasks/${act.originalId}`} 
+                                      style={{ 
+                                        textDecoration: 'none', 
+                                        color: '#0f172a',
+                                        transition: 'color 0.15s ease'
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.color = '#2563eb'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.color = '#0f172a'; }}
+                                    >
+                                      <h4 style={{ margin: 0, fontSize: '13.5px', fontWeight: '700', color: 'inherit' }}>
+                                        {act.subTitle || 'Untitled Task'}
+                                      </h4>
+                                    </Link>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                                      Priority:
+                                    </span>
+                                    <span style={{
+                                      fontSize: '10px',
+                                      fontWeight: '800',
+                                      textTransform: 'uppercase',
+                                      color: act.priority === 'high' ? '#b91c1c' : act.priority === 'medium' ? '#d97706' : '#475569',
+                                      backgroundColor: act.priority === 'high' ? '#fee2e2' : act.priority === 'medium' ? '#fef3c7' : '#f1f5f9',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px'
+                                    }}>
+                                      {act.priority || 'medium'}
+                                    </span>
 
-                      {/* Row 1, Col 3: Pipeline Stage */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pipeline Stage</span>
-                        <Badge type={getDealStageBadgeType(data.deal.stage)} style={{ fontSize: '10px', padding: '2px 8px', fontWeight: '700' }}>
-                          {data.deal.stage === 'prospecting' ? 'LEAD' : data.deal.stage?.replace('_', ' ').toUpperCase()}
-                        </Badge>
-                      </div>
+                                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', marginLeft: '6px' }}>
+                                      Status:
+                                    </span>
+                                    <span style={{
+                                      fontSize: '10px',
+                                      fontWeight: '800',
+                                      textTransform: 'uppercase',
+                                      color: act.status === 'completed' ? '#2563eb' : '#d97706',
+                                      backgroundColor: act.status === 'completed' ? '#eff6ff' : '#fef3c7',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px'
+                                    }}>
+                                      {act.status?.replace('_', ' ') || 'pending'}
+                                    </span>
 
-                      {/* Row 2, Col 1: Deal Status */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deal Status</span>
-                        <Badge type={data.deal.status === 'won' ? 'success' : data.deal.status === 'lost' ? 'danger' : 'primary'} style={{ fontSize: '10px', padding: '2px 8px', fontWeight: '700' }}>
-                          {data.deal.status?.toUpperCase()}
-                        </Badge>
-                      </div>
-
-                      {/* Row 2, Col 2: Assignee */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assignee</span>
-                        <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {data.deal.assignee_name || data.deal.assigned_to_user?.name ? (
-                            <>
-                              <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#e2e8f0', fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', flexShrink: 0 }}>
-                                {(data.deal.assignee_name || data.deal.assigned_to_user?.name)[0]}
+                                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500', marginLeft: '6px' }}>
+                                      Due: {act.due_date ? new Date(act.due_date).toLocaleDateString() : 'No date'}
+                                    </span>
+                                  </div>
+                                  {act.taskDescription && (
+                                    <div style={{
+                                      fontSize: '12.5px',
+                                      color: '#475569',
+                                      marginTop: '6px',
+                                      lineHeight: '1.5',
+                                      whiteSpace: 'pre-wrap',
+                                      wordBreak: 'break-word',
+                                      fontWeight: '400'
+                                    }}>
+                                      {act.taskDescription}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                              {data.deal.assignee_name || data.deal.assigned_to_user?.name}
-                            </>
-                          ) : 'Unassigned'}
-                        </span>
-                      </div>
 
-                      {/* Row 2, Col 3: Company */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Company</span>
-                        <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {data.deal.vendor_name || 'Individual'}
-                        </span>
-                      </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
+                                <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '500' }}>
+                                  {formatRelativeDate(act.date)}
+                                </span>
 
-                      {/* Row 3, Col 1: Created Date */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Created Date</span>
-                        <span style={{ fontSize: '14.5px', fontWeight: '700', color: 'var(--text-main)' }}>
-                          {new Date(data.deal.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <div style={{
+                                    width: '20px',
+                                    height: '20px',
+                                    borderRadius: '50%',
+                                    backgroundColor: '#f1f5f9',
+                                    color: '#475569',
+                                    fontSize: '10px',
+                                    fontWeight: '700',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                    overflow: 'hidden'
+                                  }}>
+                                    <span style={{ textTransform: 'uppercase' }}>{act.author[0] || 'U'}</span>
+                                  </div>
+                                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>
+                                    {act.author || 'User'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
 
-                      {/* Row 3, Col 2: Associated Contact */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Associated Contact</span>
-                        <span style={{ fontSize: '14.5px', fontWeight: '700', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : 'No Contact'}
-                        </span>
-                      </div>
+                            {/* Horizontal Line Partition intersecting with Vertical Line */}
+                            <div style={{
+                              position: 'absolute',
+                              left: '8px',
+                              right: '0',
+                              bottom: '0',
+                              height: '1px',
+                              backgroundColor: '#f1f5f9',
+                              zIndex: 1
+                            }} />
+                          </div>
+                        );
+                      })}
+                      {(tasksRemaining > 0 || tasks.length > 5) && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', marginBottom: '12px' }}>
+                          {tasksRemaining > 0 && (
+                            <button
+                              onClick={handleTaskLoadMore}
+                              style={{
+                                padding: '4px 6px',
+                                backgroundColor: 'transparent',
+                                color: 'hsl(219.81deg 84.06% 50.78%)',
+                                border: 'none',
+                                borderRadius: '0',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'color 0.15s'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.color = 'rgb(24 82 215)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.color = 'hsl(219.81deg 84.06% 50.78%)'; }}
+                            >
+                              Load More ({tasksRemaining})
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
+                            </button>
+                          )}
+                          {tasks.length > 5 && (
+                            <button
+                              onClick={handleTaskCollapse}
+                              style={{
+                                padding: '4px 6px',
+                                backgroundColor: 'transparent',
+                                color: '#dc2626',
+                                border: 'none',
+                                borderRadius: '0',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'color 0.15s'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.color = '#b91c1c'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.color = '#dc2626'; }}
+                            >
+                              Show Less
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
+                                <path d="m18 15-6-6-6 6" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
 
-                      {/* Row 3, Col 3: Workplace */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Workplace</span>
-                        <span style={{ fontSize: '14.5px', fontWeight: '700', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {contact?.company_name || 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Attachments Section */}
-                {task.document_url && (
-                  <div style={{ marginTop: '24px' }}>
-                    <h4 style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                      Attachments
-                    </h4>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      <a
-                        href={getFileUrl(task.document_url)}
-                        download
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 12px',
-                          backgroundColor: '#fff',
-                          borderRadius: '8px',
-                          textDecoration: 'none',
-                          color: 'var(--primary)',
-                          fontSize: '12.5px',
-                          fontWeight: '700',
-                          border: '1px solid #e2e8f0',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                          transition: 'all 0.15s'
-                        }}
-                        onMouseOver={(e) => {
-                          e.currentTarget.style.borderColor = 'var(--primary)';
-                          e.currentTarget.style.backgroundColor = 'var(--bg-main)';
-                        }}
-                        onMouseOut={(e) => {
-                          e.currentTarget.style.borderColor = '#e2e8f0';
-                          e.currentTarget.style.backgroundColor = '#fff';
-                        }}
-                      >
-                        📎 {task.document_url.split('/').pop() || 'View Document'}
-                      </a>
-                    </div>
-                  </div>
-                )}
               </div>
-
-              {/* Action Buttons in Footer */}
-              <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end' }}>
-                <Button type="secondary" onClick={() => navigate('/tasks')}>Return to Tasks</Button>
-              </div>
-            </div>
-
-          </div>
+            )}
+          </CRMWorkspaceTabs>
         </main>
       </div>
 
