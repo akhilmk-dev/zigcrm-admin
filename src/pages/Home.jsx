@@ -736,38 +736,6 @@ export default function Home() {
                 {/* Right Column: Secondary Metrics & Distribution */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-                    {/* Card 1: Average Deal Value */}
-                    <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#eafaf1', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
-                            </svg>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '13.5px', color: '#64748b', fontWeight: '600' }}>Average Deal Value</div>
-                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{loading ? '—' : `₹${averageDealValue.toLocaleString('en-IN')}`}</div>
-                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 12.4% <span style={{ color: '#64748b', fontWeight: '500' }}>vs last period</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Card 2: Deals Won */}
-                    <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#f3efff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34M12 2a4 4 0 0 0-4 4v5c0 1.5 2 2.5 4 2.5s4-1 4-2.5V6a4 4 0 0 0-4-4Z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '13.5px', color: '#64748b', fontWeight: '600' }}>Deals Won</div>
-                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{loading ? '—' : dealsWon}</div>
-                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 18.7% <span style={{ color: '#64748b', fontWeight: '500' }}>vs last period</span>
-                            </div>
-                        </div>
-                    </div>
-
                     {/* Deal Distribution Doughnut Chart */}
                     <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
                         <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', marginBottom: '20px' }}>Deal Distribution</div>
