@@ -63,6 +63,7 @@ export default function Deals() {
         .required('Deal value is required'),
       currency: Yup.string().required('Currency is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
+      contact_id: Yup.string().required('Contact partner is required'),
       assigned_to: Yup.string().nullable()
     }),
     onSubmit: async (values) => {
@@ -313,6 +314,13 @@ export default function Deals() {
           {row.deal_name}
         </Link>
       )
+    },
+    {
+      header: 'Contact Partner',
+      key: 'contact',
+      render: (row) => row.contact
+        ? `${row.contact.first_name} ${row.contact.last_name || ''}`.trim()
+        : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No contact</span>
     },
     {
       header: 'Value',
@@ -637,6 +645,9 @@ export default function Deals() {
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             placeholder="Select a contact"
+            required
+            error={formik.errors.contact_id}
+            touched={formik.touched.contact_id}
           />
 
           <SearchableSelect
