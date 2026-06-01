@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import RichTextEditor from './RichTextEditor';
-import api from '../api/axiosConfig';
+import api, { getFileUrl } from '../api/axiosConfig';
 import { toast } from 'react-hot-toast';
 
 export default function NoteEditor({ 
@@ -14,6 +14,8 @@ export default function NoteEditor({
   placeholder = "Capture your thoughts...",
   externalTitle,
   setExternalTitle,
+  category,
+  setCategory,
   header = null,
   noWrapper = false
 }) {
@@ -27,6 +29,12 @@ export default function NoteEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState('');
+  // ─── Audio Recording ─────────────────────────────────────────────────────────
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordTimerRef = useRef(null);
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -39,8 +47,113 @@ export default function NoteEditor({
       shouldRestartRef.current = false;
       clearTimeout(silenceTimerRef.current);
       recognitionRef.current?.stop();
+      // clean up audio recording
+      clearInterval(recordTimerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
     };
   }, []);
+
+  // ─── Audio Recording helpers ─────────────────────────────────────────────────
+  const formatRecordTime = (secs) => {
+    const m = String(Math.floor(secs / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const startAudioRecording = async () => {
+    if (isRecording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+
+      // pick best supported mime type
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/ogg';
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        // stop all tracks to release mic
+        stream.getTracks().forEach(t => t.stop());
+        clearInterval(recordTimerRef.current);
+        setIsRecording(false);
+
+        if (audioChunksRef.current.length === 0) return;
+
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
+        const fileName = `voice_note_${Date.now()}.${ext}`;
+        const audioFile = new File([blob], fileName, { type: mimeType });
+
+        // upload via existing attachment endpoint
+        setIsUploading(true);
+        try {
+          const formData = new FormData();
+          formData.append('files', audioFile);
+          const response = await api.post('/notes/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          const newFiles = response.data.files;
+          if (newFiles && newFiles.length > 0) {
+            setAttachments(prev => [...prev, newFiles[0]]);
+            toast.success('Audio recorded and attached!');
+          }
+        } catch (err) {
+          console.error('Audio upload error', err);
+          toast.error('Failed to upload audio recording');
+        } finally {
+          setIsUploading(false);
+          setRecordSeconds(0);
+        }
+      };
+
+      recorder.start(250); // capture in 250ms chunks
+      setIsRecording(true);
+      setRecordSeconds(0);
+      recordTimerRef.current = setInterval(() => {
+        setRecordSeconds(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      if (err.name === 'NotAllowedError') {
+        toast.error('Microphone permission denied. Please allow microphone access.');
+      } else {
+        console.error('Recording error', err);
+        toast.error('Could not start audio recording');
+      }
+    }
+  };
+
+  const stopAudioRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const cancelAudioRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      // suppress onstop upload by clearing chunks first
+      audioChunksRef.current = [];
+      mediaRecorderRef.current.stop();
+    }
+    clearInterval(recordTimerRef.current);
+    setIsRecording(false);
+    setRecordSeconds(0);
+  };
+
+  const toggleAudioRecording = () => {
+    if (isRecording) stopAudioRecording();
+    else startAudioRecording();
+  };
 
   const stopVoice = () => {
     shouldRestartRef.current = false;
@@ -181,8 +294,11 @@ export default function NoteEditor({
     setAttachments(attachments.filter((_, i) => i !== index));
   };
 
+  const hasAudioAttachment = attachments.some(a => a.type?.startsWith('audio/') || a.name?.match(/\.(webm|wav|ogg|mp3|m4a)$/i));
+
   const handleSave = async () => {
-    if (!content.trim() || content === '<p><br></p>') return;
+    const hasText = content.trim() && content !== '<p><br></p>';
+    if (!hasText && !hasAudioAttachment) return;
 
     const plainTextContent = content
       .replace(/<\/p><p>/g, '\n') // Preserve paragraph line breaks
@@ -197,11 +313,13 @@ export default function NoteEditor({
         tenant_id: tenantId,
         title: title?.trim() ? title.trim() : 'Untitled',
         content: plainTextContent,
+        category: category || null,
         attachments
       });
       setTitle('');
       setContent('');
       setAttachments([]);
+      if (setCategory) setCategory('');
       toast.success('Note saved successfully');
       
       if (onSave) onSave();
@@ -264,6 +382,54 @@ export default function NoteEditor({
             }} />
           )}
         </button>
+      </div>
+
+      {/* Audio Record Button */}
+      <style>{`@keyframes rec-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)} 50%{box-shadow:0 0 0 5px rgba(239,68,68,0)} }`}</style>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <button
+          type="button"
+          onClick={toggleAudioRecording}
+          disabled={isUploading}
+          title={isRecording ? 'Stop recording & save audio' : 'Record audio note'}
+          style={{
+            padding: '6px 8px', borderRadius: '4px', border: 'none',
+            backgroundColor: isRecording ? '#fef2f2' : 'transparent',
+            color: isRecording ? '#ef4444' : '#64748b',
+            cursor: isUploading ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.15s ease', outline: 'none',
+            animation: isRecording ? 'none' : 'none'
+          }}
+          onMouseOver={(e) => { if (!isRecording && !isUploading) { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.color = '#1e293b'; } }}
+          onMouseOut={(e) => { if (!isRecording && !isUploading) { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#64748b'; } }}
+        >
+          {isRecording ? (
+            // Stop icon (square)
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <rect x="4" y="4" width="16" height="16" rx="2" />
+            </svg>
+          ) : (
+            // Record icon (circle)
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="8" />
+              <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+            </svg>
+          )}
+          {isRecording && (
+            <span style={{
+              position: 'absolute', top: '3px', right: '3px',
+              width: '6px', height: '6px', borderRadius: '50%',
+              backgroundColor: '#ef4444',
+              animation: 'rec-pulse 1.2s ease-in-out infinite'
+            }} />
+          )}
+        </button>
+        {isRecording && (
+          <span style={{ fontSize: '11px', fontWeight: '700', color: '#ef4444', letterSpacing: '0.5px', minWidth: '34px' }}>
+            {formatRecordTime(recordSeconds)}
+          </span>
+        )}
       </div>
 
       {/* Attach Files */}
@@ -377,6 +543,38 @@ export default function NoteEditor({
         </div>
       )}
 
+      {isRecording && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '6px 20px', backgroundColor: '#fff1f2',
+          borderBottom: '1px solid #fecdd3'
+        }}>
+          <span style={{
+            width: '10px', height: '10px', borderRadius: '50%',
+            backgroundColor: '#ef4444', flexShrink: 0,
+            animation: 'rec-pulse 1.2s ease-in-out infinite'
+          }} />
+          <span style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626' }}>Recording…</span>
+          <span style={{ fontSize: '12px', fontWeight: '700', color: '#ef4444', letterSpacing: '1px' }}>
+            {formatRecordTime(recordSeconds)}
+          </span>
+          <button
+            type="button"
+            onClick={stopAudioRecording}
+            style={{ fontSize: '11px', fontWeight: '700', color: '#15803d', background: '#dcfce7', border: '1px solid #86efac', cursor: 'pointer', padding: '2px 10px', borderRadius: '4px' }}
+          >
+            ✓ Save
+          </button>
+          <button
+            type="button"
+            onClick={cancelAudioRecording}
+            style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: '700', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       <RichTextEditor
         value={content}
         onChange={setContent}
@@ -410,7 +608,7 @@ export default function NoteEditor({
             <button
               type="button"
               onClick={handleSave}
-              disabled={isSaving || isUploading || !content.trim() || content === '<p><br></p>'}
+              disabled={isSaving || isUploading || ((!content.trim() || content === '<p><br></p>') && !hasAudioAttachment)}
               style={{
                 padding: '8px 20px',
                 borderRadius: '8px',
@@ -426,17 +624,17 @@ export default function NoteEditor({
                 minWidth: '100px',
                 transition: 'all 0.15s ease',
                 outline: 'none',
-                opacity: (isSaving || isUploading || !content.trim() || content === '<p><br></p>') ? 0.5 : 1,
+                opacity: (isSaving || isUploading || ((!content.trim() || content === '<p><br></p>') && !hasAudioAttachment)) ? 0.5 : 1,
                 boxShadow: '0 2px 8px rgba(112,145,245,0.3)'
               }}
               onMouseOver={(e) => {
-                if (!(isSaving || isUploading || !content.trim() || content === '<p><br></p>')) {
+                if (!(isSaving || isUploading || ((!content.trim() || content === '<p><br></p>') && !hasAudioAttachment))) {
                   e.currentTarget.style.backgroundColor = '#5c7ee6';
                   e.currentTarget.style.boxShadow = '0 4px 12px rgba(92,126,230,0.4)';
                 }
               }}
               onMouseOut={(e) => {
-                if (!(isSaving || isUploading || !content.trim() || content === '<p><br></p>')) {
+                if (!(isSaving || isUploading || ((!content.trim() || content === '<p><br></p>') && !hasAudioAttachment))) {
                   e.currentTarget.style.backgroundColor = '#7091F5';
                   e.currentTarget.style.boxShadow = '0 2px 8px rgba(112,145,245,0.3)';
                 }
@@ -451,33 +649,65 @@ export default function NoteEditor({
       {/* Attachment Previews */}
       {attachments.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', padding: '12px 20px' }}>
-          {attachments.map((file, idx) => (
-            <div key={idx} style={{
-              position: 'relative',
-              padding: '6px 10px',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              color: '#1e293b'
-            }}>
-              {getFileIcon(file.type, file.name)}
-              <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {file.name}
-              </span>
-              <button
-                onClick={() => removeAttachment(idx)}
-                style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px', display: 'flex' }}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-          ))}
+          {attachments.map((file, idx) => {
+            const isAudio = file.type?.startsWith('audio/') || file.name?.match(/\.(webm|wav|ogg|mp3|m4a)$/i);
+            if (isAudio && file.url) {
+              return (
+                <div key={idx} style={{
+                  width: '100%',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecdd3',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  </svg>
+                  <audio controls src={getFileUrl(file.url)} style={{ flex: 1, height: '32px', outline: 'none' }} />
+                  <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap' }}>{file.name}</span>
+                  <button
+                    onClick={() => removeAttachment(idx)}
+                    style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px', display: 'flex', flexShrink: 0 }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            }
+            return (
+              <div key={idx} style={{
+                position: 'relative',
+                padding: '6px 10px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                color: '#1e293b'
+              }}>
+                {getFileIcon(file.type, file.name)}
+                <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {file.name}
+                </span>
+                <button
+                  onClick={() => removeAttachment(idx)}
+                  style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </>

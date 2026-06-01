@@ -49,6 +49,7 @@ export default function ContactDetail() {
   const [activeTab, setActiveTab] = useState('activities');
   const [noteTitle, setNoteTitle] = useState('');
   const [isNoteEditorExpanded, setIsNoteEditorExpanded] = useState(false);
+  const [noteCategory, setNoteCategory] = useState('');
 
   // More Actions dropdown state (removed -- using direct Delete button)
 
@@ -100,7 +101,7 @@ export default function ContactDetail() {
 
     let title = '';
     let message = '';
-    
+
     if (type === 'mail') {
       title = 'Send Email';
       message = `Would you like to send an email to ${data?.contact?.first_name || ''} at ${destination}? This will also log a "Mail" activity note in the contact timeline.`;
@@ -180,7 +181,7 @@ export default function ContactDetail() {
       job_title: '',
       source: '',
       tags: '',
-      status: 'lead',
+      status: 'new',
       tenant_id: '',
       profession: '',
       assigned_to: '',
@@ -684,6 +685,7 @@ export default function ContactDetail() {
     description: n.content,
     author: n.author_name || 'System',
     attachments: n.attachments,
+    category: n.category,
     badgeColor: '#f97316', // Orange
     icon: (
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -743,6 +745,7 @@ export default function ContactDetail() {
       subTitle: '',
       description: act.description || '',
       author: act.author_name || act.author || 'System',
+      attachments: act.attachments || null,
       badgeColor: isContactEvent ? '#2563eb' : '#64748b', // blue for contact events, slate for others
       icon: isContactEvent ? (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1035,7 +1038,7 @@ export default function ContactDetail() {
             padding: 14px 16px !important;
           }
 
-          .tab-list-filters-bar > div:first-child {
+          . > div:first-child {
             max-width: 100% !important;
             width: 100% !important;
           }
@@ -1225,8 +1228,8 @@ export default function ContactDetail() {
                 transition: 'all 0.15s ease',
                 outline: 'none'
               }}
-              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#64748b' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
                 Email
@@ -1247,8 +1250,8 @@ export default function ContactDetail() {
                 transition: 'all 0.15s ease',
                 outline: 'none'
               }}
-              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#64748b' }}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
                 Call
@@ -1269,11 +1272,11 @@ export default function ContactDetail() {
                 transition: 'all 0.15s ease',
                 outline: 'none'
               }}
-              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
               >
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style={{ color: '#16a34a' }}>
-                  <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
+                  <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232" />
                 </svg>
                 WhatsApp
               </button>
@@ -1281,9 +1284,9 @@ export default function ContactDetail() {
 
             {/* Structured Rows List redesign as detailed border cards */}
             <div className="profile-structured-rows" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '10px', marginTop: '24px' }}>
-              
+
               {/* Row 1: Email */}
-              <div 
+              <div
                 onClick={() => contact.email && handleQuickContactClick(null, 'mail', contact.email)}
                 style={{
                   display: 'flex',
@@ -1326,7 +1329,7 @@ export default function ContactDetail() {
               </div>
 
               {/* Row 2: Phone */}
-              <div 
+              <div
                 onClick={() => contact.phone && handleQuickContactClick(null, 'call', contact.phone)}
                 style={{
                   display: 'flex',
@@ -1369,7 +1372,7 @@ export default function ContactDetail() {
               </div>
 
               {/* Row 3: Work */}
-              <div 
+              <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1399,7 +1402,7 @@ export default function ContactDetail() {
               </div>
 
               {/* Row 4: Company (Respective Navigation to /tenants/:id) */}
-              <div 
+              <div
                 onClick={() => contact.tenant_id && navigate(`/tenants/${contact.tenant_id}`)}
                 style={{
                   display: 'flex',
@@ -1446,7 +1449,7 @@ export default function ContactDetail() {
               </div>
 
               {/* Row 5: Industry */}
-              <div 
+              <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1476,7 +1479,7 @@ export default function ContactDetail() {
               </div>
 
               {/* Row 6: Source */}
-              <div 
+              <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1506,7 +1509,7 @@ export default function ContactDetail() {
               </div>
 
               {/* Row 7: Owner (Respective Navigation to /users/:id) */}
-              <div 
+              <div
                 onClick={() => contact.assigned_to && navigate(`/users/${contact.assigned_to}`)}
                 style={{
                   display: 'flex',
@@ -1726,11 +1729,18 @@ export default function ContactDetail() {
             marginBottom: '16px'
           }}>
             {/* Add Note Card */}
-            <div 
+            <div
               onClick={() => {
-                setActiveTab('activities');
-                const inputEl = document.getElementById('note-title-input');
-                if (inputEl) inputEl.focus();
+                setIsNoteEditorExpanded(!isNoteEditorExpanded);
+                if (!isNoteEditorExpanded) {
+                  setTimeout(() => {
+                    const el = document.getElementById('note-title-input');
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      el.focus();
+                    }
+                  }, 150);
+                }
               }}
               style={{
                 display: 'flex',
@@ -1765,7 +1775,7 @@ export default function ContactDetail() {
             </div>
 
             {/* Add Deal Card */}
-            <div 
+            <div
               onClick={handleOpenAddDeal}
               style={{
                 display: 'flex',
@@ -1800,7 +1810,7 @@ export default function ContactDetail() {
             </div>
 
             {/* Add Task Card */}
-            <div 
+            <div
               onClick={handleOpenAddTask}
               style={{
                 display: 'flex',
@@ -1835,7 +1845,7 @@ export default function ContactDetail() {
             </div>
 
             {/* Call Card */}
-            <div 
+            <div
               onClick={e => handleQuickContactClick(e, 'call', contact.phone)}
               style={{
                 display: 'flex',
@@ -1870,7 +1880,7 @@ export default function ContactDetail() {
             </div>
 
             {/* WhatsApp Card */}
-            <div 
+            <div
               onClick={e => handleQuickContactClick(e, 'whatsapp', contact.phone)}
               style={{
                 display: 'flex',
@@ -1914,7 +1924,7 @@ export default function ContactDetail() {
             transition: 'all 0.2s ease'
           }}>
             {/* Collapse / Expand Toggle Header */}
-            <div 
+            <div
               onClick={() => setIsNoteEditorExpanded(!isNoteEditorExpanded)}
               style={{
                 display: 'flex',
@@ -1929,7 +1939,7 @@ export default function ContactDetail() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
                 </div>
                 <span style={{ fontSize: '14.5px', fontWeight: '750', color: '#0f172a' }}>Add Note</span>
               </div>
@@ -1967,6 +1977,45 @@ export default function ContactDetail() {
                       padding: '0'
                     }}
                   />
+                </div>
+
+                {/* Category Selection Dropdown */}
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '7px' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5">
+                      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                      <line x1="4" y1="22" x2="4" y2="15" />
+                    </svg>
+                    <span style={{
+                      fontSize: '10.5px', fontWeight: '700', color: '#9ca3af',
+                      textTransform: 'uppercase', letterSpacing: '0.6px'
+                    }}>
+                      Category:
+                    </span>
+                  </div>
+                  <select
+                    value={noteCategory}
+                    onChange={(e) => setNoteCategory(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '13.5px',
+                      color: '#1e293b',
+                      backgroundColor: '#ffffff',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="">No Category</option>
+                    <option value="Call">Call</option>
+                    <option value="Whatsapp">Whatsapp</option>
+                    <option value="Mail">Mail</option>
+                    <option value="Meeting">Meeting</option>
+                    <option value="Sms">Sms</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                  </select>
                 </div>
 
                 {/* Row 2 — Deal label + dropdown */}
@@ -2126,6 +2175,7 @@ export default function ContactDetail() {
                   onSave={() => {
                     setNoteTitle('');
                     setSelectedDealId('');
+                    setNoteCategory('');
                     setIsNoteEditorExpanded(false);
                     fetchDetail(true);
                   }}
@@ -2140,6 +2190,8 @@ export default function ContactDetail() {
                   placeholder={`Write a note about ${contact.first_name} ${contact.last_name || ''}..`}
                   externalTitle={noteTitle}
                   setExternalTitle={setNoteTitle}
+                  category={noteCategory}
+                  setCategory={setNoteCategory}
                 />
               </>
             )}
@@ -2204,14 +2256,14 @@ export default function ContactDetail() {
 
                 {filteredActivities.length === 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
-                    <div style={{ 
-                      width: '56px', 
-                      height: '56px', 
-                      borderRadius: '50%', 
-                      backgroundColor: '#f8fafc', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
+                    <div style={{
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '50%',
+                      backgroundColor: '#f8fafc',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       marginBottom: '16px',
                       border: '1px solid #e2e8f0',
                       color: '#94a3b8'
@@ -2273,32 +2325,51 @@ export default function ContactDetail() {
                             />
                           </div>
 
-                          {act.type === 'note' && act.attachments && act.attachments.length > 0 && (
-                            <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                              {act.attachments.map((file, idx) => (
-                                <a
-                                  key={idx}
-                                  href={getFileUrl(file.url)}
-                                  download
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '3px 8px',
-                                    backgroundColor: '#fff',
-                                    borderRadius: '4px',
-                                    textDecoration: 'none',
-                                    color: 'var(--primary)',
-                                    fontSize: '11px',
-                                    fontWeight: '700',
-                                    border: '1px solid #e2e8f0'
-                                  }}
-                                >
-                                  📎 {file.name}
-                                </a>
-                              ))}
+                          {(act.type?.includes('note') || act.type === 'audio_not_created' || act.type === 'audio_note_created') && act.attachments && act.attachments.length > 0 && (
+                            <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {act.attachments.map((file, idx) => {
+                                const isAudio = file.type?.startsWith('audio/') || file.name?.match(/\.(webm|wav|ogg|mp3|m4a)$/i);
+                                if (isAudio && file.url) {
+                                  return (
+                                    <div key={idx} style={{
+                                      display: 'flex', alignItems: 'center', gap: '8px',
+                                      padding: '6px 10px', backgroundColor: '#fff1f2',
+                                      border: '1px solid #fecdd3', borderRadius: '8px'
+                                    }}>
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                      </svg>
+                                      <audio controls src={getFileUrl(file.url)} style={{ flex: 1, height: '28px', outline: 'none' }} preload="metadata" />
+                                      <span style={{ fontSize: '10px', color: '#94a3b8', whiteSpace: 'nowrap', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</span>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <a
+                                    key={idx}
+                                    href={getFileUrl(file.url)}
+                                    download
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      padding: '3px 8px',
+                                      backgroundColor: '#fff',
+                                      borderRadius: '4px',
+                                      textDecoration: 'none',
+                                      color: 'var(--primary)',
+                                      fontSize: '11px',
+                                      fontWeight: '700',
+                                      border: '1px solid #e2e8f0'
+                                    }}
+                                  >
+                                    📎 {file.name}
+                                  </a>
+                                );
+                              })}
                             </div>
                           )}
 
@@ -2367,7 +2438,7 @@ export default function ContactDetail() {
                             </span>
                           </div>
 
-                          {act.type === 'note' && (
+                          {(act.type === 'note' || act.type === 'audio_not_created' || act.type === 'audio_note_created') && (
                             <button
                               onClick={() => handleDeleteNote(act.originalId)}
                               style={{
@@ -2464,14 +2535,14 @@ export default function ContactDetail() {
 
                 {filteredNotes.length === 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
-                    <div style={{ 
-                      width: '56px', 
-                      height: '56px', 
-                      borderRadius: '50%', 
-                      backgroundColor: '#fff7ed', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
+                    <div style={{
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '50%',
+                      backgroundColor: '#fff7ed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       marginBottom: '16px',
                       border: '1px solid #ffedd5',
                       color: '#ea580c'
@@ -2522,8 +2593,23 @@ export default function ContactDetail() {
                               {act.title}
                             </h4>
                             {act.subTitle && (
-                              <div style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb', marginBottom: '1px' }}>
-                                {act.subTitle}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1px', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb' }}>
+                                  {act.subTitle}
+                                </span>
+                                {act.category && (
+                                  <span style={{
+                                    fontSize: '9.5px',
+                                    backgroundColor: '#eff6ff',
+                                    padding: '1px 6px',
+                                    borderRadius: '10px',
+                                    color: '#2563eb',
+                                    fontWeight: '700',
+                                    border: '1px solid #bfdbfe'
+                                  }}>
+                                    {act.category}
+                                  </span>
+                                )}
                               </div>
                             )}
                             <div
@@ -2533,31 +2619,50 @@ export default function ContactDetail() {
                           </div>
 
                           {act.attachments && act.attachments.length > 0 && (
-                            <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                              {act.attachments.map((file, idx) => (
-                                <a
-                                  key={idx}
-                                  href={getFileUrl(file.url)}
-                                  download
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '3px 8px',
-                                    backgroundColor: '#fff',
-                                    borderRadius: '4px',
-                                    textDecoration: 'none',
-                                    color: 'var(--primary)',
-                                    fontSize: '11px',
-                                    fontWeight: '700',
-                                    border: '1px solid #e2e8f0'
-                                  }}
-                                >
-                                  📎 {file.name}
-                                </a>
-                              ))}
+                            <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {act.attachments.map((file, idx) => {
+                                const isAudio = file.type?.startsWith('audio/') || file.name?.match(/\.(webm|wav|ogg|mp3|m4a)$/i);
+                                if (isAudio && file.url) {
+                                  return (
+                                    <div key={idx} style={{
+                                      display: 'flex', alignItems: 'center', gap: '8px',
+                                      padding: '6px 10px', backgroundColor: '#fff1f2',
+                                      border: '1px solid #fecdd3', borderRadius: '8px'
+                                    }}>
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                      </svg>
+                                      <audio controls src={getFileUrl(file.url)} style={{ flex: 1, height: '28px', outline: 'none' }} preload="metadata" />
+                                      <span style={{ fontSize: '10px', color: '#94a3b8', whiteSpace: 'nowrap', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</span>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <a
+                                    key={idx}
+                                    href={getFileUrl(file.url)}
+                                    download
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      padding: '3px 8px',
+                                      backgroundColor: '#fff',
+                                      borderRadius: '4px',
+                                      textDecoration: 'none',
+                                      color: 'var(--primary)',
+                                      fontSize: '11px',
+                                      fontWeight: '700',
+                                      border: '1px solid #e2e8f0'
+                                    }}
+                                  >
+                                    📎 {file.name}
+                                  </a>
+                                );
+                              })}
                             </div>
                           )}
 
@@ -2723,14 +2828,14 @@ export default function ContactDetail() {
 
                   {filteredDeals.length === 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
-                      <div style={{ 
-                        width: '56px', 
-                        height: '56px', 
-                        borderRadius: '50%', 
-                        backgroundColor: '#f0fdf4', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
+                      <div style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '50%',
+                        backgroundColor: '#f0fdf4',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         marginBottom: '16px',
                         border: '1px solid #dcfce7',
                         color: '#16a34a'
@@ -2898,14 +3003,14 @@ export default function ContactDetail() {
 
                   {filteredTasks.length === 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
-                      <div style={{ 
-                        width: '56px', 
-                        height: '56px', 
-                        borderRadius: '50%', 
-                        backgroundColor: '#f5f3ff', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
+                      <div style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '50%',
+                        backgroundColor: '#f5f3ff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         marginBottom: '16px',
                         border: '1px solid #ede9fe',
                         color: '#8b5cf6'

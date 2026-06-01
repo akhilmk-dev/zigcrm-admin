@@ -34,6 +34,7 @@ export default function UserAnalytics() {
   const [selectedUser, setSelectedUser] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [activityTypeFilter, setActivityTypeFilter] = useState('all');
   const [fromDate, setFromDate] = useState(defaultFrom);
   const [toDate, setToDate] = useState(defaultTo);
 
@@ -80,6 +81,7 @@ export default function UserAnalytics() {
   const handleReset = () => {
     setSelectedUserId(userIdParam || (canSelectUser ? '' : (loggedInUser?.id || '')));
     setSearchQuery('');
+    setActivityTypeFilter('all');
     setFromDate(defaultFrom);
     setToDate(defaultTo);
     setTempFromDate(defaultFrom);
@@ -138,6 +140,9 @@ export default function UserAnalytics() {
         }
         if (searchQuery) {
           params.search = searchQuery;
+        }
+        if (activityTypeFilter && activityTypeFilter !== 'all') {
+          params.activity_type = activityTypeFilter;
         }
         const res = await api.get('/users/activities', { params });
         const data = res.data;
@@ -280,6 +285,7 @@ export default function UserAnalytics() {
              contactTextColor: '#2563eb',
              contactId: item.contact_id,
              details: item.description || item.title || '-',
+             attachments: item.attachments || null,
              time: formattedTime,
              duration: item.call_duration !== null && item.call_duration !== undefined ? `${item.call_duration}s` : '-',
              userName: item.user?.name || 'Unknown User'
@@ -294,7 +300,7 @@ export default function UserAnalytics() {
     };
     
     fetchActivities();
-   }, [selectedUserId, page, limit, fromDate, toDate, searchQuery, usersList.length]);
+   }, [selectedUserId, page, limit, fromDate, toDate, searchQuery, usersList.length, activityTypeFilter]);
 
   return (
     <div style={{ padding: '0 0 32px 0', backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
@@ -324,26 +330,6 @@ export default function UserAnalytics() {
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" /></svg>
           </button>
-          <button style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            backgroundColor: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            color: '#0f172a',
-            fontSize: '13px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'background-color 0.15s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Export
-          </button>
         </div>
       </div>
 
@@ -360,7 +346,7 @@ export default function UserAnalytics() {
         }}>
           {/* User selector - hidden for tenant_user */}
           {!isTenantUser && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: isMobile ? '1' : '4.5', minWidth: '220px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: isMobile ? '1' : '2', minWidth: '220px' }}>
             <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b', fontFamily: 'Inter, sans-serif' }}>Select User</span>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <select
@@ -415,7 +401,7 @@ export default function UserAnalytics() {
           )}
 
           {/* Date Selector Popover */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: isMobile ? '1' : '4.5', minWidth: '220px', position: 'relative' }} ref={popoverRef}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: isMobile ? '1' : '1', maxWidth: isMobile ? '100%' : '33.33%', minWidth: '220px', position: 'relative' }} ref={popoverRef}>
             <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b', fontFamily: 'Inter, sans-serif' }}>Date Range</span>
             <button
               type="button"
@@ -565,36 +551,6 @@ export default function UserAnalytics() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Filters action button */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: isMobile ? '1' : '1.5', justifyContent: 'flex-end' }}>
-            <button style={{
-              height: '44px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '0 18px',
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '10px',
-              color: '#1f2937',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'background-color 0.15s',
-              justifyContent: 'center',
-              minWidth: '100px',
-              flexShrink: 0,
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-              fontFamily: 'Inter, sans-serif'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
-              Filters
-            </button>
           </div>
         </div>
 
@@ -837,23 +793,44 @@ export default function UserAnalytics() {
                 }}
               />
             </div>
-            <button style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 12px',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              backgroundColor: '#ffffff',
-              color: '#475569',
-              fontSize: '12.5px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
-            }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>
-              Columns
-            </button>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ position: 'absolute', left: '10px', color: '#94a3b8', pointerEvents: 'none' }}>
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+              </svg>
+              <select
+                value={activityTypeFilter}
+                onChange={(e) => { setActivityTypeFilter(e.target.value); setPage(1); }}
+                style={{
+                  padding: '8px 24px 8px 30px',
+                  fontSize: '12.5px',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  outline: 'none',
+                  backgroundColor: '#ffffff',
+                  color: '#475569',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  appearance: 'none',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                  minWidth: '130px',
+                  fontFamily: 'inherit'
+                }}
+              >
+                <option value="all">All</option>
+                <option value="call">Call</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="email">Email</option>
+                <option value="note">Note</option>
+                <option value="task">Task</option>
+                <option value="sms">SMS</option>
+                <option value="meeting">Meeting</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="deal">Deal</option>
+              </select>
+              <div style={{ position: 'absolute', right: '8px', pointerEvents: 'none', display: 'flex', color: '#9ca3af' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -949,9 +926,46 @@ export default function UserAnalytics() {
                       </td>
 
                       {/* Details */}
-                      <td style={{ padding: '14px 20px', fontSize: '13px', color: '#475569', fontWeight: '500', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {act.details}
-                      </td>
+                      <td style={{ padding: '14px 20px', fontSize: '13px', color: '#475569', fontWeight: '500', maxWidth: '320px' }}>
+                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.details}</span>
+                           {act.attachments && act.attachments.length > 0 && (
+                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                               {act.attachments.map((file, idx) => {
+                                 const isAudio = file.type?.startsWith('audio/') || file.name?.match(/\.(webm|wav|ogg|mp3|m4a)$/i);
+                                 if (isAudio && file.url) {
+                                   return (
+                                     <div key={idx} style={{
+                                       display: 'flex', alignItems: 'center', gap: '6px',
+                                       padding: '5px 8px', backgroundColor: '#fff1f2',
+                                       border: '1px solid #fecdd3', borderRadius: '8px'
+                                     }}>
+                                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                         <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                       </svg>
+                                       <audio controls src={getFileUrl(file.url)} style={{ flex: 1, height: '26px', minWidth: 0, outline: 'none' }} preload="metadata" />
+                                     </div>
+                                   );
+                                 }
+                                 return (
+                                   <a key={idx} href={getFileUrl(file.url)} download target="_blank" rel="noopener noreferrer"
+                                     style={{
+                                       display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                       padding: '2px 8px', backgroundColor: '#fff',
+                                       borderRadius: '4px', textDecoration: 'none',
+                                       color: '#2563eb', fontSize: '11px', fontWeight: '700',
+                                       border: '1px solid #dbeafe'
+                                     }}
+                                   >
+                                     📎 {file.name}
+                                   </a>
+                                 );
+                               })}
+                             </div>
+                           )}
+                         </div>
+                       </td>
 
                       {/* Time */}
                       <td style={{ padding: '14px 20px', fontSize: '13px', color: '#64748b', fontWeight: '500' }}>
