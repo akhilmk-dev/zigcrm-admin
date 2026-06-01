@@ -124,9 +124,11 @@ export default function UserAnalytics() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchActivities = async () => {
+      setLoading(true);
       try {
         const params = { page, limit };
         if (selectedUserId) {
@@ -296,14 +298,89 @@ export default function UserAnalytics() {
         setTotalCount(data.totalCount || 0);
       } catch (e) {
         console.error(e);
+      } finally {
+        setLoading(false);
       }
     };
     
     fetchActivities();
    }, [selectedUserId, page, limit, fromDate, toDate, searchQuery, usersList.length, activityTypeFilter]);
 
+  const showUsersCard = !isTenantUser && selectedUserId === '';
+
+  function MetricCardSkeleton({ isTall }) {
+    return (
+      <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: isTall ? '175px' : 'auto' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <div className="skeleton-shimmer" style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0 }} />
+            <div className="skeleton-shimmer" style={{ width: '70px', height: '14px', borderRadius: '4px' }} />
+          </div>
+          <div className="skeleton-shimmer" style={{ width: '100px', height: '32px', borderRadius: '8px', marginBottom: '4px' }} />
+          <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '8px', marginTop: '8px' }}>
+            <div className="skeleton-shimmer" style={{ width: '90px', height: '11px', borderRadius: '4px' }} />
+          </div>
+        </div>
+        {isTall && (
+          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '10px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="skeleton-shimmer" style={{ width: '50px', height: '12px', borderRadius: '4px' }} />
+              <div className="skeleton-shimmer" style={{ width: '30px', height: '12px', borderRadius: '4px' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="skeleton-shimmer" style={{ width: '50px', height: '12px', borderRadius: '4px' }} />
+              <div className="skeleton-shimmer" style={{ width: '30px', height: '12px', borderRadius: '4px' }} />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function TableRowSkeleton() {
+    return (
+      <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+        <td style={{ padding: '14px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="skeleton-shimmer" style={{ width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0 }} />
+            <div className="skeleton-shimmer" style={{ width: '80px', height: '14px', borderRadius: '4px' }} />
+          </div>
+        </td>
+        <td style={{ padding: '14px 20px' }}>
+          <div className="skeleton-shimmer" style={{ width: '90px', height: '14px', borderRadius: '4px' }} />
+        </td>
+        <td style={{ padding: '14px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="skeleton-shimmer" style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0 }} />
+            <div className="skeleton-shimmer" style={{ width: '80px', height: '14px', borderRadius: '4px' }} />
+          </div>
+        </td>
+        <td style={{ padding: '14px 20px' }}>
+          <div className="skeleton-shimmer" style={{ width: '180px', height: '14px', borderRadius: '4px' }} />
+        </td>
+        <td style={{ padding: '14px 20px' }}>
+          <div className="skeleton-shimmer" style={{ width: '100px', height: '14px', borderRadius: '4px' }} />
+        </td>
+        <td style={{ padding: '14px 20px' }}>
+          <div className="skeleton-shimmer" style={{ width: '40px', height: '14px', borderRadius: '4px' }} />
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <div style={{ padding: '0 0 32px 0', backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
+      <style>{`
+        .skeleton-shimmer {
+          background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+          background-size: 200% 100%;
+          animation: skeleton-shimmer-animation 1.5s infinite linear;
+        }
+        @keyframes skeleton-shimmer-animation {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
       
       {/* 1. Header Toolbar */}
       <div style={{
@@ -568,20 +645,10 @@ export default function UserAnalytics() {
               <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
               </div>
-              <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>Users</span>
-            </div>
-            <h2 style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0', letterSpacing: '-1px' }}>{metrics.users.count}</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
-              <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                {formatDateRangeLabel()}
-              </span>
-            </div>
-          </div>
-          )}
+              )}
 
-          {/* Card 2: Contacts */}
-          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
+              {/* Card 2: Contacts */}
+              <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
               <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
@@ -686,6 +753,8 @@ export default function UserAnalytics() {
               </div>
             </div>
           </div>
+          </>
+          )}
         </div>
 
         {/* Analytics Grid (Row 2) */}
@@ -695,8 +764,22 @@ export default function UserAnalytics() {
           gap: '16px',
           marginBottom: '28px'
         }}>
-          {/* Card 6: Notes */}
-          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
+          {loading ? (
+            <>
+              <MetricCardSkeleton />
+              <MetricCardSkeleton isTall={true} />
+              {!isMobile && (
+                <>
+                  <div style={{ gridColumn: 'span 1' }} />
+                  <div style={{ gridColumn: 'span 1' }} />
+                  <div style={{ gridColumn: 'span 1' }} />
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Card 6: Notes */}
+              <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
               <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(249, 115, 22, 0.1)', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
@@ -744,12 +827,14 @@ export default function UserAnalytics() {
             </div>
           </div>
 
-          {/* Flex placeholders to maintain 5-column layout alignment on desktop */}
-          {!isMobile && (
-            <>
-              <div style={{ gridColumn: 'span 1' }} />
-              <div style={{ gridColumn: 'span 1' }} />
-              <div style={{ gridColumn: 'span 1' }} />
+              {/* Flex placeholders to maintain 5-column layout alignment on desktop */}
+              {!isMobile && (
+                <>
+                  <div style={{ gridColumn: 'span 1' }} />
+                  <div style={{ gridColumn: 'span 1' }} />
+                  <div style={{ gridColumn: 'span 1' }} />
+                </>
+              )}
             </>
           )}
         </div>
@@ -856,8 +941,22 @@ export default function UserAnalytics() {
                 </tr>
               </thead>
               <tbody>
-                {activities
-                  .map((act) => (
+                {loading ? (
+                  <>
+                    <TableRowSkeleton />
+                    <TableRowSkeleton />
+                    <TableRowSkeleton />
+                    <TableRowSkeleton />
+                    <TableRowSkeleton />
+                  </>
+                ) : activities.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ padding: '32px', textAlign: 'center', color: '#64748b', fontSize: '14px', fontWeight: '600' }}>
+                      No activities found.
+                    </td>
+                  </tr>
+                ) : (
+                  activities.map((act) => (
                     <tr key={act.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.12s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                       {/* Activity Name */}
                       <td style={{ padding: '14px 20px', fontSize: '13px', color: '#0f172a' }}>
@@ -977,7 +1076,8 @@ export default function UserAnalytics() {
                         {act.duration}
                       </td>
                     </tr>
-                  ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
