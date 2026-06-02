@@ -44,13 +44,13 @@ export const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = '52
           justifyContent: 'space-between'
         }}>
           <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-main)' }}>{title}</h3>
-          <button 
+          <button
             onClick={onClose}
-            style={{ 
-              background: 'none', 
-              border: 'none', 
-              fontSize: '24px', 
-              color: 'var(--text-muted)', 
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              color: 'var(--text-muted)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -114,7 +114,7 @@ export const Button = ({ children, onClick, type = 'primary', size = 'md', disab
   const selectedSize = sizes[size] || sizes.md;
 
   return (
-    <button 
+    <button
       type={htmlType}
       onClick={!disabled ? onClick : undefined}
       style={{ ...baseStyles, ...selectedType, ...selectedSize, ...style }}

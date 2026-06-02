@@ -65,7 +65,8 @@ export default function Tasks() {
         is: () => isGlobalAdmin && !editingTask,
         then: () => Yup.string().required('Company assignment is required')
       }),
-      priority: Yup.string().required('Priority is required')
+      priority: Yup.string().required('Priority is required'),
+      contact_id: Yup.string().required('Contact / Partner is required')
     }),
     onSubmit: async (values) => {
       try {
@@ -724,6 +725,9 @@ export default function Tasks() {
                 value={formik.values.contact_id}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
+                error={formik.errors.contact_id}
+                touched={formik.touched.contact_id}
+                required
             >
                 <option value="">Select Contact</option>
                 {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name} ({c.company_name})</option>)}
