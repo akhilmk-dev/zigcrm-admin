@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useSearchParams, Link } from 'react-router-dom';
@@ -7,6 +7,153 @@ import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { usePermission } from '../hooks/usePermission';
 import { toast } from 'react-hot-toast';
+import { countries } from '../constants/countries';
+import { isValidPhoneNumber } from 'libphonenumber-js';
+
+function SearchableCountryCodeSelect({ value, onChange, label }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const filteredCountries = countries.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.code.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+      {label && (
+        <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+          {label}
+        </label>
+      )}
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          padding: '10px 12px',
+          borderRadius: '12px',
+          border: `1px solid ${isOpen ? 'var(--primary)' : 'var(--border)'}`,
+          backgroundColor: '#fff',
+          fontSize: '13px',
+          cursor: 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          height: '38px',
+          boxSizing: 'border-box',
+          color: 'var(--text-main)',
+          transition: 'all 0.2s',
+          boxShadow: isOpen ? '0 0 0 2px rgba(99, 102, 241, 0.15)' : 'none'
+        }}
+      >
+        <span style={{ fontWeight: '600' }}>{value}</span>
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', opacity: 0.6 }}>
+          <path d="M1 1l4 4 4-4" />
+        </svg>
+      </div>
+
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 4px)',
+          left: 0,
+          width: '280px',
+          backgroundColor: '#fff',
+          borderRadius: '12px',
+          border: '1px solid var(--border)',
+          boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+          zIndex: 99999,
+          padding: '8px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Search code or country..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                padding: '6px 8px 6px 26px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                fontSize: '12px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div style={{
+            maxHeight: '180px',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            paddingRight: '2px'
+          }}>
+            {filteredCountries.length === 0 ? (
+              <div style={{ padding: '8px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>No results</div>
+            ) : (
+              filteredCountries.map((c, idx) => (
+                <div
+                  key={`${c.name}-${c.code}-${idx}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(c.code);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    backgroundColor: value === c.code ? 'var(--bg-muted)' : 'transparent',
+                    color: value === c.code ? 'var(--primary)' : 'var(--text-main)',
+                    transition: 'all 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f1f5f9';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = value === c.code ? 'var(--bg-muted)' : 'transparent';
+                  }}
+                >
+                  <span style={{ fontWeight: '500' }}>{c.name}</span>
+                  <span style={{ fontWeight: '600', opacity: 0.8 }}>{c.code}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Users() {
   const { hasPermission, user: loggedInUser } = usePermission();
@@ -73,6 +220,8 @@ export default function Users() {
     initialValues: {
       name: '',
       email: '',
+      phoneCode: '+91',
+      phone: '',
       password: '',
       re_password: '',
       role_id: '',
@@ -83,6 +232,18 @@ export default function Users() {
     validationSchema: Yup.object({
       name: Yup.string().required('Full name is required'),
       email: Yup.string().email('Invalid email address').required('Email is required'),
+      phone: Yup.string()
+        .required('Phone number is required')
+        .test('is-valid-phone', 'Invalid phone number for the selected country', function (value) {
+          if (!value) return false;
+          const { phoneCode } = this.parent;
+          const fullNumber = `${phoneCode}${value.replace(/[\s()-]/g, '')}`;
+          try {
+            return isValidPhoneNumber(fullNumber);
+          } catch (e) {
+            return false;
+          }
+        }),
       password: editingUser
         ? Yup.string().test('min-6', 'Password must be at least 6 characters', val => !val || val.length >= 6)
         : Yup.string().required('Password is required').min(6, 'Password must be at least 6 characters'),
@@ -105,6 +266,7 @@ export default function Users() {
           scope: viewScope,
           name: values.name,
           email: values.email,
+          phone: `${values.phoneCode}${values.phone.replace(/[\s()-]/g, '')}`,
           role_id: values.role_id,
           target_tenant_id: values.target_tenant_id || loggedInUser?.tenantId,
           status: values.status,
@@ -231,10 +393,24 @@ export default function Users() {
   const handleOpenModal = (user = null) => {
     if (user) {
       setEditingUser(user);
+
+      let matchedCode = '+91';
+      let matchedPhone = user.phone || '';
+      if (user.phone && user.phone.startsWith('+')) {
+        const sortedCountries = [...countries].sort((a, b) => b.code.length - a.code.length);
+        const foundCountry = sortedCountries.find(c => user.phone.startsWith(c.code));
+        if (foundCountry) {
+          matchedCode = foundCountry.code;
+          matchedPhone = user.phone.substring(foundCountry.code.length);
+        }
+      }
+
       formik.resetForm({
         values: {
           name: user.name,
           email: user.email,
+          phoneCode: matchedCode,
+          phone: matchedPhone,
           password: '',
           re_password: '',
           role_id: user.role_id || '',
@@ -250,6 +426,8 @@ export default function Users() {
         values: {
           name: '',
           email: '',
+          phoneCode: '+91',
+          phone: '',
           password: '',
           re_password: '',
           role_id: '',
@@ -695,6 +873,29 @@ export default function Users() {
             touched={formik.touched.email}
             required
           />
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', width: '100%' }}>
+            <div style={{ width: '140px', flexShrink: 0 }}>
+              <SearchableCountryCodeSelect
+                label="Code"
+                value={formik.values.phoneCode}
+                onChange={(code) => formik.setFieldValue('phoneCode', code)}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <Input
+                label="Phone Number"
+                name="phone"
+                type="text"
+                placeholder="e.g. 9876543210"
+                value={formik.values.phone}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.errors.phone}
+                touched={formik.touched.phone}
+                required
+              />
+            </div>
+          </div>
           {/* Role and Company details moved up, Passwords moved down */}
 
           {/* Company Selector (For Global Admins when viewScope is tenant) */}

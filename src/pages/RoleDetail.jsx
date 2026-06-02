@@ -101,18 +101,30 @@ export default function RoleDetail() {
 
       // 2. Fetch specific role details directly from the new API (with fallbacks)
       let role = null;
+      let isForbidden = false;
       try {
         const roleRes = await api.get(`/roles/${id}`);
         role = roleRes.data?.data || roleRes.data;
       } catch (err) {
-        console.warn('API fetch specific role failed, using fallback list');
-        try {
-          const rolesRes = await api.get('/roles?limit=1000');
-          const allRoles = rolesRes.data.data || [];
-          role = allRoles.find(r => String(r.id) === String(id));
-        } catch (listErr) {
-          console.warn('API roles list fetch failed, using static fallback');
+        if (err.response?.status === 403) {
+          isForbidden = true;
         }
+        console.warn('API fetch specific role failed, using fallback list');
+        if (!isForbidden) {
+          try {
+            const rolesRes = await api.get('/roles?limit=1000');
+            const allRoles = rolesRes.data.data || [];
+            role = allRoles.find(r => String(r.id) === String(id));
+          } catch (listErr) {
+            console.warn('API roles list fetch failed, using static fallback');
+          }
+        }
+      }
+
+      if (isForbidden) {
+        toast.error('Access Denied: You do not have permission to view this role.');
+        navigate('/roles');
+        return;
       }
 
       if (!role) {

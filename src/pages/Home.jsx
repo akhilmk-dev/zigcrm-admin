@@ -12,6 +12,7 @@ export default function Home() {
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem('user'));
+    const isTenantUser = user?.user_type === 'tenant_admin' || user?.user_type === 'tenant_user' || user?.isTenant;
 
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
@@ -97,18 +98,13 @@ export default function Home() {
         return fallbacks[index % fallbacks.length];
     };
 
-    const hasDealDistribution = stats?.dealDistribution?.length > 0;
+    const hasDealDistribution = stats?.dealDistribution && stats.dealDistribution.length > 0;
     const pieData = hasDealDistribution 
         ? stats.dealDistribution.map((item, index) => ({
             ...item,
             color: item.color || getStageColor(item.name, index)
           }))
-        : [
-            { name: 'Qualification', value: 18, color: '#3b82f6' },
-            { name: 'Won', value: 36, color: '#10b981' },
-            { name: 'Lead', value: 36, color: '#f59e0b' },
-            { name: 'Proposal', value: 9, color: '#8b5cf6' }
-          ];
+        : [];
 
     const formatActivityDate = (dateString) => {
         if (!dateString) return '';
@@ -334,9 +330,11 @@ export default function Home() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
-                            <div style={{ fontSize: '12px', fontWeight: '750', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 18.6%
-                            </div>
+                            {!isTenantUser ? (
+                                <div style={{ fontSize: '12px', fontWeight: '750', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 18.6%
+                                </div>
+                            ) : <div />}
                             <div style={{ width: '80px', height: '24px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={sparklineDataBlue}>
@@ -371,9 +369,11 @@ export default function Home() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
-                            <div style={{ fontSize: '12px', fontWeight: '750', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 12.4%
-                            </div>
+                            {!isTenantUser ? (
+                                <div style={{ fontSize: '12px', fontWeight: '750', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 12.4%
+                                </div>
+                            ) : <div />}
                             <div style={{ width: '80px', height: '24px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={sparklineDataGreen}>
@@ -407,9 +407,11 @@ export default function Home() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
-                            <div style={{ fontSize: '12px', fontWeight: '750', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 18.7%
-                            </div>
+                            {!isTenantUser ? (
+                                <div style={{ fontSize: '12px', fontWeight: '750', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 18.7%
+                                </div>
+                            ) : <div />}
                             <div style={{ width: '80px', height: '24px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={sparklineDataPurple}>
@@ -442,9 +444,11 @@ export default function Home() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
-                            <div style={{ fontSize: '12px', fontWeight: '750', color: '#f97316', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 8.3%
-                            </div>
+                            {!isTenantUser ? (
+                                <div style={{ fontSize: '12px', fontWeight: '750', color: '#f97316', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 8.3%
+                                </div>
+                            ) : <div />}
                             <div style={{ width: '80px', height: '24px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={sparklineDataOrange}>
@@ -477,9 +481,11 @@ export default function Home() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
-                            <div style={{ fontSize: '12px', fontWeight: '750', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg> 6.5%
-                            </div>
+                            {!isTenantUser ? (
+                                <div style={{ fontSize: '12px', fontWeight: '750', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg> 6.5%
+                                </div>
+                            ) : <div />}
                             <div style={{ width: '80px', height: '24px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={sparklineDataPink}>
@@ -737,72 +743,84 @@ export default function Home() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
                     {/* Card 1: Average Deal Value */}
-                    <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#eafaf1', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
-                            </svg>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '13.5px', color: '#64748b', fontWeight: '600' }}>Average Deal Value</div>
-                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{loading ? '—' : `$${averageDealValue.toLocaleString('en-US')}`}</div>
-                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 12.4% <span style={{ color: '#64748b', fontWeight: '500' }}>vs last period</span>
+                    {!isTenantUser && (
+                        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#eafaf1', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '13.5px', color: '#64748b', fontWeight: '600' }}>Average Deal Value</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{loading ? '—' : `$${averageDealValue.toLocaleString('en-US')}`}</div>
+                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 12.4% <span style={{ color: '#64748b', fontWeight: '500' }}>vs last period</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Card 2: Deals Won */}
-                    <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#f3efff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34M12 2a4 4 0 0 0-4 4v5c0 1.5 2 2.5 4 2.5s4-1 4-2.5V6a4 4 0 0 0-4-4Z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '13.5px', color: '#64748b', fontWeight: '600' }}>Deals Won</div>
-                            <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{loading ? '—' : dealsWon}</div>
-                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 18.7% <span style={{ color: '#64748b', fontWeight: '500' }}>vs last period</span>
+                    {!isTenantUser && (
+                        <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#f3efff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34M12 2a4 4 0 0 0-4 4v5c0 1.5 2 2.5 4 2.5s4-1 4-2.5V6a4 4 0 0 0-4-4Z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '13.5px', color: '#64748b', fontWeight: '600' }}>Deals Won</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '4px 0 2px' }}>{loading ? '—' : dealsWon}</div>
+                                <div style={{ fontSize: '12px', fontWeight: '700', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 18.7% <span style={{ color: '#64748b', fontWeight: '500' }}>vs last period</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Deal Distribution Doughnut Chart */}
                     <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
                         <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', marginBottom: '20px' }}>Deal Distribution</div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-                            <div style={{ width: '130px', height: '130px', position: 'relative', flexShrink: 0 }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={pieData}
-                                            innerRadius={45}
-                                            outerRadius={65}
-                                            paddingAngle={3}
-                                            dataKey="value"
-                                            stroke="none"
-                                        >
-                                            {pieData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color || '#e2e8f0'} />
-                                            ))}
-                                        </Pie>
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '12px', fontWeight: '700', color: '#64748b', letterSpacing: '0.02em' }}>Stage</div>
-                            </div>
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {pieData.map((item, idx) => (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
-                                            <span style={{ color: '#475569', fontWeight: '600' }}>{item.name}</span>
+                        {hasDealDistribution ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                                <div style={{ width: '130px', height: '130px', position: 'relative', flexShrink: 0 }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={pieData}
+                                                innerRadius={45}
+                                                outerRadius={65}
+                                                paddingAngle={3}
+                                                dataKey="value"
+                                                stroke="none"
+                                            >
+                                                {pieData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color || '#e2e8f0'} />
+                                                ))}
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '12px', fontWeight: '700', color: '#64748b', letterSpacing: '0.02em' }}>Stage</div>
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {pieData.map((item, idx) => (
+                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
+                                                <span style={{ color: '#475569', fontWeight: '600' }}>{item.name}</span>
+                                            </div>
+                                            <div style={{ fontWeight: '800', color: '#0f172a' }}>{item.value}%</div>
                                         </div>
-                                        <div style={{ fontWeight: '800', color: '#0f172a' }}>{item.value}%</div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 12px', color: '#64748b', fontSize: '13px', textAlign: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '24px' }}>📊</span>
+                                <span style={{ fontWeight: '700', color: '#0f172a' }}>No deal distribution available</span>
+                                <span style={{ fontSize: '12px', color: '#94a3b8', maxWidth: '200px', lineHeight: '1.4' }}>Deals added to the CRM will appear here based on stage distribution.</span>
+                            </div>
+                        )}
                     </div>
 
                 </div>
