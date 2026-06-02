@@ -185,14 +185,7 @@ export default function UserDetail() {
       setTasks(tasksRes.data.data || []);
 
       // 5. Populate some mock notes since backend might not support user-specific notes model
-      setNotes([
-        {
-          id: 'note-1',
-          content: `${user.name || 'User'} is handling enterprise clients for the Northeast region. Strong follow-up and excellent at client communication.`,
-          author: user.reports_to || 'Sarah Miller',
-          date: new Date(Date.now() - 3600000 * 24).toISOString() // 1 day ago
-        }
-      ]);
+      setNotes([]);
 
       // 6. Fetch all contacts for link dropdown
       const allContactsRes = await api.get(`/contacts?limit=200`);
