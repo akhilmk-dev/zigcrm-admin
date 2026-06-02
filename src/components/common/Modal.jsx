@@ -5,11 +5,6 @@ export const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = '52
 
   return (
     <div
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
       style={{
         position: 'fixed',
         top: 0,
