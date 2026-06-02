@@ -1,14 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api, { FILE_BASE_URL, getFileUrl, saveActivityLog } from '../api/axiosConfig';
 import { toast } from 'react-hot-toast';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
+import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
 import { SearchableSelect } from '../components/common/SearchableSelect';
+import { PhoneInput } from '../components/common/PhoneInput';
+import { FormSelect } from '../components/common/FormSelect';
 import { usePermission } from '../hooks/usePermission';
 import { isValidPhoneNumber } from 'libphonenumber-js';
+
+const STATUS_OPTIONS = [
+  { value: 'new',        label: 'New',        color: '#10b981' },
+  { value: 'discussion', label: 'Discussion',  color: '#f59e0b' },
+  { value: 'won',        label: 'Won',         color: '#3b82f6' },
+  { value: 'loss',       label: 'Loss',        color: '#ef4444' },
+];
+
+/* ── icon + label text ──────────────────────────────────────── */
+const IcoLabel = ({ d, children }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+      {d}
+    </svg>
+    {children}
+  </span>
+);
+
+/* ── subtle section header divider ─────────────────────────── */
+const SectionDivider = ({ label }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '20px 0 14px' }}>
+    <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px', whiteSpace: 'nowrap' }}>{label}</span>
+    <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border)' }} />
+  </div>
+);
 
 export default function Contacts() {
   const { hasPermission } = usePermission();
@@ -67,41 +96,42 @@ export default function Contacts() {
     let autocomplete = null;
     let companyAutocomplete = null;
     let timer = null;
+    let addressNativeHandler = null;
 
     if (isModalOpen) {
       timer = setTimeout(() => {
-        // 1. Autocomplete for address field
+        // ── Address field ────────────────────────────────────────
         const inputElement = document.querySelector('input[name="address"]');
-        if (inputElement && window.google && window.google.maps && window.google.maps.places) {
-          autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
-            types: ['geocode', 'establishment'],
-          });
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place && place.formatted_address) {
-              formik.setFieldValue('address', place.formatted_address);
-            } else if (place && place.name) {
-              formik.setFieldValue('address', place.name);
-            }
-          });
+        if (inputElement) {
+          // Capture-phase listener fires before Google's handlers, ensuring every
+          // keystroke reaches formik even when Google Places stops propagation.
+          addressNativeHandler = (e) => {
+            setFieldValueRef.current('address', e.target.value, false);
+          };
+          inputElement.addEventListener('input', addressNativeHandler, true);
+
+          if (window.google?.maps?.places) {
+            autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
+              types: ['geocode', 'establishment'],
+            });
+            autocomplete.addListener('place_changed', () => {
+              const place = autocomplete.getPlace();
+              const value = place?.formatted_address || place?.name || '';
+              if (value) setFieldValueRef.current('address', value);
+            });
+          }
         }
 
-        // 2. Autocomplete for workplace (company_name) field
+        // ── Workplace (company_name) field ───────────────────────
         const companyInputElement = document.querySelector('input[name="company_name"]');
-        if (companyInputElement && window.google && window.google.maps && window.google.maps.places) {
+        if (companyInputElement && window.google?.maps?.places) {
           companyAutocomplete = new window.google.maps.places.Autocomplete(companyInputElement, {
             types: ['establishment'],
           });
           companyAutocomplete.addListener('place_changed', () => {
             const place = companyAutocomplete.getPlace();
-            if (place) {
-              if (place.name) {
-                formik.setFieldValue('company_name', place.name);
-              }
-              if (place.formatted_address) {
-                formik.setFieldValue('address', place.formatted_address);
-              }
-            }
+            if (place?.name) setFieldValueRef.current('company_name', place.name);
+            if (place?.formatted_address) setFieldValueRef.current('address', place.formatted_address);
           });
         }
       }, 300);
@@ -109,10 +139,14 @@ export default function Contacts() {
 
     return () => {
       if (timer) clearTimeout(timer);
-      if (autocomplete && window.google && window.google.maps && window.google.maps.event) {
+      if (addressNativeHandler) {
+        const el = document.querySelector('input[name="address"]');
+        if (el) el.removeEventListener('input', addressNativeHandler, true);
+      }
+      if (autocomplete && window.google?.maps?.event) {
         window.google.maps.event.clearInstanceListeners(autocomplete);
       }
-      if (companyAutocomplete && window.google && window.google.maps && window.google.maps.event) {
+      if (companyAutocomplete && window.google?.maps?.event) {
         window.google.maps.event.clearInstanceListeners(companyAutocomplete);
       }
     };
@@ -139,10 +173,13 @@ export default function Contacts() {
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
-      email: Yup.string().email('Invalid email address'),
+      email: Yup.string().required('Email is required').email('Invalid email address'),
       phone: Yup.string()
         .required('Phone number is required')
-        .matches(/^\+?[\d\s-]{7,15}$/, 'Invalid phone number format'),
+        .test('is-valid-phone', 'Invalid international phone number', (val) => {
+          if (!val) return false;
+          try { return isValidPhoneNumber(val); } catch { return false; }
+        }),
       company_name: Yup.string(),
       profession: Yup.string()
     }),
@@ -168,6 +205,10 @@ export default function Contacts() {
       }
     }
   });
+
+  // Stable ref so native listeners never capture a stale setFieldValue
+  const setFieldValueRef = useRef(formik.setFieldValue);
+  useEffect(() => { setFieldValueRef.current = formik.setFieldValue; });
 
   // Fetch users for assignment when tenant selection changes
   useEffect(() => {
@@ -844,58 +885,60 @@ export default function Contacts() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={editingContact ? 'Edit Contact' : 'New Contact'}
-        footer={<>
-          <Button type="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
-            {editingContact ? (formik.isSubmitting ? 'Saving...' : 'Save Changes') : (formik.isSubmitting ? 'Creating...' : 'Create Contact')}
-          </Button>
-        </>}
+        maxWidth="640px"
+        footer={
+          <>
+            <Button type="secondary" onClick={handleCloseModal}>Cancel</Button>
+            <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
+              {editingContact
+                ? (formik.isSubmitting ? 'Saving…' : 'Save Changes')
+                : (formik.isSubmitting ? 'Creating…' : '+ Create Contact')}
+            </Button>
+          </>
+        }
       >
-        <form onSubmit={formik.handleSubmit}>
-          {/* Profile Image Upload */}
-          <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '100px',
-              height: '100px',
-              borderRadius: '24px',
-              backgroundColor: 'var(--bg-muted)',
-              border: '2px dashed var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              {formik.values.profile_image_url ? (
-                <img src={getFileUrl(formik.values.profile_image_url)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <span style={{ color: 'var(--text-muted)', fontSize: '24px' }}>👤</span>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+        <form onSubmit={formik.handleSubmit} style={{ paddingBottom: '4px' }}>
+
+          {/* ── Avatar row ──────────────────────────────────────── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', padding: '14px 16px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid var(--border)' }}>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#EEF2FF', border: '2px solid #c7d2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {formik.values.profile_image_url ? (
+                  <img src={getFileUrl(formik.values.profile_image_url)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  </svg>
+                )}
+              </div>
+              <div style={{ position: 'absolute', bottom: 0, right: 0, width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'var(--primary)', border: '2px solid #f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+                </svg>
+              </div>
+              <input type="file" accept="image/*" style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', borderRadius: '50%' }}
                 onChange={async (e) => {
                   const file = e.currentTarget.files[0];
-                  if (file) {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    try {
-                      const res = await api.post('/upload', formData);
-                      formik.setFieldValue('profile_image_url', res.data.url);
-                    } catch (err) {
-                      console.error("Upload failed", err);
-                    }
-                  }
+                  if (!file) return;
+                  const fd = new FormData(); fd.append('file', file);
+                  try { const res = await api.post('/upload', fd); formik.setFieldValue('profile_image_url', res.data.url); }
+                  catch (err) { console.error('Upload failed', err); }
                 }}
               />
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '500' }}>Click avatar to upload profile picture</p>
+            <div>
+              <p style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-main)' }}>
+                {formik.values.profile_image_url ? 'Change photo' : 'Add profile picture'}
+              </p>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>JPG or PNG · max 2 MB</p>
+            </div>
           </div>
 
+          {/* ── Assign to company (super admin only) ────────────── */}
           {isGlobalAdmin && (
-            <Select
+            <FormSelect
               label="Assign to Company"
+              icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="2" width="18" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M8 10h.01M8 14h.01M16 6h.01M16 10h.01M16 14h.01"/></svg>}
               name="tenant_id"
               value={formik.values.tenant_id}
               onChange={formik.handleChange}
@@ -903,159 +946,129 @@ export default function Contacts() {
               error={formik.errors.tenant_id}
               touched={formik.touched.tenant_id}
               required
-            >
-              <option value="">Select a Company</option>
-              {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
-            </Select>
+              placeholder="Select a company…"
+              options={[
+                ...(Array.isArray(tenants) ? tenants.map(t => ({
+                  value: t.id,
+                  label: t.owner_name || t.tenant_name || t.name || 'Unknown Company',
+                  avatar: (t.owner_name || t.tenant_name || t.name || '?')[0].toUpperCase(),
+                })) : []),
+              ]}
+            />
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {/* ── Section: Basic info ─────────────────────────────── */}
+          <SectionDivider label="Basic Information" />
+
+          <div className="form-grid-2">
             <Input
-              label="First Name"
-              name="first_name"
-              placeholder="John"
-              value={formik.values.first_name}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.first_name}
-              touched={formik.touched.first_name}
-              required
+              label={<IcoLabel d={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}>First Name</IcoLabel>}
+              name="first_name" placeholder="John"
+              value={formik.values.first_name} onChange={formik.handleChange} onBlur={formik.handleBlur}
+              error={formik.errors.first_name} touched={formik.touched.first_name} required
             />
             <Input
-              label="Last Name"
-              name="last_name"
-              placeholder="Doe"
-              value={formik.values.last_name}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
+              label={<IcoLabel d={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}>Last Name</IcoLabel>}
+              name="last_name" placeholder="Doe"
+              value={formik.values.last_name} onChange={formik.handleChange} onBlur={formik.handleBlur}
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+
+          <div className="form-grid-2">
             <Input
-              label="Email"
-              type="email"
-              name="email"
-              placeholder="john.doe@example.com"
-              value={formik.values.email}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.email}
-              touched={formik.touched.email}
+              label={<IcoLabel d={<><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></>}>Email</IcoLabel>}
+              type="email" name="email" placeholder="john.doe@example.com"
+              value={formik.values.email} onChange={formik.handleChange} onBlur={formik.handleBlur}
+              error={formik.errors.email} touched={formik.touched.email} required
             />
-            <Input
-              label="Phone"
+            <PhoneInput
+              label={<IcoLabel d={<><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.35a2 2 0 0 1 1.99-2.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6.09 6.09l.87-.87a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></>}>Phone</IcoLabel>}
               name="phone"
-              placeholder="+1 (555) 000-0000"
-              value={formik.values.phone}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.phone}
-              touched={formik.touched.phone}
-              required
+              value={formik.values.phone} onChange={formik.handleChange} onBlur={formik.handleBlur}
+              error={formik.errors.phone} touched={formik.touched.phone} required
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {/* ── Section: Work ───────────────────────────────────── */}
+          <SectionDivider label="Work Details" />
+
+          <div className="form-grid-2">
             <Input
-              label="Workplace Name"
-              name="company_name"
-              placeholder="Acme Corp"
-              value={formik.values.company_name}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.company_name}
-              touched={formik.touched.company_name}
+              label={<IcoLabel d={<><rect x="3" y="2" width="18" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M8 10h.01M8 14h.01M16 6h.01M16 10h.01M16 14h.01"/></>}>Workplace</IcoLabel>}
+              name="company_name" placeholder="Acme Corp"
+              value={formik.values.company_name} onChange={formik.handleChange} onBlur={formik.handleBlur}
+              error={formik.errors.company_name} touched={formik.touched.company_name}
             />
             <Input
-              label="Profession"
-              name="profession"
-              placeholder="e.g. Attorney, Realtor"
-              value={formik.values.profession}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.profession}
-              touched={formik.touched.profession}
+              label={<IcoLabel d={<><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>}>Profession</IcoLabel>}
+              name="profession" placeholder="e.g. Attorney, Realtor"
+              value={formik.values.profession} onChange={formik.handleChange} onBlur={formik.handleBlur}
+              error={formik.errors.profession} touched={formik.touched.profession}
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input
-              label="Address"
-              name="address"
-              placeholder="e.g. 123 Main St"
-              value={formik.values.address}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.address}
-              touched={formik.touched.address}
+          <Input
+              label={<IcoLabel d={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>}>GST Number</IcoLabel>}
+              name="gst_no" placeholder="e.g. 22AAAAA0000A1Z5"
+              value={formik.values.gst_no} onChange={formik.handleChange} onBlur={formik.handleBlur}
+              error={formik.errors.gst_no} touched={formik.touched.gst_no}
             />
-            <Input
-              label="GST Number"
-              name="gst_no"
-              placeholder="e.g. 22AAAAA0000A1Z5"
-              value={formik.values.gst_no}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.gst_no}
-              touched={formik.touched.gst_no}
-            />
-          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Select
+          {/* ── Section: CRM ────────────────────────────────────── */}
+          <SectionDivider label="CRM Settings" />
+
+          <div className="form-grid-2">
+            <FormSelect
               label="Assigned To"
+              icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
               name="assigned_to"
               value={formik.values.assigned_to}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
-            >
-              <option value="">Unassigned</option>
-              {tenantUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.roles?.role_name})</option>)}
-            </Select>
-
-            <Input
-              label="Job Title"
-              name="job_title"
-              placeholder="e.g. CEO, Sales VP"
-              value={formik.values.job_title}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
+              placeholder="Unassigned"
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...tenantUsers.map(u => ({
+                  value: u.id,
+                  label: u.name + (u.roles?.role_name ? ` · ${u.roles.role_name}` : ''),
+                  avatar: (u.name || '?')[0].toUpperCase(),
+                })),
+              ]}
             />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Select
+            <FormSelect
               label="Lead Status"
+              icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>}
               name="status"
               value={formik.values.status}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
-            >
-              <option value="new">New</option>
-              <option value="discussion">Discussion</option>
-              <option value="won">Won</option>
-              <option value="loss">Loss</option>
-            </Select>
+              options={STATUS_OPTIONS}
+            />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-grid-2">
             <Input
-              label="Source"
-              name="source"
-              placeholder="e.g. LinkedIn, Referral"
-              value={formik.values.source}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
+              label={<IcoLabel d={<><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>}>Source</IcoLabel>}
+              name="source" placeholder="e.g. LinkedIn, Referral"
+              value={formik.values.source} onChange={formik.handleChange} onBlur={formik.handleBlur}
             />
             <Input
-              label="Tags"
-              name="tags"
-              placeholder="e.g. VIP, Tech"
-              value={formik.values.tags}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
+              label={<IcoLabel d={<><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>}>Tags</IcoLabel>}
+              name="tags" placeholder="e.g. VIP, Tech"
+              value={formik.values.tags} onChange={formik.handleChange} onBlur={formik.handleBlur}
             />
           </div>
+
+          {/* ── Section: Location ───────────────────────────────── */}
+          <SectionDivider label="Location" />
+
+          <Input
+            label={<IcoLabel d={<><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>}>Address</IcoLabel>}
+            name="address" placeholder="e.g. 123 Main St, New York"
+            value={formik.values.address} onChange={formik.handleChange} onBlur={formik.handleBlur}
+            error={formik.errors.address} touched={formik.touched.address}
+          />
+
         </form>
       </Modal>
 

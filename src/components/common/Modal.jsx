@@ -1,32 +1,37 @@
 import React, { useState } from 'react';
 
-export const Modal = ({ isOpen, onClose, title, children, footer }) => {
+export const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = '520px' }) => {
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
       style={{
         position: 'fixed',
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.4)',
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
         backdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        padding: '24px'
+        padding: '16px'
       }}
     >
       <div style={{
         backgroundColor: '#fff',
-        borderRadius: '16px',
+        borderRadius: '14px',
         width: '100%',
-        maxWidth: '500px',
-        boxShadow: 'var(--shadow-lg)',
-        maxHeight: '90vh',
+        maxWidth,
+        boxShadow: '0 24px 48px -12px rgba(15,23,42,0.2)',
+        maxHeight: '94vh',
         display: 'flex',
         flexDirection: 'column'
       }}>
@@ -39,13 +44,13 @@ export const Modal = ({ isOpen, onClose, title, children, footer }) => {
           justifyContent: 'space-between'
         }}>
           <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-main)' }}>{title}</h3>
-          <button 
+          <button
             onClick={onClose}
-            style={{ 
-              background: 'none', 
-              border: 'none', 
-              fontSize: '24px', 
-              color: 'var(--text-muted)', 
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              color: 'var(--text-muted)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -109,7 +114,7 @@ export const Button = ({ children, onClick, type = 'primary', size = 'md', disab
   const selectedSize = sizes[size] || sizes.md;
 
   return (
-    <button 
+    <button
       type={htmlType}
       onClick={!disabled ? onClick : undefined}
       style={{ ...baseStyles, ...selectedType, ...selectedSize, ...style }}
@@ -133,24 +138,30 @@ export const Input = ({ label, error, touched, required, type = 'text', ...props
         </label>
       )}
       <div style={{ position: 'relative' }}>
-        <input 
+        <input
           type={isPassword && showPassword ? 'text' : type}
           style={{
             width: '100%',
             padding: '10px 12px',
             paddingRight: isPassword ? '40px' : '12px',
-            borderRadius: 'var(--radius)',
-            border: `1px solid ${touched && error ? 'var(--danger)' : 'var(--border)'}`,
+            borderRadius: '8px',
+            border: `1.5px solid ${touched && error ? 'var(--danger)' : 'var(--border)'}`,
             fontSize: '14px',
             outline: 'none',
             backgroundColor: '#fff',
-            transition: 'border-color 0.2s'
+            transition: 'border-color 0.2s, box-shadow 0.2s'
           }}
           onFocus={(e) => {
-            if (!(touched && error)) e.target.style.borderColor = 'var(--primary)';
+            if (!(touched && error)) {
+              e.target.style.borderColor = 'var(--primary)';
+              e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)';
+            }
           }}
           onBlur={(e) => {
-            if (!(touched && error)) e.target.style.borderColor = 'var(--border)';
+            if (!(touched && error)) {
+              e.target.style.borderColor = 'var(--border)';
+              e.target.style.boxShadow = 'none';
+            }
           }}
           {...props}
         />
@@ -200,16 +211,17 @@ export const Select = ({ label, error, touched, required, children, ...props }) 
           {label} {required && <span style={{ color: 'var(--danger)' }}>*</span>}
         </label>
       )}
-      <select 
+      <select
         style={{
           width: '100%',
           padding: '10px 12px',
-          borderRadius: 'var(--radius)',
-          border: `1px solid ${touched && error ? 'var(--danger)' : 'var(--border)'}`,
+          borderRadius: '8px',
+          border: `1.5px solid ${touched && error ? 'var(--danger)' : 'var(--border)'}`,
           fontSize: '14px',
           outline: 'none',
           backgroundColor: '#fff',
-          transition: 'border-color 0.2s'
+          transition: 'border-color 0.2s',
+          cursor: 'pointer',
         }}
         {...props}
       >
