@@ -924,7 +924,7 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main style={{ padding: isMobile ? '16px' : '28px', flex: 1, backgroundColor: location.pathname.includes('/contacts/') ? 'hsl(0deg 0% 98.04%)' : '#F8FAFC', minWidth: 0 }}>
+        <main style={{ padding: isMobile ? '12px' : '28px', flex: 1, backgroundColor: location.pathname.includes('/contacts/') ? 'hsl(0deg 0% 98.04%)' : '#F8FAFC', minWidth: 0, overflowX: 'hidden' }}>
           <Outlet />
         </main>
       </div>

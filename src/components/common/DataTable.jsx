@@ -208,7 +208,7 @@ export const DataTable = ({
         maxHeight, 
         width: '100%' 
       }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ backgroundColor: 'var(--table-header-bg)' }}>
               <th style={{ 
@@ -355,11 +355,13 @@ export const DataTable = ({
       {/* Pagination Footer */}
       {totalCount > 0 && onPageChange && (
         <div style={{
-          padding: '12px 24px',
+          padding: '12px 16px',
           borderTop: '1px solid var(--table-border)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '8px',
           backgroundColor: '#fff'
         }}>
           <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '600' }}>

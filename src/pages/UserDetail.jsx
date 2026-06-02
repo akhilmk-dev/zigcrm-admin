@@ -165,11 +165,11 @@ export default function UserDetail() {
         target_tenant_id: user.tenant_id || '',
         status: user.status || 'active',
         profile_image_url: user.profile_image_url || '',
-        phone: user.phone || '+91 98765 43210',
-        department: user.department || 'Sales',
-        employee_id: user.employee_id || `EMP-${1000 + parseInt(id.slice(-3) || '24', 16) % 900}`,
-        location: user.location || 'New York, USA',
-        reports_to: user.reports_to || 'Sarah Miller'
+        phone: user.phone || '',
+        department: user.department || '',
+        employee_id: user.employee_id || '',
+        location: user.location || '',
+        reports_to: user.reports_to || ''
       });
 
       // 2. Fetch associated contacts
@@ -631,7 +631,7 @@ export default function UserDetail() {
                 </div>
 
                 <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px', fontWeight: '500' }}>
-                  {userData?.roles?.role_name || 'Staff'} at {userData?.department || 'Sales'}
+                  {userData?.roles?.role_name || 'Staff'}
                 </div>
               </div>
             </div>
@@ -808,125 +808,25 @@ export default function UserDetail() {
                 </span>
               </div>
 
-              {/* Row 4: Department */}
-              <div 
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#fff',
-                  cursor: 'default',
-                  transition: 'all 0.15s ease'
-                }}
-              >
+              {/* Location */}
+              {userData?.location && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', backgroundColor: '#fff', cursor: 'default', transition: 'all 0.15s ease' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
                   <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect width="20" height="14" x="2" y="7" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Department</span>
-                    <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {userData?.department || 'Sales'}
-                    </span>
-                  </div>
-                </div>
-                <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
-                </span>
-              </div>
-
-              {/* Row 5: Reports To */}
-              <div 
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#fff',
-                  cursor: 'default',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Reports To</span>
-                    <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {userData?.reports_to || 'Sarah Miller'}
-                    </span>
-                  </div>
-                </div>
-                <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
-                </span>
-              </div>
-
-              {/* Row 6: Employee ID */}
-              <div 
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#fff',
-                  cursor: 'default',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect width="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Employee ID</span>
-                    <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {userData?.employee_id || `EMP-${1000 + parseInt(id.slice(-3) || '24', 16) % 900}`}
-                    </span>
-                  </div>
-                </div>
-                <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
-                </span>
-              </div>
-
-              {/* Row 7: Location */}
-              <div 
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#fff',
-                  cursor: 'default',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Location</span>
                     <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {userData?.location || 'New York, USA'}
+                      {userData.location}
                     </span>
                   </div>
                 </div>
                 <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
                 </span>
               </div>
+              )}
 
               {/* Row 8: Status */}
               <div 
@@ -950,36 +850,6 @@ export default function UserDetail() {
                     <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Status</span>
                     <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {userData?.status ? userData.status.toUpperCase() : 'ACTIVE'}
-                    </span>
-                  </div>
-                </div>
-                <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
-                </span>
-              </div>
-
-              {/* Row 9: Last Login */}
-              <div 
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#fff',
-                  cursor: 'default',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 14 14" /></svg>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Last Login</span>
-                    <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {userData?.last_login ? new Date(userData.last_login).toLocaleString() : '28 Apr 2026, 10:30 AM'}
                     </span>
                   </div>
                 </div>
@@ -2081,61 +1951,36 @@ export default function UserDetail() {
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
+            <Input
               label="Phone Number"
               name="phone"
               value={editUserFormik.values.phone}
               onChange={editUserFormik.handleChange}
               onBlur={editUserFormik.handleBlur}
             />
-            <Input 
-              label="Department"
-              name="department"
-              value={editUserFormik.values.department}
-              onChange={editUserFormik.handleChange}
-              onBlur={editUserFormik.handleBlur}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
-              label="Employee ID"
-              name="employee_id"
-              value={editUserFormik.values.employee_id}
-              onChange={editUserFormik.handleChange}
-              onBlur={editUserFormik.handleBlur}
-            />
-            <Input 
+            <Input
               label="Location"
               name="location"
+              placeholder="e.g. New York, USA"
               value={editUserFormik.values.location}
               onChange={editUserFormik.handleChange}
               onBlur={editUserFormik.handleBlur}
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
-              label="Reports To"
-              name="reports_to"
-              value={editUserFormik.values.reports_to}
+          {isGlobalAdmin && (
+            <Select
+              label="Role"
+              name="role_id"
+              value={editUserFormik.values.role_id}
               onChange={editUserFormik.handleChange}
               onBlur={editUserFormik.handleBlur}
-            />
-            {isGlobalAdmin && (
-              <Select
-                label="Role"
-                name="role_id"
-                value={editUserFormik.values.role_id}
-                onChange={editUserFormik.handleChange}
-                onBlur={editUserFormik.handleBlur}
-                required
-              >
-                <option value="">Select a role</option>
-                {roles.map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
-              </Select>
-            )}
-          </div>
+              required
+            >
+              <option value="">Select a role</option>
+              {roles.map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
+            </Select>
+          )}
         </form>
       </Modal>
 

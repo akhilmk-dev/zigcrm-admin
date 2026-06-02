@@ -421,7 +421,7 @@ export default function Tasks() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Tasks</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Keep track of daily activities and team assignments.</p>
@@ -431,21 +431,8 @@ export default function Tasks() {
         )}
       </div>
 
-      {/* Sticky Filters & Search Row */}
-      <div style={{
-        backgroundColor: '#fff',
-        borderRadius: '16px',
-        border: '1px solid var(--border)',
-        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
-        padding: '16px 20px',
-        margin: '0 0 20px 0',
-        display: 'flex',
-        width: '100%',
-        boxSizing: 'border-box',
-        flexWrap: 'wrap',
-        gap: '16px',
-        alignItems: 'flex-end'
-      }}>
+      {/* Filters & Search Row */}
+      <div className="filter-bar">
         {isGlobalAdmin && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Filter by Company</span>

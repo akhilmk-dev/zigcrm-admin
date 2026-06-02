@@ -240,7 +240,7 @@ export default function Roles() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Unified Roles Management</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>
