@@ -198,7 +198,7 @@ export default function Profile() {
   const profileItems = [
     {
       label: 'Full Name',
-      value: profileData?.name || 'John Doe',
+      value: profileData?.name || '',
       icon: (
         <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -208,7 +208,7 @@ export default function Profile() {
     },
     {
       label: 'Email',
-      value: profileData?.email || 'john.doe@acme.com',
+      value: profileData?.email || '',
       icon: (
         <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
@@ -218,7 +218,7 @@ export default function Profile() {
     },
     {
       label: 'Date Joined',
-      value: profileData?.created_at ? new Date(profileData.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Jan 15, 2023',
+      value: profileData?.created_at ? new Date(profileData.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '',
       icon: (
         <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -230,7 +230,7 @@ export default function Profile() {
     },
     {
       label: 'Role',
-      value: user?.isSuperAdmin ? 'Platform Super Admin' : (profileData?.tenantRoleName || 'Sales Manager'),
+      value: user?.isSuperAdmin ? 'Platform Super Admin' : (profileData?.roles?.role_name || profileData?.tenantRoleName || ''),
       icon: (
         <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
@@ -240,7 +240,7 @@ export default function Profile() {
     },
     {
       label: 'Phone',
-      value: profileData?.phone || '+1 (555) 123-4567',
+      value: profileData?.phone || '',
       icon: (
         <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -249,7 +249,7 @@ export default function Profile() {
     },
     {
       label: 'Department',
-      value: profileData?.department || 'Sales',
+      value: profileData?.department || '',
       icon: (
         <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
@@ -261,8 +261,8 @@ export default function Profile() {
       )
     },
     {
-      label: 'Location',
-      value: profileData?.address || (profileData?.country ? `${profileData?.country}` : 'New York, USA'),
+      label: 'Address',
+      value: profileData?.address || profileData?.country || '',
       icon: (
         <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -272,7 +272,7 @@ export default function Profile() {
     },
     {
       label: 'Username',
-      value: profileData?.username || profileData?.email?.split('@')[0] || 'johndoe',
+      value: profileData?.username || profileData?.email?.split('@')[0] || '',
       icon: (
         <svg width="18" height="18" fill="none" stroke="#94a3b8" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
@@ -282,6 +282,14 @@ export default function Profile() {
       )
     }
   ];
+
+  const filteredProfileItems = profileItems.filter(item => {
+    const isTenantUser = user?.user_type === 'tenant_admin' || user?.user_type === 'tenant_user' || user?.isTenant;
+    if (isTenantUser && (item.label === 'Department' || item.label === 'Username')) {
+      return false;
+    }
+    return true;
+  });
 
   const getPermissionsList = () => {
     const isSuper = user?.isSuperAdmin || user?.permissions?.includes('*');
@@ -484,7 +492,7 @@ export default function Profile() {
               gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
               gap: '20px 32px'
             }}>
-              {profileItems.map((item, index) => (
+              {filteredProfileItems.map((item, index) => (
                 <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#f8fafc' }}>
                     {item.icon}
@@ -741,17 +749,6 @@ export default function Profile() {
                   onChange={editFormik.handleChange}
                   onBlur={editFormik.handleBlur}
                 />
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <Input
-                    label="Country"
-                    name="country"
-                    placeholder="USA"
-                    value={editFormik.values.country}
-                    onChange={editFormik.handleChange}
-                    onBlur={editFormik.handleBlur}
-                  />
-                </div>
               </>
             )}
           </div>

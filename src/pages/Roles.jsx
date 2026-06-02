@@ -11,6 +11,7 @@ import { toast } from 'react-hot-toast';
 export default function Roles() {
   const { hasPermission, user: loggedInUser } = usePermission();
   const isSuperAdmin = loggedInUser?.isSuperAdmin;
+  const isTenant = !isSuperAdmin && !loggedInUser?.isAdmin;
   const canManage = isSuperAdmin || hasPermission('roles.manage');
 
   // ─── List State ──────────────────────────────────────────────────────────────
@@ -266,34 +267,6 @@ export default function Roles() {
         gap: '16px',
         alignItems: 'flex-end'
       }}>
-        {/* Role Filter */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Filter by Role</span>
-          <select
-            value={roleFilter}
-            onChange={(e) => {
-              setRoleFilter(e.target.value);
-              setPage(1);
-            }}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '12px',
-              border: '1px solid var(--border)',
-              fontSize: '13px',
-              outline: 'none',
-              backgroundColor: '#f8fafc',
-              height: '38px',
-              minWidth: '160px',
-              cursor: 'pointer'
-            }}
-          >
-            <option value="">All Roles</option>
-            <option value="super_admin">Super Admin</option>
-            <option value="admin">Admins</option>
-            <option value="tenant">Tenants</option>
-            <option value="tenant_user">Tenant Users</option>
-          </select>
-        </div>
 
         {/* Search Filter */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '280px' }}>
@@ -410,7 +383,7 @@ export default function Roles() {
                 </Button>
               </Link>
             )}
-            {!row.is_system_role && (
+            {!row.is_system_role && (!isTenant || row.tenant_id) && (
               <Button
                 type="secondary"
                 size="sm"
@@ -429,12 +402,18 @@ export default function Roles() {
               type="secondary"
               size="sm"
               onClick={() => handleOpenPerms(row)}
-              disabled={row.role_name === 'Super Admin'}
-              title={row.role_name === 'Super Admin' ? "Super Admin permissions are locked for system safety" : "Edit Permissions"}
+              disabled={row.role_name === 'Super Admin' || (isTenant && !row.tenant_id)}
+              title={
+                row.role_name === 'Super Admin' 
+                  ? "Super Admin permissions are locked for system safety" 
+                  : (isTenant && !row.tenant_id)
+                    ? "Global template permissions are locked and read-only"
+                    : "Edit Permissions"
+              }
             >
               Edit Permission
             </Button>
-            {!row.is_system_role && (
+            {!row.is_system_role && (!isTenant || row.tenant_id) && (
               <Button 
                 type="ghost" 
                 size="sm" 

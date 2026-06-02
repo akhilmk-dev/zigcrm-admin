@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useSearchParams, Link } from 'react-router-dom';
@@ -10,6 +10,151 @@ import { toast } from 'react-hot-toast';
 import { countries } from '../constants/countries';
 import { isValidPhoneNumber } from 'libphonenumber-js';
 
+function SearchableCountryCodeSelect({ value, onChange, label }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const filteredCountries = countries.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.code.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+      {label && (
+        <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+          {label}
+        </label>
+      )}
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          padding: '10px 12px',
+          borderRadius: '12px',
+          border: `1px solid ${isOpen ? 'var(--primary)' : 'var(--border)'}`,
+          backgroundColor: '#fff',
+          fontSize: '13px',
+          cursor: 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          height: '38px',
+          boxSizing: 'border-box',
+          color: 'var(--text-main)',
+          transition: 'all 0.2s',
+          boxShadow: isOpen ? '0 0 0 2px rgba(99, 102, 241, 0.15)' : 'none'
+        }}
+      >
+        <span style={{ fontWeight: '600' }}>{value}</span>
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', opacity: 0.6 }}>
+          <path d="M1 1l4 4 4-4" />
+        </svg>
+      </div>
+
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 4px)',
+          left: 0,
+          width: '280px',
+          backgroundColor: '#fff',
+          borderRadius: '12px',
+          border: '1px solid var(--border)',
+          boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+          zIndex: 99999,
+          padding: '8px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Search code or country..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                padding: '6px 8px 6px 26px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                fontSize: '12px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div style={{
+            maxHeight: '180px',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            paddingRight: '2px'
+          }}>
+            {filteredCountries.length === 0 ? (
+              <div style={{ padding: '8px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>No results</div>
+            ) : (
+              filteredCountries.map((c, idx) => (
+                <div
+                  key={`${c.name}-${c.code}-${idx}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(c.code);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    backgroundColor: value === c.code ? 'var(--bg-muted)' : 'transparent',
+                    color: value === c.code ? 'var(--primary)' : 'var(--text-main)',
+                    transition: 'all 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f1f5f9';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = value === c.code ? 'var(--bg-muted)' : 'transparent';
+                  }}
+                >
+                  <span style={{ fontWeight: '500' }}>{c.name}</span>
+                  <span style={{ fontWeight: '600', opacity: 0.8 }}>{c.code}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Tenants() {
   const { user } = usePermission();
   const [tenants, setTenants] = useState([]);
@@ -18,6 +163,8 @@ export default function Tenants() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
   const [tenantToDelete, setTenantToDelete] = useState(null);
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const isPlatformAdmin = user?.isSuperAdmin || user?.isAdmin;
 
@@ -57,8 +204,9 @@ export default function Tenants() {
       plan_id: '',
       name: '',
       email: '',
+      phoneCode: '+91',
       phone: '',
-      country: 'India',
+      address: '',
       status: 'active',
       password: '',
       re_password: '',
@@ -70,11 +218,14 @@ export default function Tenants() {
       email: Yup.string().email('Invalid email address').required('Owner email is required'),
       phone: Yup.string()
         .required('Phone number is required')
-        .test('is-indian-phone', 'Invalid mobile number. Enter a valid phone number.', function (value) {
+        .test('is-valid-phone', 'Invalid phone number for the selected country code', function (value) {
+          const { phoneCode } = this.parent;
           if (!value) return false;
-          const sanitized = value.replace(/[\s()-]/g, '');
-          const indianPhoneRegex = /^(?:\+91|91|0)?[6-9]\d{9}$/;
-          return indianPhoneRegex.test(sanitized);
+          try {
+            return isValidPhoneNumber(`${phoneCode}${value}`);
+          } catch {
+            return false;
+          }
         }),
       plan_id: Yup.string().required('Subscription plan is required'),
       status: Yup.string().required('Status is required'),
@@ -92,18 +243,9 @@ export default function Tenants() {
     onSubmit: async (values) => {
       try {
         const phoneWithoutSpaces = values.phone?.replace(/[\s()-]/g, '') || '';
-        let formattedPhone = phoneWithoutSpaces;
-        if (/^[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
-          formattedPhone = `+91${phoneWithoutSpaces}`;
-        } else if (/^91[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
-          formattedPhone = `+91${phoneWithoutSpaces.substring(2)}`;
-        } else if (/^0[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
-          formattedPhone = `+91${phoneWithoutSpaces.substring(1)}`;
-        } else if (/^\+91[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
-          formattedPhone = phoneWithoutSpaces;
-        }
+        const formattedPhone = `${values.phoneCode}${phoneWithoutSpaces}`;
 
-        const payload = { ...values, phone: formattedPhone, country: 'India' };
+        const payload = { ...values, phone: formattedPhone };
         if (editingTenant) {
           await api.patch(`/tenants/${editingTenant.id}`, payload);
           toast.success('Tenant updated successfully');
@@ -212,16 +354,15 @@ export default function Tenants() {
     if (tenant) {
       setEditingTenant(tenant);
 
-      let phoneVal = tenant.owner_phone || '';
-      const cleanPhone = phoneVal.replace(/[^\d+]/g, '');
-      if (cleanPhone.startsWith('91') && cleanPhone.length === 12) {
-        phoneVal = cleanPhone.substring(2);
-      } else if (cleanPhone.startsWith('+91') || cleanPhone.startsWith('091')) {
-        phoneVal = cleanPhone.replace(/^\+91|^091/, '');
-      } else if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
-        phoneVal = cleanPhone.substring(1);
-      } else {
-        phoneVal = cleanPhone;
+      let matchedCode = '+91';
+      let matchedPhone = tenant.owner_phone || '';
+      if (tenant.owner_phone && tenant.owner_phone.startsWith('+')) {
+        const sortedCountries = [...countries].sort((a, b) => b.code.length - a.code.length);
+        const foundCountry = sortedCountries.find(c => tenant.owner_phone.startsWith(c.code));
+        if (foundCountry) {
+          matchedCode = foundCountry.code;
+          matchedPhone = tenant.owner_phone.substring(foundCountry.code.length);
+        }
       }
 
       formik.resetForm({
@@ -229,8 +370,9 @@ export default function Tenants() {
           plan_id: tenant.plan_id || '',
           name: tenant.owner_name || '',
           email: tenant.owner_email || '',
-          phone: phoneVal,
-          country: 'India',
+          phoneCode: matchedCode,
+          phone: matchedPhone,
+          address: tenant.address || '',
           status: tenant.owner_status || tenant.status || 'active',
           password: '',
           re_password: '',
@@ -245,8 +387,9 @@ export default function Tenants() {
           plan_id: plans.find(p => p.plan_name === 'Free Tier')?.id || '',
           name: '',
           email: '',
+          phoneCode: '+91',
           phone: '',
-          country: 'India',
+          address: '',
           status: 'active',
           password: '',
           re_password: '',
@@ -315,7 +458,6 @@ export default function Tenants() {
       )
     },
     { header: 'Email', key: 'owner_email' },
-    { header: 'Country', key: 'country', sortKey: 'country' },
     {
       header: 'Status',
       sortKey: 'owner_status',
@@ -600,34 +742,74 @@ export default function Tenants() {
               touched={formik.touched.email}
               required
             />
-            <Input
-              label="Phone Number"
-              name="phone"
-              type="tel"
-              placeholder="e.g. 9876543210"
-              value={formik.values.phone}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              onKeyDown={(e) => {
-                if (
-                  ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', '+'].includes(e.key) ||
-                  (e.key === 'a' && (e.ctrlKey === true || e.metaKey === true)) ||
-                  (e.key === 'c' && (e.ctrlKey === true || e.metaKey === true)) ||
-                  (e.key === 'v' && (e.ctrlKey === true || e.metaKey === true)) ||
-                  (e.key === 'x' && (e.ctrlKey === true || e.metaKey === true))
-                ) {
-                  return;
-                }
-                if (!/^[0-9]$/.test(e.key)) {
-                  e.preventDefault();
-                }
-              }}
-              error={formik.errors.phone}
-              touched={formik.touched.phone}
-              required
-              helperText="Enter 10-digit Indian mobile number"
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+                Phone Number <span style={{ color: 'var(--danger)' }}>*</span>
+              </label>
+              <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                <div style={{ width: '90px', flexShrink: 0 }}>
+                  <SearchableCountryCodeSelect
+                    value={formik.values.phoneCode}
+                    onChange={(val) => formik.setFieldValue('phoneCode', val)}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <input
+                    name="phone"
+                    type="tel"
+                    placeholder="Phone number"
+                    value={formik.values.phone}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    onKeyDown={(e) => {
+                      if (
+                        ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', '+'].includes(e.key) ||
+                        (e.key === 'a' && (e.ctrlKey === true || e.metaKey === true)) ||
+                        (e.key === 'c' && (e.ctrlKey === true || e.metaKey === true)) ||
+                        (e.key === 'v' && (e.ctrlKey === true || e.metaKey === true)) ||
+                        (e.key === 'x' && (e.ctrlKey === true || e.metaKey === true))
+                      ) {
+                        return;
+                      }
+                      if (!/^[0-9]$/.test(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '12px',
+                      border: `1px solid ${formik.touched.phone && formik.errors.phone ? 'var(--danger)' : 'var(--border)'}`,
+                      fontSize: '13px',
+                      outline: 'none',
+                      backgroundColor: '#fff',
+                      transition: 'border-color 0.2s',
+                      height: '38px',
+                      boxSizing: 'border-box'
+                    }}
+                    onFocus={(e) => { if (!(formik.touched.phone && formik.errors.phone)) e.target.style.borderColor = 'var(--primary)'; }}
+                    onBlur={(e) => { if (!(formik.touched.phone && formik.errors.phone)) e.target.style.borderColor = 'var(--border)'; }}
+                  />
+                </div>
+              </div>
+              {formik.touched.phone && formik.errors.phone ? (
+                <span style={{ color: 'var(--danger)', fontSize: '11px', fontWeight: '500' }}>{formik.errors.phone}</span>
+              ) : (
+                <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Enter standard mobile number without country code</span>
+              )}
+            </div>
           </div>
+
+          <Input
+            label="Company Address"
+            name="address"
+            placeholder="123 Corporate Blvd, Suite 100"
+            value={formik.values.address}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.errors.address}
+            touched={formik.touched.address}
+          />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Input
