@@ -685,94 +685,55 @@ export default function UserAnalytics() {
           </div>
 
           {/* Card 3: Calls */}
-          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
-                </div>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>Calls</span>
+          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
               </div>
-              <h2 style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0', letterSpacing: '-1px' }}>{Number(metrics.calls.count).toLocaleString()}</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
-                <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                  {formatDateRangeLabel()}
-                </span>
-              </div>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>Calls</span>
             </div>
-            
-            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '10px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Outgoing</span>
-                <span style={{ color: '#16a34a', fontWeight: '750' }}>{metrics.calls.outgoing}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Incoming</span>
-                <span style={{ color: '#2563eb', fontWeight: '750' }}>{metrics.calls.incoming}</span>
-              </div>
+            <h2 style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0', letterSpacing: '-1px' }}>{Number(metrics.calls.count).toLocaleString()}</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+              <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                {formatDateRangeLabel()}
+              </span>
             </div>
           </div>
 
           {/* Card 4: WhatsApp */}
-          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(37, 211, 102, 0.1)', color: '#25d366', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.713-1.458L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.968C16.634 3.971 14.16 2.946 11.535 2.945c-5.445 0-9.87 4.37-9.873 9.8.001 2.128.563 4.2 1.629 6.005L2.28 21.8l3.147-.815zM17.486 14.41c-.323-.161-1.913-.938-2.21-1.046-.297-.109-.514-.162-.73.161-.216.324-.838 1.046-1.027 1.262-.19.217-.378.244-.7.082-.323-.162-1.365-.498-2.601-1.59-1.037-.915-1.607-2.045-1.81-2.394-.202-.349-.022-.538.15-.71.155-.154.343-.399.515-.599.172-.2.23-.343.344-.571.114-.228.057-.428-.028-.59-.086-.162-.73-1.742-.999-2.39-.263-.627-.528-.542-.722-.551-.186-.01-.399-.011-.612-.011-.213 0-.559.08-.85.399-.29.32-1.11 1.077-1.11 2.628 0 1.551 1.139 3.05 1.29 3.255.152.204 2.24 3.396 5.427 4.754.758.323 1.349.515 1.81.659.76.24 1.452.207 2.001.126.611-.09 1.912-.775 2.18-1.521.267-.746.267-1.387.186-1.52-.08-.135-.297-.216-.62-.378z" /></svg>
-                </div>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>WhatsApp</span>
+          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(37, 211, 102, 0.1)', color: '#25d366', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.713-1.458L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.968C16.634 3.971 14.16 2.946 11.535 2.945c-5.445 0-9.87 4.37-9.873 9.8.001 2.128.563 4.2 1.629 6.005L2.28 21.8l3.147-.815zM17.486 14.41c-.323-.161-1.913-.938-2.21-1.046-.297-.109-.514-.162-.73.161-.216.324-.838 1.046-1.027 1.262-.19.217-.378.244-.7.082-.323-.162-1.365-.498-2.601-1.59-1.037-.915-1.607-2.045-1.81-2.394-.202-.349-.022-.538.15-.71.155-.154.343-.399.515-.599.172-.2.23-.343.344-.571.114-.228.057-.428-.028-.59-.086-.162-.73-1.742-.999-2.39-.263-.627-.528-.542-.722-.551-.186-.01-.399-.011-.612-.011-.213 0-.559.08-.85.399-.29.32-1.11 1.077-1.11 2.628 0 1.551 1.139 3.05 1.29 3.255.152.204 2.24 3.396 5.427 4.754.758.323 1.349.515 1.81.659.76.24 1.452.207 2.001.126.611-.09 1.912-.775 2.18-1.521.267-.746.267-1.387.186-1.52-.08-.135-.297-.216-.62-.378z" /></svg>
               </div>
-              <h2 style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0', letterSpacing: '-1px' }}>{Number(metrics.whatsapp.count).toLocaleString()}</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
-                <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                  {formatDateRangeLabel()}
-                </span>
-              </div>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>WhatsApp</span>
             </div>
-
-            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '10px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Sent</span>
-                <span style={{ color: '#16a34a', fontWeight: '750' }}>{metrics.whatsapp.count}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Received</span>
-                <span style={{ color: '#2563eb', fontWeight: '750' }}>0</span>
-              </div>
+            <h2 style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0', letterSpacing: '-1px' }}>{Number(metrics.whatsapp.count).toLocaleString()}</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+              <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                {formatDateRangeLabel()}
+              </span>
             </div>
           </div>
 
           {/* Card 5: Emails */}
-          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
-                </div>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>Emails</span>
+          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
               </div>
-              <h2 style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0', letterSpacing: '-1px' }}>{Number(metrics.emails.count).toLocaleString()}</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
-                <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                  {formatDateRangeLabel()}
-                </span>
-              </div>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>Emails</span>
             </div>
-
-            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '10px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Sent</span>
-                <span style={{ color: '#16a34a', fontWeight: '750' }}>{metrics.emails.count}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Received</span>
-                <span style={{ color: '#2563eb', fontWeight: '750' }}>0</span>
-              </div>
+            <h2 style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0', letterSpacing: '-1px' }}>{Number(metrics.emails.count).toLocaleString()}</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+              <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                {formatDateRangeLabel()}
+              </span>
             </div>
-            </div>
+          </div>
           </>
           )}
         </div>
@@ -787,7 +748,7 @@ export default function UserAnalytics() {
           {loading ? (
             <>
               <MetricCardSkeleton />
-              <MetricCardSkeleton isTall={true} />
+              <MetricCardSkeleton />
               {!isMobile && (
                 <>
                   <div style={{ gridColumn: 'span 1' }} />
@@ -816,34 +777,19 @@ export default function UserAnalytics() {
           </div>
 
           {/* Card 7: Tasks */}
-          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', flex: 1 }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /><polyline points="9 14 11 16 15 12" /></svg>
-                  </div>
-                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>Tasks</span>
-                </div>
-                <h2 style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0', letterSpacing: '-1px' }}>{Number(metrics.tasks.count).toLocaleString()}</h2>
+          <div className="crm-card" style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /><polyline points="9 14 11 16 15 12" /></svg>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
-                <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                  {formatDateRangeLabel()}
-                </span>
-              </div>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#64748b' }}>Tasks</span>
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '110px', borderLeft: '1px solid #f1f5f9', paddingLeft: '16px', marginLeft: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Pending</span>
-                <span style={{ color: '#ea580c', fontWeight: '750', fontSize: '14px' }}>{metrics.tasks.pending}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                <span style={{ color: '#64748b', fontWeight: '500' }}>Completed</span>
-                <span style={{ color: '#16a34a', fontWeight: '750', fontSize: '14px' }}>{metrics.tasks.completed}</span>
-              </div>
+            <h2 style={{ fontSize: '32px', fontWeight: '800', color: '#0f172a', margin: '0 0 4px 0', letterSpacing: '-1px' }}>{Number(metrics.tasks.count).toLocaleString()}</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '8px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+              <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.7 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                {formatDateRangeLabel()}
+              </span>
             </div>
           </div>
 
