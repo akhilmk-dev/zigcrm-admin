@@ -126,3 +126,11 @@ textarea {
   animation: shimmer 1.5s infinite linear;
   border-radius: 8px;
 }
+
+/* Hide Edge browser-native password reveal & clear buttons globally */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
+  width: 0;
+  height: 0;
+}
