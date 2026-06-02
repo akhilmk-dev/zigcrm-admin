@@ -4,8 +4,9 @@ import * as Yup from 'yup';
 import { useSearchParams, Link } from 'react-router-dom';
 import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
+import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
 import { SearchableSelect } from '../components/common/SearchableSelect';
+import { FormSelect } from '../components/common/FormSelect';
 import { usePermission } from '../hooks/usePermission';
 import { toast } from 'react-hot-toast';
 
@@ -619,19 +620,22 @@ export default function Tasks() {
       >
         <form onSubmit={formik.handleSubmit}>
           {isGlobalAdmin && !editingTask && (
-            <Select 
-                label="Assign to Company"
-                name="tenant_id"
-                value={formik.values.tenant_id}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                error={formik.errors.tenant_id}
-                touched={formik.touched.tenant_id}
-                required
-            >
-                <option value="">Select a Company</option>
-                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
-            </Select>
+            <FormSelect
+              label="Assign to Company"
+              name="tenant_id"
+              value={formik.values.tenant_id}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.tenant_id}
+              touched={formik.touched.tenant_id}
+              required
+              placeholder="Select a Company"
+              options={Array.isArray(tenants) ? tenants.map(t => ({
+                value: t.id,
+                label: t.owner_name || t.tenant_name || t.name || 'Unknown Company',
+                avatar: (t.owner_name || t.tenant_name || t.name || '?')[0].toUpperCase()
+              })) : []}
+            />
           )}
 
           <Input 
@@ -648,104 +652,117 @@ export default function Tasks() {
 
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Description</label>
-            <textarea 
+            <textarea
               name="description"
               placeholder="Provide a detailed description of the task..."
               value={formik.values.description}
               onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-               style={{
+              onBlur={(e) => { formik.handleBlur(e); e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }}
+              style={{
                 width: '100%',
                 padding: '10px 12px',
                 minHeight: '80px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                border: '1.5px solid var(--border)',
                 fontSize: '14px',
                 backgroundColor: '#fff',
                 outline: 'none',
-                fontFamily: 'inherit'
+                fontFamily: 'inherit',
+                resize: 'vertical',
+                transition: 'border-color 0.2s, box-shadow 0.2s'
               }}
+              onFocus={(e) => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
             />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
-                label="Due Date" 
-                type="date" 
-                name="due_date"
-                value={formik.values.due_date} 
-                onChange={formik.handleChange} 
-                onBlur={formik.handleBlur}
+            <Input
+              label="Due Date"
+              type="date"
+              name="due_date"
+              value={formik.values.due_date}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
             />
-            
-            <Select
-                label="Priority"
-                name="priority"
-                value={formik.values.priority}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                required
-            >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-            </Select>
+
+            <FormSelect
+              label="Priority"
+              name="priority"
+              value={formik.values.priority}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              required
+              options={[
+                { value: 'low',    label: 'Low',    color: '#10b981' },
+                { value: 'medium', label: 'Medium', color: '#f59e0b' },
+                { value: 'high',   label: 'High',   color: '#ef4444' },
+              ]}
+            />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Select
-                label="Assign To"
-                name="assigned_to"
-                value={formik.values.assigned_to}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-            >
-                <option value="">Select Staff</option>
-                {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </Select>
+            <FormSelect
+              label="Assign To"
+              name="assigned_to"
+              value={formik.values.assigned_to}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              placeholder="Select Staff"
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...staff.map(s => ({ value: s.id, label: s.name, avatar: s.name?.[0]?.toUpperCase() }))
+              ]}
+            />
 
-            <Select
-                label="Status"
-                name="status"
-                value={formik.values.status}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-            >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-            </Select>
+            <FormSelect
+              label="Status"
+              name="status"
+              value={formik.values.status}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              options={[
+                { value: 'pending',     label: 'Pending',     color: '#f59e0b' },
+                { value: 'in_progress', label: 'In Progress', color: '#3b82f6' },
+                { value: 'completed',   label: 'Completed',   color: '#10b981' },
+                { value: 'cancelled',   label: 'Cancelled',   color: '#ef4444' },
+              ]}
+            />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <Select
-                label="Contact / Partner"
-                name="contact_id"
-                value={formik.values.contact_id}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                error={formik.errors.contact_id}
-                touched={formik.touched.contact_id}
-                required
-            >
-                <option value="">Select Contact</option>
-                {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name} ({c.company_name})</option>)}
-            </Select>
+            <FormSelect
+              label="Contact / Partner"
+              name="contact_id"
+              value={formik.values.contact_id}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.contact_id}
+              touched={formik.touched.contact_id}
+              required
+              searchable
+              placeholder="Select Contact"
+              options={contacts.map(c => ({
+                value: c.id,
+                label: `${c.first_name} ${c.last_name}${c.company_name ? ` (${c.company_name})` : ''}`,
+                avatar: c.first_name?.[0]?.toUpperCase()
+              }))}
+            />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <Select
-                label="Associated Deal"
-                name="deal_id"
-                value={formik.values.deal_id}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                disabled={!formik.values.contact_id || loadingDeals}
-            >
-                <option value="">{formik.values.contact_id ? (loadingDeals ? 'Loading deals...' : 'Select Deal (Optional)') : 'Please select a contact first'}</option>
-                {contactDeals.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </Select>
+            <FormSelect
+              label="Associated Deal"
+              name="deal_id"
+              value={formik.values.deal_id}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              disabled={!formik.values.contact_id || loadingDeals}
+              placeholder={formik.values.contact_id ? (loadingDeals ? 'Loading deals…' : 'Select Deal (Optional)') : 'Please select a contact first'}
+              options={[
+                { value: '', label: 'None' },
+                ...contactDeals.map(d => ({ value: d.id, label: d.name }))
+              ]}
+            />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
