@@ -846,7 +846,7 @@ export default function Tenants() {
             />
           </div>
 
-          <Select
+          <FormSelect
             label="Status"
             name="status"
             value={formik.values.status}
@@ -859,7 +859,7 @@ export default function Tenants() {
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
             <option value="suspended">Suspended</option>
-          </Select>
+          </FormSelect>
         </form>
       </Modal>
 
