@@ -13,6 +13,7 @@ export default function Home() {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem('user'));
     const isTenantUser = user?.user_type === 'tenant_admin' || user?.user_type === 'tenant_user' || user?.isTenant;
+    const isSuperAdmin = user?.isSuperAdmin;
 
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
@@ -330,7 +331,7 @@ export default function Home() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
-                            {!isTenantUser ? (
+                            {!isTenantUser && !isSuperAdmin ? (
                                 <div style={{ fontSize: '12px', fontWeight: '750', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '3px' }}>
                                     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 18.6%
                                 </div>
@@ -369,7 +370,7 @@ export default function Home() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
-                            {!isTenantUser ? (
+                            {!isTenantUser && !isSuperAdmin ? (
                                 <div style={{ fontSize: '12px', fontWeight: '750', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '3px' }}>
                                     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 12.4%
                                 </div>
@@ -407,7 +408,7 @@ export default function Home() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
-                            {!isTenantUser ? (
+                            {!isTenantUser && !isSuperAdmin ? (
                                 <div style={{ fontSize: '12px', fontWeight: '750', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '3px' }}>
                                     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 18.7%
                                 </div>
@@ -444,7 +445,7 @@ export default function Home() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
-                            {!isTenantUser ? (
+                            {!isTenantUser && !isSuperAdmin ? (
                                 <div style={{ fontSize: '12px', fontWeight: '750', color: '#f97316', display: 'flex', alignItems: 'center', gap: '3px' }}>
                                     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="18 15 12 9 6 15"></polyline></svg> 8.3%
                                 </div>
@@ -481,7 +482,7 @@ export default function Home() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
-                            {!isTenantUser ? (
+                            {!isTenantUser && !isSuperAdmin ? (
                                 <div style={{ fontSize: '12px', fontWeight: '750', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '3px' }}>
                                     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg> 6.5%
                                 </div>
@@ -743,7 +744,7 @@ export default function Home() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
                     {/* Card 1: Average Deal Value */}
-                    {!isTenantUser && (
+                    {!isTenantUser && !isSuperAdmin && (
                         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '20px' }}>
                             <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#eafaf1', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -761,7 +762,7 @@ export default function Home() {
                     )}
 
                     {/* Card 2: Deals Won */}
-                    {!isTenantUser && (
+                    {!isTenantUser && !isSuperAdmin && (
                         <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', gap: '20px' }}>
                             <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#f3efff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
