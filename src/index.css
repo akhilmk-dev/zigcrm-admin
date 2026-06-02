@@ -114,3 +114,22 @@ input, select, textarea {
   animation: shimmer 1.5s infinite linear;
   border-radius: 8px;
 }
+
+/* Responsive 2-column form grid */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 560px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Custom select dropdown animation */
+@keyframes dropdownFade {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
