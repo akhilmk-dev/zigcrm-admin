@@ -173,7 +173,7 @@ export default function Contacts() {
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
       tenant_id: Yup.string().required('Company assignment is required'),
-      email: Yup.string().required('Email is required').email('Invalid email address'),
+      email: Yup.string().email('Invalid email address'),
       phone: Yup.string()
         .required('Phone number is required')
         .test('is-valid-phone', 'Invalid international phone number', (val) => {
@@ -979,7 +979,7 @@ export default function Contacts() {
               label={<IcoLabel d={<><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></>}>Email</IcoLabel>}
               type="email" name="email" placeholder="john.doe@example.com"
               value={formik.values.email} onChange={formik.handleChange} onBlur={formik.handleBlur}
-              error={formik.errors.email} touched={formik.touched.email} required
+              error={formik.errors.email} touched={formik.touched.email}
             />
             <PhoneInput
               label={<IcoLabel d={<><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.35a2 2 0 0 1 1.99-2.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6.09 6.09l.87-.87a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></>}>Phone</IcoLabel>}

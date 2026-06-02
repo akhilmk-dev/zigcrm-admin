@@ -4,7 +4,8 @@ import * as Yup from 'yup';
 import { useSearchParams, Link } from 'react-router-dom';
 import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
+import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
+import { FormSelect } from '../components/common/FormSelect';
 import { usePermission } from '../hooks/usePermission';
 import { toast } from 'react-hot-toast';
 import { countries } from '../constants/countries';
@@ -900,7 +901,7 @@ export default function Users() {
 
           {/* Company Selector (For Global Admins when viewScope is tenant) */}
           {isGlobalAdmin && viewScope === 'tenant' && (
-            <Select
+            <FormSelect
               label="Company"
               name="target_tenant_id"
               value={formik.values.target_tenant_id}
@@ -909,14 +910,17 @@ export default function Users() {
               error={formik.errors.target_tenant_id}
               touched={formik.touched.target_tenant_id}
               required
-            >
-              <option value="">— Select a Company —</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
-            </Select>
+              placeholder="— Select a Company —"
+              options={tenants.map(t => ({
+                value: t.id,
+                label: t.owner_name || t.tenant_name || t.name || 'Unknown Company',
+                avatar: (t.owner_name || t.tenant_name || t.name || '?')[0].toUpperCase()
+              }))}
+            />
           )}
 
           {/* Unified Role Selector */}
-          <Select
+          <FormSelect
             label="Assigned Role"
             name="role_id"
             value={formik.values.role_id}
@@ -926,10 +930,9 @@ export default function Users() {
             touched={formik.touched.role_id}
             required
             disabled={formRolesLoading}
-          >
-            <option value="">Select a role</option>
-            {filteredRoles.map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
-          </Select>
+            placeholder="Select a role"
+            options={filteredRoles.map(r => ({ value: r.id, label: r.role_name }))}
+          />
           {filteredRoles.length === 0 && !formRolesLoading && (
             <p style={{ fontSize: '12px', color: '#f59e0b', marginTop: '-12px', marginBottom: '16px' }}>
               ⚠️ No suitable roles found. Roles starting with <code>tenant-</code> are only for tenant users.
@@ -937,18 +940,19 @@ export default function Users() {
           )}
 
           {/* Account Status */}
-          <Select
+          <FormSelect
             label="Account Status"
             name="status"
             value={formik.values.status}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             required
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="suspended">Suspended</option>
-          </Select>
+            options={[
+              { value: 'active',    label: 'Active',    color: '#10b981' },
+              { value: 'inactive',  label: 'Inactive',  color: '#94a3b8' },
+              { value: 'suspended', label: 'Suspended', color: '#ef4444' },
+            ]}
+          />
 
           {/* Password Section - Bottom Placement + Conditional Rendering */}
           {(!editingUser || hasPermission('users.change_password') || hasPermission('users.manage') || loggedInUser?.user_type === 'tenant_admin') && (

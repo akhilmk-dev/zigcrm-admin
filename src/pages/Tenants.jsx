@@ -4,7 +4,8 @@ import * as Yup from 'yup';
 import { useSearchParams, Link } from 'react-router-dom';
 import api, { FILE_BASE_URL, getFileUrl } from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
+import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
+import { FormSelect } from '../components/common/FormSelect';
 import { usePermission } from '../hooks/usePermission';
 import { toast } from 'react-hot-toast';
 import { countries } from '../constants/countries';
@@ -698,7 +699,7 @@ export default function Tenants() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '16px' }}>
-            <Select
+            <FormSelect
               label="Subscription Plan"
               name="plan_id"
               value={formik.values.plan_id}
@@ -707,12 +708,9 @@ export default function Tenants() {
               error={formik.errors.plan_id}
               touched={formik.touched.plan_id}
               required
-            >
-              <option value="">Select Plan</option>
-              {plans.map(p => (
-                <option key={p.id} value={p.id}>{p.plan_name} (₹{p.price})</option>
-              ))}
-            </Select>
+              placeholder="Select Plan"
+              options={plans.map(p => ({ value: p.id, label: `${p.plan_name} (₹${p.price})` }))}
+            />
           </div>
 
           <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px' }}>Company / Owner Details</h3>
@@ -760,7 +758,6 @@ export default function Tenants() {
                     placeholder="Phone number"
                     value={formik.values.phone}
                     onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
                     onKeyDown={(e) => {
                       if (
                         ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', '+'].includes(e.key) ||
@@ -778,17 +775,28 @@ export default function Tenants() {
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      borderRadius: '12px',
-                      border: `1px solid ${formik.touched.phone && formik.errors.phone ? 'var(--danger)' : 'var(--border)'}`,
+                      borderRadius: '8px',
+                      border: `1.5px solid ${formik.touched.phone && formik.errors.phone ? 'var(--danger)' : 'var(--border)'}`,
                       fontSize: '13px',
                       outline: 'none',
                       backgroundColor: '#fff',
-                      transition: 'border-color 0.2s',
+                      transition: 'border-color 0.2s, box-shadow 0.2s',
                       height: '38px',
                       boxSizing: 'border-box'
                     }}
-                    onFocus={(e) => { if (!(formik.touched.phone && formik.errors.phone)) e.target.style.borderColor = 'var(--primary)'; }}
-                    onBlur={(e) => { if (!(formik.touched.phone && formik.errors.phone)) e.target.style.borderColor = 'var(--border)'; }}
+                    onFocus={(e) => {
+                      if (!(formik.touched.phone && formik.errors.phone)) {
+                        e.target.style.borderColor = 'var(--primary)';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)';
+                      }
+                    }}
+                    onBlur={(e) => {
+                      formik.handleBlur(e);
+                      if (!(formik.touched.phone && formik.errors.phone)) {
+                        e.target.style.borderColor = 'var(--border)';
+                        e.target.style.boxShadow = 'none';
+                      }
+                    }}
                   />
                 </div>
               </div>

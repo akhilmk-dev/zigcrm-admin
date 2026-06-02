@@ -41,21 +41,28 @@ export const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = '52
           borderBottom: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          flexShrink: 0
         }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-main)' }}>{title}</h3>
+          <h3 style={{ fontSize: '17px', fontWeight: '700', color: 'var(--text-main)' }}>{title}</h3>
           <button
             onClick={onClose}
             style={{
               background: 'none',
               border: 'none',
-              fontSize: '24px',
+              fontSize: '22px',
               color: 'var(--text-muted)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              borderRadius: '6px',
+              width: '28px',
+              height: '28px',
+              transition: 'background 0.15s'
             }}
+            onMouseOver={(e) => e.currentTarget.style.background = '#f1f5f9'}
+            onMouseOut={(e) => e.currentTarget.style.background = 'none'}
           >
             &times;
           </button>

@@ -4,8 +4,9 @@ import * as Yup from 'yup';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../api/axiosConfig';
 import { DataTable, Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
+import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
 import { SearchableSelect } from '../components/common/SearchableSelect';
+import { FormSelect } from '../components/common/FormSelect';
 
 import { toast } from 'react-hot-toast';
 import { usePermission } from '../hooks/usePermission';
@@ -579,16 +580,21 @@ export default function Deals() {
       >
         <form onSubmit={formik.handleSubmit}>
           {isGlobalAdmin && (
-            <SearchableSelect
+            <FormSelect
               label="Assign to Company"
               name="tenant_id"
               value={formik.values.tenant_id}
-              options={Array.isArray(tenants) ? tenants.map(t => ({ value: t.id, label: t.owner_name || t.tenant_name || t.name || 'Unknown Company' })) : []}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               error={formik.errors.tenant_id}
               touched={formik.touched.tenant_id}
               required
+              placeholder="Select a company"
+              options={Array.isArray(tenants) ? tenants.map(t => ({
+                value: t.id,
+                label: t.owner_name || t.tenant_name || t.name || 'Unknown Company',
+                avatar: (t.owner_name || t.tenant_name || t.name || '?')[0].toUpperCase()
+              })) : []}
             />
           )}
 
@@ -620,56 +626,66 @@ export default function Deals() {
             required
           />
 
-          <SearchableSelect
+          <FormSelect
             label="Contact Partner"
             name="contact_id"
             value={formik.values.contact_id}
-            options={contacts.map(c => ({ value: c.id, label: `${c.first_name} ${c.last_name}` }))}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             placeholder="Select a contact"
             required
+            searchable
             error={formik.errors.contact_id}
             touched={formik.touched.contact_id}
+            options={contacts.map(c => ({
+              value: c.id,
+              label: `${c.first_name} ${c.last_name}`,
+              avatar: c.first_name?.[0]?.toUpperCase()
+            }))}
           />
 
-          <SearchableSelect
+          <FormSelect
             label="Assigned To"
             name="assigned_to"
             value={formik.values.assigned_to}
-            options={staff.map(s => ({ value: s.id, label: s.name }))}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             placeholder="Unassigned"
+            options={[
+              { value: '', label: 'Unassigned' },
+              ...staff.map(s => ({ value: s.id, label: s.name, avatar: s.name?.[0]?.toUpperCase() }))
+            ]}
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Select
+            <FormSelect
               label="Pipeline Stage"
               name="stage"
               value={formik.values.stage}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
-            >
-              <option value="lead">Lead</option>
-              <option value="qualification">Qualification</option>
-              <option value="proposal">Proposal</option>
-              <option value="negotiation">Negotiation</option>
-              <option value="won">Won</option>
-              <option value="lost">Lost</option>
-            </Select>
+              options={[
+                { value: 'lead',          label: 'Lead' },
+                { value: 'qualification', label: 'Qualification' },
+                { value: 'proposal',      label: 'Proposal' },
+                { value: 'negotiation',   label: 'Negotiation' },
+                { value: 'won',           label: 'Won',  color: '#10b981' },
+                { value: 'lost',          label: 'Lost', color: '#ef4444' },
+              ]}
+            />
 
-            <Select
+            <FormSelect
               label="Status"
               name="status"
               value={formik.values.status}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
-            >
-              <option value="open">Open</option>
-              <option value="won">Won</option>
-              <option value="lost">Lost</option>
-            </Select>
+              options={[
+                { value: 'open', label: 'Open', color: '#3b82f6' },
+                { value: 'won',  label: 'Won',  color: '#10b981' },
+                { value: 'lost', label: 'Lost', color: '#ef4444' },
+              ]}
+            />
           </div>
         </form>
       </Modal>
