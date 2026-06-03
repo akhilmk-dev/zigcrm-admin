@@ -54,7 +54,7 @@ export const Badge = ({ children, type = 'default' }) => {
 
 const TableSkeleton = ({ columns, hasActions }) => {
   return (
-    <div style={{ backgroundColor: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+    <div style={{ backgroundColor: '#fff', borderRadius: '6px', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
       <style>
         {`
           @keyframes skeleton-shimmer {
@@ -152,15 +152,15 @@ export const DataTable = ({
   };
 
   return (
-    <div style={{ 
-      backgroundColor: '#fff', 
-      borderRadius: 'var(--radius)', 
-      border: '1px solid var(--border)', 
-      overflow: 'hidden', 
-      boxShadow: 'var(--shadow)', 
+    <div style={{
+      backgroundColor: '#fff',
+      borderRadius: '6px',
+      border: '1px solid var(--border)',
+      overflow: 'hidden',
+      boxShadow: 'var(--shadow)',
       width: '100%',
       maxWidth: '100%',
-      ...containerStyle 
+      ...containerStyle
     }}>
       <style>
         {`
@@ -364,16 +364,16 @@ export const DataTable = ({
           gap: '8px',
           backgroundColor: '#fff'
         }}>
-          <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '600' }}>
-            Viewing <span style={{ color: 'var(--text-main)' }}>{startRange}-{endRange}</span> of <span style={{ color: 'var(--text-main)' }}>{totalCount}</span> results
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500' }}>
+            Showing <strong style={{ color: 'var(--text-main)', fontWeight: '700' }}>{startRange}</strong> to <strong style={{ color: 'var(--text-main)', fontWeight: '700' }}>{endRange}</strong> of <strong style={{ color: 'var(--text-main)', fontWeight: '700' }}>{totalCount}</strong> results
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage === 1}
               style={{
                 padding: '6px 12px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 border: '1px solid var(--table-border)',
                 backgroundColor: currentPage === 1 ? '#F8FAFC' : '#fff',
                 color: currentPage === 1 ? '#CBD5E1' : '#475569',
@@ -382,15 +382,17 @@ export const DataTable = ({
                 cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
               }}
             >
-              ←
+              &#8249;
             </button>
             <div style={{
               padding: '6px 12px',
               backgroundColor: 'var(--primary)',
               color: '#fff',
-              borderRadius: '8px',
+              borderRadius: '6px',
               fontSize: '13px',
-              fontWeight: '700'
+              fontWeight: '700',
+              minWidth: '32px',
+              textAlign: 'center'
             }}>
               {currentPage}
             </div>
@@ -399,7 +401,7 @@ export const DataTable = ({
               disabled={currentPage >= totalPages}
               style={{
                 padding: '6px 12px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 border: '1px solid var(--table-border)',
                 backgroundColor: currentPage >= totalPages ? '#F8FAFC' : '#fff',
                 color: currentPage >= totalPages ? '#CBD5E1' : '#475569',
@@ -408,7 +410,7 @@ export const DataTable = ({
                 cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer'
               }}
             >
-              →
+              &#8250;
             </button>
           </div>
         </div>

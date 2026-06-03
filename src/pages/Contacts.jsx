@@ -194,7 +194,10 @@ export default function Contacts() {
             contact_id: editingContact.id,
             activity_type: 'contact_updated',
             title: 'Updated Contact',
-            description: `Updated details of ${values.first_name} ${values.last_name || ''}`
+            description: `Updated details of ${values.first_name} ${values.last_name || ''}`,
+            meta_data: {
+              contact_name: `${values.first_name} ${values.last_name || ''}`.trim()
+            }
           });
         } else {
           await api.post('/contacts', values);
@@ -586,12 +589,6 @@ export default function Contacts() {
     try {
       await api.delete(`/contacts/${contactToDelete.id}`);
       toast.success('Contact deleted successfully');
-      saveActivityLog({
-        contact_id: contactToDelete.id,
-        activity_type: 'contact_deleted',
-        title: 'Deleted Contact',
-        description: `Deleted contact: ${contactToDelete.first_name} ${contactToDelete.last_name || ''}`
-      });
       fetchData();
       setDeleteConfirmOpen(false);
     } catch (err) {
@@ -730,41 +727,51 @@ export default function Contacts() {
         </div>
       </div>
       {/* Filters & Search Row */}
-      <div className="filter-bar">
+      <div className="filter-bar" style={{ borderRadius: '6px' }}>
         {isGlobalAdmin && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Filter by Company</span>
-            <select
-              value={selectedTenantId}
-              onChange={(e) => { setSelectedTenantId(e.target.value); setPage(1); }}
-              style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', height: '38px', minWidth: '180px', cursor: 'pointer' }}
-            >
-              <option value="">All Companies (Global View)</option>
-              {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
-            </select>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Company</span>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <select
+                value={selectedTenantId}
+                onChange={(e) => { setSelectedTenantId(e.target.value); setPage(1); }}
+                style={{ appearance: 'none', WebkitAppearance: 'none', padding: '8px 36px 8px 12px', borderRadius: '6px', border: '1px solid rgb(203, 213, 225)', fontSize: '13px', outline: 'none', backgroundColor: '#fff', height: '38px', minWidth: '180px', cursor: 'pointer', width: '100%' }}
+              >
+                <option value="">All Companies (Global View)</option>
+                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
+              </select>
+              <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b', display: 'flex', alignItems: 'center' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              </span>
+            </div>
           </div>
         )}
 
         {/* Status Filter */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', cursor: 'pointer', height: '38px', minWidth: '140px' }}
-          >
-            <option value="">All Statuses</option>
-            <option value="new">New</option>
-            <option value="discussion">Discussion</option>
-            <option value="won">Won</option>
-            <option value="loss">Loss</option>
-          </select>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Status</span>
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              style={{ appearance: 'none', WebkitAppearance: 'none', padding: '8px 36px 8px 12px', borderRadius: '6px', border: '1px solid rgb(203, 213, 225)', fontSize: '13px', outline: 'none', backgroundColor: '#fff', height: '38px', minWidth: '140px', cursor: 'pointer', width: '100%' }}
+            >
+              <option value="">All Statuses</option>
+              <option value="new">New</option>
+              <option value="discussion">Discussion</option>
+              <option value="won">Won</option>
+              <option value="loss">Loss</option>
+            </select>
+            <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b', display: 'flex', alignItems: 'center' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+            </span>
+          </div>
         </div>
 
         {/* Assignee Filter */}
         {showAssigneeFilter && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Assignee</span>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Assignee</span>
             <SearchableSelect
               name="assigneeFilter"
               value={assigneeFilter}
@@ -776,19 +783,18 @@ export default function Contacts() {
               ]}
               placeholder="All Assignees"
               style={{ width: '220px', marginBottom: 0 }}
-              innerStyle={{ padding: '8px 12px', minHeight: 'auto', borderRadius: '12px', fontSize: '13px', border: '1px solid var(--border)', backgroundColor: '#f8fafc', height: '38px' }}
+              innerStyle={{ padding: '8px 12px', minHeight: 'auto', borderRadius: '6px', fontSize: '13px', border: '1px solid rgb(203, 213, 225)', backgroundColor: '#fff', height: '38px' }}
             />
           </div>
         )}
 
         {/* Search Filter */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '280px' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Search</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '220px' }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Search</span>
           <div style={{ position: 'relative', width: '100%' }}>
-            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </span>
             <input
@@ -796,9 +802,9 @@ export default function Contacts() {
               placeholder="Search name, email, workplace, profession..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: '100%', padding: '10px 32px 10px 36px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', transition: 'border-color 0.2s', height: '38px' }}
+              style={{ width: '100%', padding: '8px 32px 8px 36px', borderRadius: '6px', border: '1px solid rgb(203, 213, 225)', fontSize: '13px', outline: 'none', backgroundColor: '#fff', transition: 'border-color 0.2s', height: '38px', boxSizing: 'border-box' }}
               onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-              onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+              onBlur={(e) => e.target.style.borderColor = 'rgb(203, 213, 225)'}
             />
             {search && (
               <button onClick={() => setSearch('')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#334155', padding: 0 }}>
@@ -808,7 +814,7 @@ export default function Contacts() {
           </div>
         </div>
 
-        {/* Restore Button */}
+        {/* Reset Button */}
         {(() => {
           const hasFilters = !!(selectedTenantId || statusFilter || assigneeFilter || search);
           return (
@@ -828,16 +834,17 @@ export default function Contacts() {
                 justifyContent: 'center',
                 width: '38px',
                 height: '38px',
-                borderRadius: '12px',
-                border: `1px solid ${hasFilters ? '#f87171' : 'var(--border)'}`,
+                borderRadius: '6px',
+                border: `1px solid ${hasFilters ? '#f87171' : 'rgb(203, 213, 225)'}`,
                 backgroundColor: hasFilters ? '#fff1f2' : '#f8fafc',
                 color: hasFilters ? '#dc2626' : '#cbd5e1',
                 cursor: hasFilters ? 'pointer' : 'default',
                 transition: 'all 0.2s',
-                alignSelf: 'flex-end'
+                alignSelf: 'flex-end',
+                flexShrink: 0
               }}
               onMouseOver={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = '#fee2e2'; }}
-              onMouseOut={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = '#fff1f2'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = hasFilters ? '#fff1f2' : '#f8fafc'; }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
