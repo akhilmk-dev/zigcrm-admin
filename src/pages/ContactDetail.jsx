@@ -83,6 +83,8 @@ export default function ContactDetail() {
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [selectedDealId, setSelectedDealId] = useState('');
   const [showDealDropdown, setShowDealDropdown] = useState(false);
+  const [showEmailDropdown, setShowEmailDropdown] = useState(false);
+  const emailDropdownRef = useRef(null);
 
   const [communicationModal, setCommunicationModal] = useState({
     isOpen: false,
@@ -92,6 +94,29 @@ export default function ContactDetail() {
     message: ''
   });
 
+  // Close email dropdown on outside click
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (emailDropdownRef.current && !emailDropdownRef.current.contains(e.target)) {
+        setShowEmailDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  const logMailActivity = () => {
+    api.post('/logs', {
+      contact_id: id,
+      activity_type: 'mail',
+      title: 'contacted through mail',
+      description: 'contacted through mail'
+    }).then(() => {
+      toast.success('Mail activity logged successfully.');
+      fetchDetail(true);
+    }).catch((err) => console.error('Log mail error', err));
+  };
+
   const handleQuickContactClick = (e, type, destination) => {
     if (e) e.preventDefault();
     if (!destination) {
@@ -99,73 +124,60 @@ export default function ContactDetail() {
       return;
     }
 
-    let title = '';
-    let message = '';
-
+    // For mail and call: skip the modal — open directly and log in background.
+    // For whatsapp: show confirmation modal as before.
     if (type === 'mail') {
-      title = 'Send Email';
-      message = `Would you like to send an email to ${data?.contact?.first_name || ''} at ${destination}? This will also log a "Mail" activity note in the contact timeline.`;
-    } else if (type === 'call') {
-      title = 'Make Phone Call';
-      message = `Would you like to call ${data?.contact?.first_name || ''} at ${destination}? This will also log a "call" activity note in the contact timeline.`;
-    } else if (type === 'whatsapp') {
-      title = 'Connect on WhatsApp';
-      message = `Would you like to open WhatsApp to message ${data?.contact?.first_name || ''} at ${destination}? This will also log a "Whatsapp" activity note in the contact timeline.`;
+      window.location.href = `mailto:${destination}`;
+      api.post('/logs', {
+        contact_id: id,
+        activity_type: 'mail',
+        title: 'contacted through mail',
+        description: 'contacted through mail'
+      }).then(() => {
+        toast.success('Mail activity logged successfully.');
+        fetchDetail(true);
+      }).catch((err) => console.error('Log mail error', err));
+      return;
     }
 
-    setCommunicationModal({
-      isOpen: true,
-      type,
-      destination,
-      title,
-      message
-    });
+    if (type === 'call') {
+      const link = document.createElement('a');
+      link.href = `tel:${destination}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      api.post('/logs', {
+        contact_id: id,
+        activity_type: 'call',
+        title: 'Outgoing call',
+        description: 'Outgoing call'
+      }).then(() => {
+        toast.success('Call activity logged successfully.');
+        fetchDetail(true);
+      }).catch((err) => console.error('Log call error', err));
+      return;
+    }
+
+    // WhatsApp — keep the confirmation modal
+    const title = 'Connect on WhatsApp';
+    const message = `Would you like to open WhatsApp to message ${data?.contact?.first_name || ''} at ${destination}? This will also log a "Whatsapp" activity note in the contact timeline.`;
+    setCommunicationModal({ isOpen: true, type, destination, title, message });
   };
 
-  const handleConfirmCommunication = async () => {
+  const handleConfirmCommunication = () => {
     const { type, destination } = communicationModal;
+    // Only WhatsApp reaches here now
     setCommunicationModal(prev => ({ ...prev, isOpen: false }));
-
-    try {
-      let noteTitle = '';
-      let noteContent = '';
-
-      if (type === 'mail') {
-        noteTitle = 'contacted through mail';
-        noteContent = 'contacted through mail';
-      } else if (type === 'call') {
-        noteTitle = 'Outgoing call';
-        noteContent = 'Outgoing call';
-      } else if (type === 'whatsapp') {
-        noteTitle = 'contacted through whatsapp';
-        noteContent = 'contacted through whatsapp';
-      }
-
-      // Create the activity log via API POST /logs
-      await api.post('/logs', {
-        contact_id: id,
-        activity_type: type, // 'mail', 'call', or 'whatsapp'
-        title: noteTitle,
-        description: noteContent
-      });
-
-      toast.success(`${noteTitle} logged successfully.`);
-
-      // Direct page redirection
-      if (type === 'mail') {
-        window.location.href = `mailto:${destination}`;
-      } else if (type === 'call') {
-        window.location.href = `tel:${destination}`;
-      } else if (type === 'whatsapp') {
-        window.open(`https://wa.me/${destination.replace(/\D/g, '')}`, '_blank', 'noopener,noreferrer');
-      }
-
-      // Silent reload of lists
+    window.open(`https://wa.me/${destination.replace(/\D/g, '')}`, '_blank', 'noopener,noreferrer');
+    api.post('/logs', {
+      contact_id: id,
+      activity_type: 'whatsapp',
+      title: 'contacted through whatsapp',
+      description: 'contacted through whatsapp'
+    }).then(() => {
+      toast.success('WhatsApp activity logged successfully.');
       fetchDetail(true);
-    } catch (err) {
-      console.error("Create quick note error", err);
-      toast.error('Failed to log activity note.');
-    }
+    }).catch((err) => console.error('Log whatsapp error', err));
   };
 
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
@@ -555,6 +567,73 @@ export default function ContactDetail() {
       console.error("Delete contact error", err);
       toast.error('Failed to delete contact');
     }
+  };
+
+  const handleShareContact = () => {
+    if (!contact) return;
+    const details = [
+      `Name: ${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
+      contact.email ? `Email: ${contact.email}` : null,
+      contact.phone ? `Phone: ${contact.phone}` : null,
+      contact.company_name ? `Company: ${contact.company_name}` : null,
+      contact.job_title ? `Job Title: ${contact.job_title}` : null,
+      contact.profession ? `Profession: ${contact.profession}` : null,
+      contact.address ? `Address: ${contact.address}` : null,
+      contact.gender ? `Gender: ${contact.gender}` : null,
+    ].filter(Boolean).join('\n');
+
+    if (navigator.share) {
+      navigator.share({
+        title: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
+        text: details
+      })
+      .then(() => {
+        toast.success('Shared successfully!');
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          performCopyToClipboard(details);
+        }
+      });
+    } else {
+      performCopyToClipboard(details);
+    }
+  };
+
+  const performCopyToClipboard = (text) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          toast.success('Contact details copied to clipboard!');
+        })
+        .catch((err) => {
+          fallbackCopyToClipboard(text);
+        });
+    } else {
+      fallbackCopyToClipboard(text);
+    }
+  };
+
+  const fallbackCopyToClipboard = (text) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        toast.success('Contact details copied to clipboard!');
+      } else {
+        toast.error('Failed to copy contact details.');
+      }
+    } catch (err) {
+      toast.error('Failed to copy contact details.');
+    }
+    document.body.removeChild(textArea);
   };
 
   const handleOpenEditModal = () => {
@@ -1168,6 +1247,40 @@ export default function ContactDetail() {
           </button>
 
           <button
+            onClick={handleShareContact}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#fff',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#475569',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              outline: 'none'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#f8fafc';
+              e.currentTarget.style.borderColor = '#94a3b8';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = '#fff';
+              e.currentTarget.style.borderColor = '#cbd5e1';
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#475569' }}>
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+              <polyline points="16 6 12 2 8 6" />
+              <line x1="12" y1="2" x2="12" y2="15" />
+            </svg>
+            Share Contact
+          </button>
+
+          <button
             onClick={handleOpenEditModal}
             style={{
               padding: '8px 18px',
@@ -1255,27 +1368,97 @@ export default function ContactDetail() {
 
             {/* Social Quick Contact Toolbar Pills (Email, Call, WhatsApp only) */}
             <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap', width: '100%' }}>
-              <button onClick={e => handleQuickContactClick(e, 'mail', contact.email)} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: '20px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: '#fff',
-                fontSize: '12px',
-                fontWeight: '600',
-                color: '#475569',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                outline: 'none'
-              }}
-                onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-                onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#64748b' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
-                Email
-              </button>
+              {/* Email pill with app-picker dropdown */}
+              <div ref={emailDropdownRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => {
+                    if (!contact.email) { toast.error('No email address available for this contact.'); return; }
+                    setShowEmailDropdown(prev => !prev);
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '6px 12px', borderRadius: '20px',
+                    border: '1px solid #e2e8f0', backgroundColor: '#fff',
+                    fontSize: '12px', fontWeight: '600', color: contact.email ? '#475569' : '#94a3b8',
+                    cursor: contact.email ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.15s ease', outline: 'none'
+                  }}
+                  onMouseOver={(e) => { if (contact.email) { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: contact.email ? '#64748b' : '#94a3b8' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+                  Email
+                </button>
+
+                {showEmailDropdown && contact.email && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+                    backgroundColor: '#fff', borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 10px 30px -5px rgba(0,0,0,0.12), 0 4px 8px -2px rgba(0,0,0,0.06)',
+                    zIndex: 9999, minWidth: '210px', overflow: 'hidden'
+                  }}>
+                    <div style={{ padding: '8px 12px 6px', fontSize: '10px', fontWeight: '700', color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                      Open email with
+                    </div>
+                    {[
+                      {
+                        label: 'Gmail',
+                        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6z" fill="#fff" stroke="#e2e8f0" strokeWidth="1.5"/><path d="M22 6l-10 7L2 6" stroke="#EA4335" strokeWidth="2" strokeLinecap="round"/></svg>,
+                        color: '#EA4335',
+                        action: () => { window.open(`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}`, '_blank'); logMailActivity(); setShowEmailDropdown(false); }
+                      },
+                      {
+                        label: 'Outlook Web',
+                        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="#0078D4"><rect x="2" y="4" width="20" height="16" rx="2" fill="#0078D4"/><path d="M2 8l10 6 10-6" stroke="#fff" strokeWidth="1.5"/></svg>,
+                        color: '#0078D4',
+                        action: () => { window.open(`https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(contact.email)}`, '_blank'); logMailActivity(); setShowEmailDropdown(false); }
+                      },
+                      {
+                        label: 'Yahoo Mail',
+                        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="#6001D2"><rect x="2" y="4" width="20" height="16" rx="2" fill="#6001D2"/><path d="M2 8l10 6 10-6" stroke="#fff" strokeWidth="1.5"/></svg>,
+                        color: '#6001D2',
+                        action: () => { window.open(`https://compose.mail.yahoo.com/?to=${encodeURIComponent(contact.email)}`, '_blank'); logMailActivity(); setShowEmailDropdown(false); }
+                      },
+                      {
+                        label: 'Default Mail App',
+                        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>,
+                        color: '#475569',
+                        action: () => { window.location.href = `mailto:${contact.email}`; logMailActivity(); setShowEmailDropdown(false); }
+                      },
+                    ].map((opt) => (
+                      <button key={opt.label} onClick={opt.action} style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        width: '100%', padding: '9px 14px',
+                        background: 'none', border: 'none',
+                        fontSize: '13px', fontWeight: '500', color: '#1e293b',
+                        cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s'
+                      }}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        {opt.icon}
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                    <div style={{ borderTop: '1px solid #f1f5f9', padding: '6px 8px' }}>
+                      <button onClick={() => { navigator.clipboard.writeText(contact.email); toast.success('Email address copied!'); setShowEmailDropdown(false); }} style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        width: '100%', padding: '8px 6px',
+                        background: 'none', border: 'none',
+                        fontSize: '12px', fontWeight: '500', color: '#64748b',
+                        cursor: 'pointer', textAlign: 'left', borderRadius: '8px'
+                      }}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copy email address
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <button onClick={e => handleQuickContactClick(e, 'call', contact.phone)} style={{
                 display: 'flex',
@@ -1327,9 +1510,12 @@ export default function ContactDetail() {
             {/* Structured Rows List redesign as detailed border cards */}
             <div className="profile-structured-rows" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '10px', marginTop: '24px' }}>
 
-              {/* Row 1: Email */}
+              {/* Row 1: Email — opens same app-picker dropdown */}
               <div
-                onClick={() => contact.email && handleQuickContactClick(null, 'mail', contact.email)}
+                onClick={() => {
+                  if (!contact.email) { toast.error('No email address available for this contact.'); return; }
+                  setShowEmailDropdown(prev => !prev);
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
