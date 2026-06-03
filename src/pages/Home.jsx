@@ -120,7 +120,7 @@ export default function Home() {
     };
 
     // Group logs by Date (limit to latest 10 activities)
-    const groupedActivities = activityLogs.slice(0, 10).reduce((acc, log) => {
+    const groupedActivities = activityLogs.slice(0, 6).reduce((acc, log) => {
         const dateStr = formatActivityDate(log.created_at || new Date());
         if (!acc[dateStr]) {
             acc[dateStr] = [];
@@ -130,6 +130,49 @@ export default function Home() {
     }, {});
 
     const renderActivities = groupedActivities;
+
+    const getCategoryStyles = (category) => {
+        switch ((category || '').toLowerCase()) {
+            case 'call':
+                return {
+                    bg: '#f0fdf4', color: '#16a34a',
+                    badgeBg: '#f0fdf4', badgeText: '#15803d', badgeLabel: 'CALL',
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                };
+            case 'whatsapp':
+                return {
+                    bg: '#e8fbf0', color: '#25D366',
+                    badgeBg: '#e8fbf0', badgeText: '#128C7E', badgeLabel: 'WHATSAPP',
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.455 5.703 1.458h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                };
+            case 'mail':
+                return {
+                    bg: '#faf5ff', color: '#8b5cf6',
+                    badgeBg: '#faf5ff', badgeText: '#7c3aed', badgeLabel: 'MAIL',
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                };
+            case 'meeting':
+                return {
+                    bg: '#eff6ff', color: '#3b82f6',
+                    badgeBg: '#eff6ff', badgeText: '#2563eb', badgeLabel: 'MEETING',
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                };
+            case 'sms':
+                return {
+                    bg: '#f0f9ff', color: '#0ea5e9',
+                    badgeBg: '#f0f9ff', badgeText: '#0284c7', badgeLabel: 'SMS',
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                };
+            case 'linkedin':
+                return {
+                    bg: '#eff6ff', color: '#0a66c2',
+                    badgeBg: '#eff6ff', badgeText: '#0a66c2', badgeLabel: 'LINKEDIN',
+                    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
+                };
+            default:
+                return null;
+        }
+    };
 
     const getActivityStyles = (type) => {
         const normalType = (type || '').toLowerCase();
@@ -506,7 +549,7 @@ export default function Home() {
             </div>
 
             {/* Split layout: All Activities and Right-hand Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile || isTablet ? '1fr' : 'minmax(0, 2fr) minmax(0, 1.1fr)', gap: '20px', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile || isTablet ? '1fr' : 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '20px', alignItems: 'start' }}>
 
                 {/* Left Column: All Activities */}
                 <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column' }}>
@@ -597,8 +640,9 @@ export default function Home() {
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
                                     {renderActivities[dateKey].map((log, idx, arr) => {
-                                        const styles = getActivityStyles(log.activity_type);
-                                        const showAuthor = ['note', 'task'].includes((log.activity_type || '').toLowerCase());
+                                        const categoryStyles = log.category ? getCategoryStyles(log.category) : null;
+                                        const styles = categoryStyles || getActivityStyles(log.activity_type);
+                                        const displayTitle = log.category || styles.badgeLabel;
                                         const mainName = log.contact_name || log.author_name || 'System';
 
                                         return (
@@ -645,7 +689,7 @@ export default function Home() {
                                                                 padding: '2px 6px',
                                                                 borderRadius: '4px',
                                                                 letterSpacing: '0.02em'
-                                                            }}>{styles.badgeLabel}</span>
+                                                            }}>{displayTitle.toUpperCase()}</span>
                                                         </div>
                                                         <div style={{ fontSize: '13.5px', color: '#475569', fontWeight: '500', marginTop: '4px', lineHeight: '1.4' }}>
                                                             {log.description}
@@ -783,14 +827,17 @@ export default function Home() {
                     <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
                         <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', marginBottom: '20px' }}>Deal Distribution</div>
                         {hasDealDistribution ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-                                <div style={{ width: '130px', height: '130px', position: 'relative', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+                                {/* Chart — fills full card width */}
+                                <div style={{ width: '100%', height: '220px', position: 'relative' }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
                                                 data={pieData}
-                                                innerRadius={45}
-                                                outerRadius={65}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={70}
+                                                outerRadius={100}
                                                 paddingAngle={3}
                                                 dataKey="value"
                                                 stroke="none"
@@ -801,13 +848,14 @@ export default function Home() {
                                             </Pie>
                                         </PieChart>
                                     </ResponsiveContainer>
-                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '12px', fontWeight: '700', color: '#64748b', letterSpacing: '0.02em' }}>Stage</div>
+                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '13px', fontWeight: '700', color: '#64748b', letterSpacing: '0.02em', textAlign: 'center', pointerEvents: 'none' }}>Stage</div>
                                 </div>
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {/* Legend */}
+                                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     {pieData.map((item, idx) => (
                                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: item.color, flexShrink: 0 }} />
                                                 <span style={{ color: '#475569', fontWeight: '600' }}>{item.name}</span>
                                             </div>
                                             <div style={{ fontWeight: '800', color: '#0f172a' }}>{item.value}%</div>

@@ -257,7 +257,7 @@ export default function DashboardLayout() {
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
           whiteSpace: 'nowrap'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
             <div style={{
               width: '36px',
               height: '36px',
@@ -277,7 +277,7 @@ export default function DashboardLayout() {
             {(isMobile || isSidebarExpanded) && (
               <span style={{ fontSize: '18px', fontWeight: '800', color: '#fff', letterSpacing: '-0.8px' }}>ZIGCRM</span>
             )}
-          </div>
+          </Link>
         </div>
 
         {/* Sidebar Search */}
