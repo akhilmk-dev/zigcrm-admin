@@ -556,12 +556,6 @@ export default function ContactDetail() {
     try {
       await api.delete(`/contacts/${id}`);
       toast.success('Contact deleted successfully');
-      saveActivityLog({
-        contact_id: id,
-        activity_type: 'contact_deleted',
-        title: 'Deleted Contact',
-        description: `Deleted contact: ${data?.contact?.first_name} ${data?.contact?.last_name || ''}`
-      });
       navigate('/contacts');
     } catch (err) {
       console.error("Delete contact error", err);
@@ -571,34 +565,25 @@ export default function ContactDetail() {
 
   const handleShareContact = () => {
     if (!contact) return;
-    const details = [
-      `Name: ${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
-      contact.email ? `Email: ${contact.email}` : null,
-      contact.phone ? `Phone: ${contact.phone}` : null,
-      contact.company_name ? `Company: ${contact.company_name}` : null,
-      contact.job_title ? `Job Title: ${contact.job_title}` : null,
-      contact.profession ? `Profession: ${contact.profession}` : null,
-      contact.address ? `Address: ${contact.address}` : null,
-      contact.gender ? `Gender: ${contact.gender}` : null,
-    ].filter(Boolean).join('\n');
 
-    if (navigator.share) {
-      navigator.share({
-        title: `${contact.first_name || ''} ${contact.last_name || ''}`.trim(),
-        text: details
-      })
-      .then(() => {
-        toast.success('Shared successfully!');
-      })
-      .catch((err) => {
-        if (err.name !== 'AbortError') {
-          performCopyToClipboard(details);
-        }
-      });
+    const lines = [
+      `Name: ${[contact.first_name, contact.last_name].filter(Boolean).join(' ')}`,
+      contact.email   ? `Email: ${contact.email}`     : null,
+      contact.phone   ? `Phone: ${contact.phone}`     : null,
+      contact.address ? `Address: ${contact.address}` : null,
+    ].filter(Boolean);
+
+    const text = lines.join('\n');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => toast.success('Contact details copied to clipboard!'))
+        .catch(() => fallbackCopyToClipboard(text));
     } else {
-      performCopyToClipboard(details);
+      fallbackCopyToClipboard(text);
     }
   };
+
 
   const performCopyToClipboard = (text) => {
     if (navigator.clipboard && navigator.clipboard.writeText) {
