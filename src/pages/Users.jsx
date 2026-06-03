@@ -193,6 +193,9 @@ export default function Users() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [dateError, setDateError] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize] = useState(10);
@@ -208,10 +211,6 @@ export default function Users() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
-
-  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
-  const [userToToggle, setUserToToggle] = useState(null);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
@@ -334,6 +333,8 @@ export default function Users() {
       if (filterTenantId) params.append('tenant_id', filterTenantId);
       if (debouncedSearch) params.append('search', debouncedSearch);
       if (statusFilter) params.append('status', statusFilter);
+      if (fromDate && !dateError) params.append('from_date', fromDate);
+      if (toDate && !dateError) params.append('to_date', toDate);
 
       const res = await api.get(`/users?${params.toString()}`);
       setUsers(res.data.data || []);
@@ -343,7 +344,7 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  }, [viewScope, filterTenantId, page, debouncedSearch, statusFilter, isGlobalAdmin, pageSize, sortField, sortOrder]);
+  }, [viewScope, filterTenantId, page, debouncedSearch, statusFilter, fromDate, toDate, dateError, isGlobalAdmin, pageSize, sortField, sortOrder]);
 
   const handleExport = async () => {
     try {
@@ -463,67 +464,53 @@ export default function Users() {
     }
   };
 
-  const toggleStatus = (user) => {
-    setUserToToggle(user);
-    setStatusConfirmOpen(true);
-  };
-
-  const handleConfirmStatusChange = async () => {
-    if (!userToToggle) return;
-    setIsUpdatingStatus(true);
-    const newStatus = userToToggle.status === 'active' ? 'suspended' : 'active';
-    try {
-      await api.patch(`/users/${userToToggle.id}/status`, { status: newStatus });
-      toast.success(`User account ${newStatus === 'active' ? 'activated' : 'suspended'}`);
-      fetchUsers();
-      setStatusConfirmOpen(false);
-    } catch (err) {
-      console.error('Status Update Error:', err);
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
-
-
-
   // ─── Table Columns ────────────────────────────────────────────────────────────
+  const avatarPalettes = [
+    { bg: '#dbeafe', color: '#1d4ed8' },
+    { bg: '#dcfce7', color: '#15803d' },
+    { bg: '#fce7f3', color: '#be185d' },
+    { bg: '#fef9c3', color: '#854d0e' },
+    { bg: '#ede9fe', color: '#6d28d9' },
+    { bg: '#ffedd5', color: '#c2410c' },
+    { bg: '#f0f9ff', color: '#0369a1' },
+    { bg: '#f1f5f9', color: '#475569' },
+  ];
+
   const columns = [
     {
-      header: 'Name',
+      header: 'User',
       key: 'name',
       sortKey: 'name',
-      render: (row) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Link to={`/users/${row.id}`} style={{
-            width: '34px',
-            height: '34px',
-            borderRadius: '50%',
-            overflow: 'hidden',
-            backgroundColor: 'var(--bg-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '1px solid var(--border)',
-            flexShrink: 0,
-            cursor: 'pointer',
-            textDecoration: 'none'
-          }}>
-            {row.profile_image_url ? (
-              <img src={getFileUrl(row.profile_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
-                {(row.name || 'U')[0].toUpperCase()}
-              </span>
-            )}
-          </Link>
-          <Link to={`/users/analytics?userId=${row.id}`} style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
-            <span style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '14px', display: 'block' }}>
-              {row.name}
-            </span>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{row.email}</p>
-          </Link>
-        </div>
-      )
+      render: (row) => {
+        const initial = (row.name || 'U')[0].toUpperCase();
+        const palette = avatarPalettes[initial.charCodeAt(0) % avatarPalettes.length];
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Link to={`/users/${row.id}`} style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              backgroundColor: row.profile_image_url ? 'transparent' : palette.bg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              textDecoration: 'none'
+            }}>
+              {row.profile_image_url ? (
+                <img src={getFileUrl(row.profile_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <span style={{ fontSize: '13px', fontWeight: '700', color: palette.color }}>{initial}</span>
+              )}
+            </Link>
+            <Link to={`/users/analytics?userId=${row.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <span style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '13px', display: 'block' }}>{row.name}</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{row.email}</span>
+            </Link>
+          </div>
+        );
+      }
     },
     {
       header: 'Role',
@@ -541,10 +528,50 @@ export default function Users() {
       render: (row) => <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{row.tenant_name || '—'}</span>
     }] : []),
     {
+      header: 'Created Date',
+      key: 'created_at',
+      sortKey: 'created_at',
+      render: (row) => {
+        if (!row.created_at) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+        const d = new Date(row.created_at);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{day}/{month}/{year}</span>;
+      }
+    },
+    {
       header: 'Status',
       key: 'status',
       sortKey: 'status',
-      render: (row) => <Badge type={row.status === 'active' ? 'success' : 'danger'}>{row.status}</Badge>
+      render: (row) => {
+        const isActive = row.status === 'active';
+        const isSuspended = row.status === 'suspended';
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '4px 10px',
+            borderRadius: '8px',
+            fontSize: '12px',
+            fontWeight: '600',
+            textTransform: 'capitalize',
+            backgroundColor: isActive ? '#dcfce7' : isSuspended ? '#fee2e2' : '#f1f5f9',
+            color: isActive ? '#16a34a' : isSuspended ? '#dc2626' : '#64748b'
+          }}>
+            <span style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              backgroundColor: isActive ? '#16a34a' : isSuspended ? '#dc2626' : '#94a3b8',
+              flexShrink: 0,
+              display: 'inline-block'
+            }} />
+            {row.status}
+          </span>
+        );
+      }
     },
   ];
 
@@ -567,9 +594,28 @@ export default function Users() {
     <div>
       {/* Header */}
       <div className="page-header">
-        <div>
-          <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>User Management</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Manage access, roles, and account status.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            width: '52px',
+            height: '52px',
+            borderRadius: '14px',
+            backgroundColor: '#eff6ff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>User Management</h1>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Manage access, roles, and account status.</p>
+          </div>
         </div>
         <div className="page-actions">
           {/* Temporarily hidden Export button */}
@@ -578,18 +624,18 @@ export default function Users() {
             Export
           </Button> */}
           {hasPermission('users.manage') && (
-            <Button onClick={() => handleOpenModal()}>
+            <Button onClick={() => handleOpenModal()} style={{ borderRadius: '6px' }}>
               + Add {isAddingPlatformUser ? 'Platform Admin' : 'Tenant User'}
             </Button>
           )}
         </div>
       </div>
       {/* Filters & Search Row */}
-      <div className="filter-bar">
+      <div className="filter-bar" style={{ borderRadius: '6px' }}>
         {/* Scope Toggle — Super Admin ONLY sees this */}
         {isSuperAdmin && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>View Scope</span>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>View Scope</span>
             <div style={{ display: 'flex', gap: '4px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '12px', height: '38px', alignItems: 'center' }}>
               {['platform', 'tenant'].map(scope => (
                 <button
@@ -601,9 +647,7 @@ export default function Users() {
                     backgroundColor: viewScope === scope ? '#fff' : 'transparent',
                     color: viewScope === scope ? 'var(--primary)' : 'var(--text-muted)',
                     boxShadow: viewScope === scope ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-                    height: '30px',
-                    display: 'flex',
-                    alignItems: 'center'
+                    height: '30px', display: 'flex', alignItems: 'center'
                   }}
                 >
                   {scope === 'platform' ? '🛡️ Platform Admins' : '🏢 Tenant Users'}
@@ -616,44 +660,54 @@ export default function Users() {
         {/* Company Filter — Global Admins when viewing tenant users */}
         {isGlobalAdmin && viewScope === 'tenant' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Filter by Company</span>
-            <select
-              value={filterTenantId}
-              onChange={(e) => { setFilterTenantId(e.target.value); setPage(1); }}
-              style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', height: '38px', minWidth: '180px', cursor: 'pointer' }}
-            >
-              <option value="">All Companies</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
-            </select>
+            <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Company</span>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <select
+                value={filterTenantId}
+                onChange={(e) => { setFilterTenantId(e.target.value); setPage(1); }}
+                style={{ appearance: 'none', WebkitAppearance: 'none', padding: '8px 36px 8px 12px', borderRadius: '6px', border: '1px solid rgb(203, 213, 225)', fontSize: '13px', outline: 'none', backgroundColor: '#fff', height: '38px', minWidth: '180px', cursor: 'pointer', width: '100%' }}
+              >
+                <option value="">All Companies</option>
+                {tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
+              </select>
+              <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b', display: 'flex', alignItems: 'center' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
+            </div>
           </div>
         )}
 
         {/* Status Filter */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-            }}
-            style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', height: '38px', minWidth: '140px', cursor: 'pointer' }}
-          >
-            <option value="">All Statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="suspended">Suspended</option>
-          </select>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Status</span>
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              style={{ appearance: 'none', WebkitAppearance: 'none', padding: '8px 36px 8px 12px', borderRadius: '6px', border: '1px solid rgb(203, 213, 225)', fontSize: '13px', outline: 'none', backgroundColor: '#fff', height: '38px', minWidth: '150px', cursor: 'pointer', width: '100%' }}
+            >
+              <option value="">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="suspended">Suspended</option>
+            </select>
+            <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b', display: 'flex', alignItems: 'center' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
+          </div>
         </div>
 
         {/* Search Filter */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '280px' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Search</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '220px' }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Search</span>
           <div style={{ position: 'relative', width: '100%' }}>
-            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </span>
             <input
@@ -661,9 +715,9 @@ export default function Users() {
               placeholder="Search by name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: '100%', padding: '10px 32px 10px 36px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', backgroundColor: '#f8fafc', transition: 'border-color 0.2s', height: '38px' }}
+              style={{ width: '100%', padding: '8px 32px 8px 36px', borderRadius: '6px', border: '1px solid rgb(203, 213, 225)', fontSize: '13px', outline: 'none', backgroundColor: '#fff', height: '38px', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
               onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-              onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+              onBlur={(e) => e.target.style.borderColor = 'rgb(203, 213, 225)'}
             />
             {search && (
               <button onClick={() => setSearch('')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: '#e2e8f0', border: 'none', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#334155', padding: 0 }}>
@@ -673,9 +727,76 @@ export default function Users() {
           </div>
         </div>
 
-        {/* Restore Button */}
+        {/* From Date Filter */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>From Date</span>
+          <input
+            type="date"
+            value={fromDate}
+            max={toDate || undefined}
+            onChange={(e) => {
+              const val = e.target.value;
+              setFromDate(val);
+              setPage(1);
+              if (val && toDate && val > toDate) {
+                setDateError('From date cannot be after To date');
+              } else {
+                setDateError('');
+              }
+            }}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: `1px solid ${dateError ? '#f87171' : 'rgb(203, 213, 225)'}`,
+              fontSize: '13px',
+              outline: 'none',
+              backgroundColor: '#fff',
+              height: '38px',
+              width: '155px',
+              cursor: 'pointer',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        {/* To Date Filter */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>To Date</span>
+          <input
+            type="date"
+            value={toDate}
+            min={fromDate || undefined}
+            onChange={(e) => {
+              const val = e.target.value;
+              setToDate(val);
+              setPage(1);
+              if (fromDate && val && fromDate > val) {
+                setDateError('To date cannot be before From date');
+              } else {
+                setDateError('');
+              }
+            }}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: `1px solid ${dateError ? '#f87171' : 'rgb(203, 213, 225)'}`,
+              fontSize: '13px',
+              outline: 'none',
+              backgroundColor: '#fff',
+              height: '38px',
+              width: '155px',
+              cursor: 'pointer',
+              boxSizing: 'border-box'
+            }}
+          />
+          {dateError && (
+            <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: '500', marginTop: '-2px' }}>{dateError}</span>
+          )}
+        </div>
+
+        {/* Reset Button */}
         {(() => {
-          const hasFilters = !!(filterTenantId || statusFilter || search);
+          const hasFilters = !!(filterTenantId || statusFilter || search || fromDate || toDate);
           return (
             <button
               title={hasFilters ? 'Clear all filters' : 'No active filters'}
@@ -684,6 +805,9 @@ export default function Users() {
                 setFilterTenantId('');
                 setStatusFilter('');
                 setSearch('');
+                setFromDate('');
+                setToDate('');
+                setDateError('');
                 setPage(1);
               }}
               style={{
@@ -692,16 +816,17 @@ export default function Users() {
                 justifyContent: 'center',
                 width: '38px',
                 height: '38px',
-                borderRadius: '12px',
-                border: `1px solid ${hasFilters ? '#f87171' : 'var(--border)'}`,
+                borderRadius: '6px',
+                border: `1px solid ${hasFilters ? '#f87171' : 'rgb(203, 213, 225)'}`,
                 backgroundColor: hasFilters ? '#fff1f2' : '#f8fafc',
                 color: hasFilters ? '#dc2626' : '#cbd5e1',
                 cursor: hasFilters ? 'pointer' : 'default',
                 transition: 'all 0.2s',
-                alignSelf: 'flex-end'
+                alignSelf: 'flex-end',
+                flexShrink: 0
               }}
               onMouseOver={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = '#fee2e2'; }}
-              onMouseOut={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = '#fff1f2'; }}
+              onMouseOut={(e) => { if (hasFilters) e.currentTarget.style.backgroundColor = hasFilters ? '#fff1f2' : '#f8fafc'; }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -741,27 +866,6 @@ export default function Users() {
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                   <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>
-              </Button>
-            )}
-            {hasPermission('users.manage') && row.user_type !== 'platform' && (
-              <Button
-                type="ghost"
-                size="sm"
-                onClick={() => toggleStatus(row)}
-                title={row.status === 'active' ? "Suspend User" : "Activate User"}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 8px' }}
-              >
-                {row.status === 'active' ? (
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', color: 'var(--danger)' }}>
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-                  </svg>
-                ) : (
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', color: 'var(--success)' }}>
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                )}
               </Button>
             )}
             {hasPermission('users.manage') && row.user_type !== 'platform' && row.id !== loggedInUser?.id && (
@@ -937,7 +1041,6 @@ export default function Users() {
             options={[
               { value: 'active', label: 'Active', color: '#10b981' },
               { value: 'inactive', label: 'Inactive', color: '#94a3b8' },
-              { value: 'suspended', label: 'Suspended', color: '#ef4444' },
             ]}
           />
 
@@ -975,17 +1078,6 @@ export default function Users() {
       </Modal>
 
 
-
-      <ConfirmModal
-        isOpen={statusConfirmOpen}
-        onClose={() => setStatusConfirmOpen(false)}
-        onConfirm={handleConfirmStatusChange}
-        title={`Confirm Account ${userToToggle?.status === 'active' ? 'Suspension' : 'Activation'}`}
-        message={`Are you sure you want to ${userToToggle?.status === 'active' ? 'suspend' : 'activate'} this user account (${userToToggle?.email})?`}
-        confirmLabel={isUpdatingStatus ? "Updating..." : `Yes, ${userToToggle?.status === 'active' ? 'Suspend' : 'Activate'}`}
-        type={userToToggle?.status === 'active' ? "danger" : "primary"}
-        disabled={isUpdatingStatus}
-      />
 
       <ConfirmModal
         isOpen={deleteConfirmOpen}

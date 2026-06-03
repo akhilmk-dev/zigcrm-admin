@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api, { getFileUrl } from '../api/axiosConfig';
+import { toast } from 'react-hot-toast';
 import { AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 export default function Home() {
@@ -176,6 +177,36 @@ export default function Home() {
 
     const getActivityStyles = (type) => {
         const normalType = (type || '').toLowerCase();
+        if (normalType === 'contact_created') {
+            return {
+                bg: '#f0fdf4',
+                color: '#16a34a',
+                badgeBg: '#f0fdf4',
+                badgeText: '#16a34a',
+                badgeLabel: 'CONTACT CREATED',
+                icon: (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                        <line x1="12" y1="2" x2="12" y2="6" /><line x1="10" y1="4" x2="14" y2="4" />
+                    </svg>
+                )
+            };
+        }
+        if (normalType === 'contact_deleted') {
+            return {
+                bg: '#fef2f2',
+                color: '#ef4444',
+                badgeBg: '#fef2f2',
+                badgeText: '#ef4444',
+                badgeLabel: 'CONTACT DELETED',
+                icon: (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                        <line x1="9" y1="4" x2="15" y2="10" /><line x1="15" y1="4" x2="9" y2="10" />
+                    </svg>
+                )
+            };
+        }
         if (normalType.includes('contact')) {
             return {
                 bg: '#f1f5f9',
@@ -642,8 +673,27 @@ export default function Home() {
                                     {renderActivities[dateKey].map((log, idx, arr) => {
                                         const categoryStyles = log.category ? getCategoryStyles(log.category) : null;
                                         const styles = categoryStyles || getActivityStyles(log.activity_type);
-                                        const displayTitle = log.category || styles.badgeLabel;
-                                        const mainName = log.contact_name || log.author_name || 'System';
+                                        // Only use log.category as the badge label when it maps to a recognised
+                                        // communication category (call, mail, whatsapp, etc.). The backend may
+                                        // set category to "Deleted Contact" on any row after contact deletion,
+                                        // so we ignore unrecognised categories and use the activity-type label.
+                                        const displayTitle = (categoryStyles ? log.category : null) || styles.badgeLabel;
+
+                                        // "Deleted Contact" is the backend sentinel returned when the contact
+                                        // row is gone but the FK was not SET NULL yet. Treat it like null so
+                                        // we can fall through to the meta_data snapshot stored at log creation.
+                                        const apiContactName = log.contact_name !== 'Deleted Contact' ? log.contact_name : null;
+                                        const mainName = apiContactName || log.meta_data?.contact_name || log.author_name || 'Unknown';
+
+                                        // A contact is considered deleted when:
+                                        //   • activity_type is contact_deleted (always)
+                                        //   • backend returned the "Deleted Contact" sentinel (pre-migration)
+                                        //   • contact_id was SET NULL by the FK ON DELETE rule (post-migration)
+                                        //     but we still have a snapshot name in meta_data
+                                        const isContactDeleted =
+                                            log.activity_type === 'contact_deleted' ||
+                                            log.contact_name === 'Deleted Contact' ||
+                                            (log.contact_id === null && !!log.meta_data?.contact_name);
 
                                         return (
                                             <div 
@@ -663,21 +713,37 @@ export default function Home() {
                                                     </div>
                                                     <div>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                            {log.contact_id ? (
-                                                                <Link 
-                                                                    to={`/contacts/${log.contact_id}`}
-                                                                    style={{ 
-                                                                        fontSize: '14.5px', 
-                                                                        fontWeight: '750', 
-                                                                        color: '#0f172a', 
-                                                                        textDecoration: 'none',
-                                                                        transition: 'color 0.2s'
-                                                                    }}
-                                                                    onMouseEnter={(e) => e.target.style.color = '#2563eb'}
-                                                                    onMouseLeave={(e) => e.target.style.color = '#0f172a'}
-                                                                >
-                                                                    {mainName}
-                                                                </Link>
+                                                            {(log.contact_id || isContactDeleted) ? (
+                                                                isContactDeleted ? (
+                                                                    <span
+                                                                        onClick={() => toast.error(`"${mainName}" has been deleted and is no longer available.`)}
+                                                                        title="This contact has been deleted"
+                                                                        style={{
+                                                                            fontSize: '14.5px',
+                                                                            fontWeight: '750',
+                                                                            color: '#94a3b8',
+                                                                            textDecoration: 'line-through',
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                    >
+                                                                        {mainName}
+                                                                    </span>
+                                                                ) : (
+                                                                    <Link
+                                                                        to={`/contacts/${log.contact_id}`}
+                                                                        style={{
+                                                                            fontSize: '14.5px',
+                                                                            fontWeight: '750',
+                                                                            color: '#0f172a',
+                                                                            textDecoration: 'none',
+                                                                            transition: 'color 0.2s'
+                                                                        }}
+                                                                        onMouseEnter={(e) => e.target.style.color = '#2563eb'}
+                                                                        onMouseLeave={(e) => e.target.style.color = '#0f172a'}
+                                                                    >
+                                                                        {mainName}
+                                                                    </Link>
+                                                                )
                                                             ) : (
                                                                 <span style={{ fontSize: '14.5px', fontWeight: '750', color: '#0f172a' }}>{mainName}</span>
                                                             )}

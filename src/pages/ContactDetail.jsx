@@ -78,6 +78,7 @@ export default function ContactDetail() {
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [isAddDealModalOpen, setIsAddDealModalOpen] = useState(false);
   const [staff, setStaff] = useState([]);
+  const [tenantContacts, setTenantContacts] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
@@ -110,7 +111,10 @@ export default function ContactDetail() {
       contact_id: id,
       activity_type: 'mail',
       title: 'contacted through mail',
-      description: 'contacted through mail'
+      description: 'contacted through mail',
+      meta_data: {
+        contact_name: [data?.contact?.first_name, data?.contact?.last_name].filter(Boolean).join(' ')
+      }
     }).then(() => {
       toast.success('Mail activity logged successfully.');
       fetchDetail(true);
@@ -132,7 +136,10 @@ export default function ContactDetail() {
         contact_id: id,
         activity_type: 'mail',
         title: 'contacted through mail',
-        description: 'contacted through mail'
+        description: 'contacted through mail',
+        meta_data: {
+          contact_name: [data?.contact?.first_name, data?.contact?.last_name].filter(Boolean).join(' ')
+        }
       }).then(() => {
         toast.success('Mail activity logged successfully.');
         fetchDetail(true);
@@ -150,7 +157,10 @@ export default function ContactDetail() {
         contact_id: id,
         activity_type: 'call',
         title: 'Outgoing call',
-        description: 'Outgoing call'
+        description: 'Outgoing call',
+        meta_data: {
+          contact_name: [data?.contact?.first_name, data?.contact?.last_name].filter(Boolean).join(' ')
+        }
       }).then(() => {
         toast.success('Call activity logged successfully.');
         fetchDetail(true);
@@ -173,7 +183,10 @@ export default function ContactDetail() {
       contact_id: id,
       activity_type: 'whatsapp',
       title: 'contacted through whatsapp',
-      description: 'contacted through whatsapp'
+      description: 'contacted through whatsapp',
+      meta_data: {
+        contact_name: [data?.contact?.first_name, data?.contact?.last_name].filter(Boolean).join(' ')
+      }
     }).then(() => {
       toast.success('WhatsApp activity logged successfully.');
       fetchDetail(true);
@@ -221,7 +234,10 @@ export default function ContactDetail() {
           contact_id: id,
           activity_type: 'contact_updated',
           title: 'Updated Contact',
-          description: `Updated contact profile details`
+          description: `Updated contact profile details`,
+          meta_data: {
+            contact_name: [values.first_name, values.last_name].filter(Boolean).join(' ')
+          }
         });
         fetchDetail();
       } catch (err) {
@@ -245,7 +261,8 @@ export default function ContactDetail() {
     },
     validationSchema: Yup.object({
       title: Yup.string().required('Task title is required'),
-      priority: Yup.string().required('Priority is required')
+      priority: Yup.string().required('Priority is required'),
+      contact_id: Yup.string().required('Contact Partner is required')
     }),
     onSubmit: async (values) => {
       try {
@@ -276,7 +293,8 @@ export default function ContactDetail() {
       value: Yup.number()
         .typeError('Invalid value. Only numbers are allowed')
         .min(0, 'Value cannot be negative')
-        .required('Deal value is required')
+        .required('Deal value is required'),
+      contact_id: Yup.string().required('Contact Partner is required')
     }),
     onSubmit: async (values) => {
       try {
@@ -538,6 +556,11 @@ export default function ContactDetail() {
       api.get(`/users?tenant_id=${data.contact.tenant_id}`)
         .then(res => setStaff(res.data.data || []))
         .catch(err => console.error("Fetch staff error", err));
+
+      // Fetch contacts under this tenant for the Contact Partner dropdown
+      api.get(`/contacts?tenant_id=${data.contact.tenant_id}&limit=100`)
+        .then(res => setTenantContacts(res.data.data || []))
+        .catch(err => console.error("Fetch tenant contacts error", err));
     }
   }, [data?.contact?.tenant_id]);
 
@@ -3866,7 +3889,27 @@ export default function ContactDetail() {
               <option value="">Select Deal (Optional)</option>
               {deals.map(d => (
                 <option key={d.id} value={d.id}>
-                  {d.deal_name} (₹{Number(d.value || 0).toLocaleString()} - {d.stage})
+                  {d.deal_name} (${Number(d.value || 0).toLocaleString()} - {d.stage})
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <Select
+              label="Contact Partner"
+              name="contact_id"
+              value={addTaskFormik.values.contact_id}
+              onChange={addTaskFormik.handleChange}
+              onBlur={addTaskFormik.handleBlur}
+              error={addTaskFormik.errors.contact_id}
+              touched={addTaskFormik.touched.contact_id}
+              required
+            >
+              <option value="">Select Contact</option>
+              {tenantContacts.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.first_name} {c.last_name || ''}
                 </option>
               ))}
             </Select>
@@ -3976,7 +4019,7 @@ export default function ContactDetail() {
           />
 
           <Input
-            label="Value (₹)"
+            label="Value ($)"
             type="number"
             name="value"
             placeholder="0.00"
@@ -3999,6 +4042,22 @@ export default function ContactDetail() {
             onChange={addDealFormik.handleChange}
             onBlur={addDealFormik.handleBlur}
             placeholder="Unassigned"
+          />
+
+          <SearchableSelect
+            label="Contact Partner"
+            name="contact_id"
+            value={addDealFormik.values.contact_id}
+            options={tenantContacts.map(c => ({
+              value: c.id,
+              label: `${c.first_name} ${c.last_name || ''}`.trim()
+            }))}
+            onChange={addDealFormik.handleChange}
+            onBlur={addDealFormik.handleBlur}
+            error={addDealFormik.errors.contact_id}
+            touched={addDealFormik.touched.contact_id}
+            placeholder="Select Contact"
+            required
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
