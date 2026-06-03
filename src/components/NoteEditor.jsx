@@ -311,7 +311,7 @@ export default function NoteEditor({
         contact_id: contactId,
         deal_id: dealId,
         tenant_id: tenantId,
-        title: title?.trim() ? title.trim() : 'Untitled',
+        title: title?.trim() ? title.trim() : (category?.trim() ? category.trim() : 'Untitled'),
         content: plainTextContent,
         category: category || null,
         attachments
