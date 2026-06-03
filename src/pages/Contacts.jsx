@@ -557,7 +557,7 @@ export default function Contacts() {
           job_title: '',
           source: '',
           tags: '',
-          status: 'lead',
+          status: 'new',
           tenant_id: isGlobalAdmin ? selectedTenantId : (loggedInUser?.tenantId || ''),
           assigned_to: '',
           profile_image_url: '',
