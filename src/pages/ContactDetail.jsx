@@ -187,7 +187,8 @@ export default function ContactDetail() {
       assigned_to: '',
       profile_image_url: '',
       address: '',
-      gst_no: ''
+      gst_no: '',
+      gender: ''
     },
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
@@ -574,7 +575,8 @@ export default function ContactDetail() {
       assigned_to: contact.assigned_to || '',
       profile_image_url: contact.profile_image_url || '',
       address: contact.address || '',
-      gst_no: contact.gst_no || ''
+      gst_no: contact.gst_no || '',
+      gender: contact.gender || ''
     });
 
     if (isGlobalAdmin) {
@@ -3421,6 +3423,22 @@ export default function ContactDetail() {
               error={formik.errors.gst_no}
               touched={formik.touched.gst_no}
             />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <Select
+              label="Gender"
+              name="gender"
+              value={formik.values.gender}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+            >
+              <option value="">Select Gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </Select>
+            <div />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>

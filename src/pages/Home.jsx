@@ -752,8 +752,13 @@ export default function Home() {
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', whiteSpace: 'nowrap', paddingTop: '2px' }}>
-                                                    {formatActivityTime(log.created_at)}
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', paddingTop: '2px' }}>
+                                                    <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                                                        {formatActivityTime(log.created_at)}
+                                                    </div>
+                                                    <div style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: '500', whiteSpace: 'nowrap' }}>
+                                                        {log.author_name || 'System'}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );

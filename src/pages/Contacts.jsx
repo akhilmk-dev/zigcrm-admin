@@ -168,7 +168,8 @@ export default function Contacts() {
       assigned_to: '',
       profile_image_url: '',
       address: '',
-      gst_no: ''
+      gst_no: '',
+      gender: ''
     },
     validationSchema: Yup.object({
       first_name: Yup.string().required('First name is required'),
@@ -181,7 +182,8 @@ export default function Contacts() {
           try { return isValidPhoneNumber(val); } catch { return false; }
         }),
       company_name: Yup.string(),
-      profession: Yup.string()
+      profession: Yup.string(),
+      gender: Yup.string().nullable()
     }),
     onSubmit: async (values) => {
       try {
@@ -540,7 +542,8 @@ export default function Contacts() {
         profile_image_url: contact.profile_image_url || '',
         profession: contact.profession || '',
         address: contact.address || '',
-        gst_no: contact.gst_no || ''
+        gst_no: contact.gst_no || '',
+        gender: contact.gender || ''
       });
     } else {
       setEditingContact(null);
@@ -560,7 +563,8 @@ export default function Contacts() {
           profile_image_url: '',
           profession: '',
           address: '',
-          gst_no: ''
+          gst_no: '',
+          gender: ''
         }
       });
     }
@@ -980,6 +984,24 @@ export default function Contacts() {
               value={formik.values.phone} onChange={formik.handleChange} onBlur={formik.handleBlur}
               error={formik.errors.phone} touched={formik.touched.phone} required
             />
+          </div>
+
+          <div className="form-grid-2">
+            <FormSelect
+              label="Gender"
+              icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="10" r="8"/><path d="M12 18v4"/><path d="M9 21h6"/></svg>}
+              name="gender"
+              value={formik.values.gender}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              placeholder="Select Gender"
+              options={[
+                { value: 'male', label: 'Male' },
+                { value: 'female', label: 'Female' },
+                { value: 'other', label: 'Other' }
+              ]}
+            />
+            <div />
           </div>
 
           {/* ── Section: Work ───────────────────────────────────── */}
