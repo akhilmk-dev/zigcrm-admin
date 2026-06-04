@@ -1,60 +1,229 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api, { getFileUrl } from '../api/axiosConfig';
-import { Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select } from '../components/common/Modal';
+import { Button, Input, Select } from '../components/common/Modal';
 import { toast } from 'react-hot-toast';
 import { countries } from '../constants/countries';
 import { isValidPhoneNumber } from 'libphonenumber-js';
 
+const EnvelopeIcon = () => (
+  <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+    <polyline points="22,6 12,13 2,6" />
+  </svg>
+);
+
+const PhoneIcon = () => (
+  <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+);
+
+const CalendarIcon = () => (
+  <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+
+const UsersIcon = () => (
+  <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+const ContactIcon = () => (
+  <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+);
+
+const CopyIcon = () => (
+  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+const CloudUploadIcon = () => (
+  <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="16 16 12 12 8 16" />
+    <line x1="12" y1="12" x2="12" y2="21" />
+    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+  </svg>
+);
+
+const BuildingIcon = () => (
+  <svg width="38" height="38" fill="none" stroke="rgba(255,255,255,0.85)" viewBox="0 0 24 24" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M9 22V12h6v10" />
+    <path d="M8 7h.01M12 7h.01M16 7h.01M8 12h.01M16 12h.01" />
+  </svg>
+);
+
+const SaveIcon = () => (
+  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+    <polyline points="17 21 17 13 7 13 7 21" />
+    <polyline points="7 3 7 8 15 8" />
+  </svg>
+);
+
+function InfoRow({ icon, label, value }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '11px 0',
+      borderBottom: '1px solid var(--border)'
+    }}>
+      <div style={{
+        width: '30px', height: '30px',
+        borderRadius: '8px',
+        backgroundColor: '#f1f5f9',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+        color: '#64748b'
+      }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '500', marginBottom: '1px' }}>{label}</div>
+        <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function SearchableCountryCodeSelect({ value, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const filteredCountries = countries.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.code.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          padding: '10px 12px',
+          borderRadius: '8px',
+          border: `1.5px solid ${isOpen ? 'var(--primary)' : 'var(--border)'}`,
+          backgroundColor: '#fff',
+          fontSize: '13px',
+          cursor: 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          height: '42px',
+          boxSizing: 'border-box',
+          color: 'var(--text-main)',
+          transition: 'all 0.2s',
+          boxShadow: isOpen ? '0 0 0 3px rgba(37,99,235,0.1)' : 'none'
+        }}
+      >
+        <span style={{ fontWeight: '600' }}>{value}</span>
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', opacity: 0.5 }}>
+          <path d="M1 1l4 4 4-4" />
+        </svg>
+      </div>
+      {isOpen && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, width: '280px',
+          backgroundColor: '#fff', borderRadius: '12px', border: '1px solid var(--border)',
+          boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)', zIndex: 99999,
+          padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px', boxSizing: 'border-box'
+        }}>
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </span>
+            <input
+              type="text" placeholder="Search code or country..."
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: '100%', padding: '6px 8px 6px 26px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '2px' }}>
+            {filteredCountries.length === 0 ? (
+              <div style={{ padding: '8px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>No results</div>
+            ) : filteredCountries.map((c, idx) => (
+              <div
+                key={`${c.name}-${c.code}-${idx}`}
+                onClick={(e) => { e.stopPropagation(); onChange(c.code); setIsOpen(false); setSearch(''); }}
+                style={{
+                  padding: '8px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  backgroundColor: value === c.code ? 'var(--bg-muted)' : 'transparent',
+                  color: value === c.code ? 'var(--primary)' : 'var(--text-main)', transition: 'all 0.15s'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = value === c.code ? 'var(--bg-muted)' : 'transparent'; }}
+              >
+                <span style={{ fontWeight: '500' }}>{c.name}</span>
+                <span style={{ fontWeight: '600', opacity: 0.8 }}>{c.code}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TenantDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [tenant, setTenant] = useState(null);
   const [users, setUsers] = useState([]);
   const [contacts, setContacts] = useState([]);
-  const [deals, setDeals] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [timeFilter, setTimeFilter] = useState('This Month');
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
 
   const fetchTenantData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      // 1. Fetch Tenant from list
       const tenantsRes = await api.get('/tenants?limit=1000');
       const foundTenant = (tenantsRes.data?.data || []).find(t => t.id === id);
-      
       if (!foundTenant) {
         toast.error('Tenant not found');
         navigate('/tenants');
         return;
       }
       setTenant(foundTenant);
-
-      // 2. Fetch Tenant Users
       const usersRes = await api.get(`/users?tenant_id=${id}&limit=1000`);
       setUsers(usersRes.data?.data || []);
-
-      // 3. Fetch Contacts
       const contactsRes = await api.get(`/contacts?tenant_id=${id}&limit=1000`);
       setContacts(contactsRes.data?.data || []);
-
-      // 4. Fetch Deals
-      const dealsRes = await api.get(`/deals?tenant_id=${id}&limit=1000`);
-      setDeals(dealsRes.data?.data || []);
-
     } catch (err) {
       console.error('Error fetching tenant details:', err);
       toast.error('Failed to load tenant details');
@@ -70,57 +239,94 @@ export default function TenantDetail() {
       .catch(console.error);
   }, [id]);
 
+  const parseTenantPhone = (t) => {
+    let phoneCode = '+91';
+    let phone = t?.owner_phone || '';
+    if (phone.startsWith('+')) {
+      const sorted = [...countries].sort((a, b) => b.code.length - a.code.length);
+      const found = sorted.find(c => phone.startsWith(c.code));
+      if (found) { phoneCode = found.code; phone = phone.substring(found.code.length); }
+    }
+    return { phoneCode, phone };
+  };
+
+  const parsed = parseTenantPhone(tenant);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error('File size must be less than 2MB'); return; }
+    formik.setFieldValue('profileImage', file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
+  };
+
   const formik = useFormik({
+    validateOnChange: true,
+    validateOnBlur: true,
+    enableReinitialize: true,
     initialValues: {
-      plan_id: '',
-      name: '',
-      email: '',
-      phone: '',
-      country: '',
-      status: 'active',
+      plan_id: tenant?.plan_id || '',
+      name: tenant?.owner_name || '',
+      email: tenant?.owner_email || '',
+      phoneCode: parsed.phoneCode,
+      phone: parsed.phone,
+      status: tenant?.owner_status || tenant?.status || 'active',
       password: '',
       re_password: '',
-      owner_id: '',
-      profile_image_url: ''
+      owner_id: tenant?.owner_id || '',
+      profile_image_url: tenant?.owner_profile_image || '',
+      profileImage: null
     },
     validationSchema: Yup.object({
-      name: Yup.string().required('Company / Owner Name is required'),
-      email: Yup.string().email('Invalid email address').required('Owner email is required'),
+      name: Yup.string()
+        .required('Company / Owner Name is required')
+        .min(3, 'Minimum 3 characters required')
+        .max(60, 'Maximum 60 characters allowed')
+        .matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
+      email: Yup.string()
+        .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address')
+        .required('Owner email is required'),
       phone: Yup.string()
         .required('Phone number is required')
-        .test('is-indian-phone', 'Invalid mobile number. Enter a valid phone number.', function (value) {
+        .test('is-valid-phone', 'Invalid phone number for the selected country code', function (value) {
+          const { phoneCode } = this.parent;
           if (!value) return false;
-          const sanitized = value.replace(/[\s()-]/g, '');
-          const indianPhoneRegex = /^(?:\+91|91|0)?[6-9]\d{9}$/;
-          return indianPhoneRegex.test(sanitized);
+          try { return isValidPhoneNumber(`${phoneCode}${value}`); } catch { return false; }
         }),
-      country: Yup.string().required('Country is required'),
       plan_id: Yup.string().required('Subscription plan is required'),
       status: Yup.string().required('Status is required'),
       password: Yup.string().test('min-6', 'Password must be at least 6 characters', val => !val || val.length >= 6),
-      re_password: Yup.string()
-        .oneOf([Yup.ref('password'), null], 'Passwords must match')
+      re_password: Yup.string().oneOf([Yup.ref('password'), null], 'Passwords must match')
     }),
     onSubmit: async (values) => {
       try {
-        const selectedCountry = countries.find(c => c.name === values.country);
-        const dialCode = selectedCountry ? selectedCountry.code.split(',')[0].trim().replace(/[^\d+]/g, '') : '';
         const phoneWithoutSpaces = values.phone?.replace(/[\s()-]/g, '') || '';
-        let formattedPhone = phoneWithoutSpaces;
-        if (/^[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
-          formattedPhone = `+91${phoneWithoutSpaces}`;
-        } else if (/^91[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
-          formattedPhone = `+91${phoneWithoutSpaces.substring(2)}`;
-        } else if (/^0[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
-          formattedPhone = `+91${phoneWithoutSpaces.substring(1)}`;
-        } else if (/^\+91[6-9]\d{9}$/.test(phoneWithoutSpaces)) {
-          formattedPhone = phoneWithoutSpaces;
+        const formattedPhone = `${values.phoneCode}${phoneWithoutSpaces}`;
+
+        if (values.profileImage) {
+          const formData = new FormData();
+          formData.append('plan_id', values.plan_id);
+          formData.append('name', values.name);
+          formData.append('email', values.email);
+          formData.append('phone', formattedPhone);
+          formData.append('status', values.status);
+          formData.append('owner_id', values.owner_id);
+          if (values.password) {
+            formData.append('password', values.password);
+            formData.append('re_password', values.re_password);
+          }
+          formData.append('file', values.profileImage);
+          await api.patch(`/tenants/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        } else {
+          const payload = { ...values, phone: formattedPhone };
+          delete payload.profileImage;
+          await api.patch(`/tenants/${id}`, payload);
         }
 
-        const payload = { ...values, phone: formattedPhone };
-        await api.patch(`/tenants/${id}`, payload);
         toast.success('Tenant details updated successfully');
-        setIsEditModalOpen(false);
+        setImagePreview(null);
         fetchTenantData(true);
       } catch (err) {
         console.error('Failed to update tenant:', err);
@@ -138,157 +344,55 @@ export default function TenantDetail() {
     }
   });
 
-  const handleOpenEditModal = () => {
-    if (!tenant) return;
-
-    let phoneVal = tenant.owner_phone || '';
-    if (phoneVal && tenant.country) {
-      const selectedCountry = countries.find(c => c.name === tenant.country);
-      if (selectedCountry) {
-        const cleanPhone = phoneVal.replace(/[^\d+]/g, '');
-        const codes = selectedCountry.code.split(',').map(c => c.trim().replace(/[^\d+]/g, ''));
-        for (const code of codes) {
-          if (cleanPhone.startsWith(code)) {
-            phoneVal = cleanPhone.substring(code.length);
-            break;
-          }
-        }
-      }
-    }
-
-    formik.resetForm({
-      values: {
-        plan_id: tenant.plan_id || '',
-        name: tenant.owner_name || '',
-        email: tenant.owner_email || '',
-        phone: phoneVal,
-        country: tenant.country || '',
-        status: tenant.owner_status || tenant.status || 'active',
-        password: '',
-        re_password: '',
-        owner_id: tenant.owner_id || '',
-        profile_image_url: tenant.owner_profile_image || ''
-      }
-    });
-    setIsEditModalOpen(true);
-  };
-
   if (loading) {
     return (
-      <div style={{ padding: '0 8px 24px 8px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {/* Top Section Skeleton: 60% Left, 40% Right */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: window.innerWidth < 768 ? '1fr' : '6fr 4fr',
-          gap: '20px',
-          width: '100%'
-        }}>
-          {/* Left Column: Tenant Detail Card Skeleton */}
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '16px',
-            border: '1px solid var(--border)',
-            padding: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            gap: '20px',
-            height: '240px'
-          }}>
-            {/* Profile Avatar & Details row */}
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-              <div style={{ width: '80px', height: '80px', borderRadius: '20px', backgroundColor: '#f1f5f9', animation: 'pulse 1.5s infinite' }} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-                <div style={{ width: '40%', height: '20px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
-                <div style={{ width: '30%', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
+      <div style={{ padding: '0 8px 24px 8px' }}>
+        <style>{`
+          .td-layout { display: flex; gap: 20px; align-items: flex-start; }
+          .td-sidebar { width: 300px; flex-shrink: 0; }
+          .td-content { flex: 1; min-width: 0; }
+          @media (max-width: 820px) {
+            .td-layout { flex-direction: column; }
+            .td-sidebar { width: 100%; }
+          }
+          @keyframes tdPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+          .td-skel { background: #f1f5f9; border-radius: 6px; animation: tdPulse 1.5s infinite; }
+        `}</style>
+        <div className="td-layout">
+          <div className="td-sidebar">
+            <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <div style={{ background: 'linear-gradient(135deg, #c7d2fe 0%, #bfdbfe 100%)', height: '200px' }} />
+              <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <div className="td-skel" style={{ width: '30px', height: '30px', borderRadius: '8px', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div className="td-skel" style={{ width: '60%', height: '10px', marginBottom: '5px' }} />
+                      <div className="td-skel" style={{ width: '90%', height: '13px' }} />
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-
-            {/* Quick Stats Grid Skeleton */}
-            <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-              <div style={{ flex: '1', height: '35px', backgroundColor: '#f1f5f9', borderRadius: '6px', animation: 'pulse 1.5s infinite' }} />
-              <div style={{ flex: '1', height: '35px', backgroundColor: '#f1f5f9', borderRadius: '6px', animation: 'pulse 1.5s infinite' }} />
-              <div style={{ flex: '1', height: '35px', backgroundColor: '#f1f5f9', borderRadius: '6px', animation: 'pulse 1.5s infinite' }} />
-              <div style={{ flex: '1', height: '35px', backgroundColor: '#f1f5f9', borderRadius: '6px', animation: 'pulse 1.5s infinite' }} />
-            </div>
-
-            {/* Footer Row Skeleton */}
-            <div style={{ display: 'flex', borderTop: '1px solid var(--border)', paddingTop: '16px', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ width: '120px', height: '18px', backgroundColor: '#f1f5f9', borderRadius: '6px', animation: 'pulse 1.5s infinite' }} />
             </div>
           </div>
-
-          {/* Right Column: 3 Stats Cards Skeleton Stack */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'space-between', height: '240px' }}>
-            <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', padding: '16px 20px', flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#f1f5f9', animation: 'pulse 1.5s infinite' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ width: '120px', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
-                  <div style={{ width: '70px', height: '20px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
+          <div className="td-content">
+            <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div className="td-skel" style={{ width: '140px', height: '20px', marginBottom: '8px' }} />
+                  <div className="td-skel" style={{ width: '260px', height: '13px' }} />
                 </div>
+                <div className="td-skel" style={{ width: '110px', height: '38px', borderRadius: '8px' }} />
               </div>
-              <div style={{ width: '60px', height: '22px', backgroundColor: '#f1f5f9', borderRadius: '12px', animation: 'pulse 1.5s infinite' }} />
-            </div>
-            <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', padding: '16px 20px', flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#f1f5f9', animation: 'pulse 1.5s infinite' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ width: '120px', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
-                  <div style={{ width: '50px', height: '20px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
+              {[1, 2, 3].map(i => (
+                <div key={i} style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div className="td-skel" style={{ width: '160px', height: '15px' }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                    <div className="td-skel" style={{ height: '42px', borderRadius: '8px' }} />
+                    <div className="td-skel" style={{ height: '42px', borderRadius: '8px' }} />
+                  </div>
                 </div>
-              </div>
-              <div style={{ width: '60px', height: '22px', backgroundColor: '#f1f5f9', borderRadius: '12px', animation: 'pulse 1.5s infinite' }} />
-            </div>
-            <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', padding: '16px 20px', flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#f1f5f9', animation: 'pulse 1.5s infinite' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ width: '120px', height: '14px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
-                  <div style={{ width: '50px', height: '20px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
-                </div>
-              </div>
-              <div style={{ width: '60px', height: '22px', backgroundColor: '#f1f5f9', borderRadius: '12px', animation: 'pulse 1.5s infinite' }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Main Grid Skeleton representing Left Column and Right Column */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: window.innerWidth < 1024 ? '1fr' : '1.2fr 1fr',
-          gap: '20px',
-          width: '100%',
-          alignItems: 'flex-start'
-        }}>
-          {/* Left Column Stack Skeleton */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Tenant Users (Staff) Skeleton */}
-            <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', padding: '24px', height: '250px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ width: '200px', height: '20px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
-              <div style={{ flex: '1', backgroundColor: '#f8fafc', borderRadius: '8px', animation: 'pulse 1.5s infinite' }} />
-            </div>
-            {/* Contacts Under Tenant Skeleton */}
-            <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', padding: '24px', height: '250px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ width: '220px', height: '20px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
-              <div style={{ flex: '1', backgroundColor: '#f8fafc', borderRadius: '8px', animation: 'pulse 1.5s infinite' }} />
-            </div>
-          </div>
-
-          {/* Right Column Stack Skeleton */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Deals Income Overview Graph Skeleton */}
-            <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', padding: '24px', height: '280px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div style={{ width: '180px', height: '20px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
-                <div style={{ width: '100px', height: '32px', backgroundColor: '#f1f5f9', borderRadius: '6px', animation: 'pulse 1.5s infinite' }} />
-              </div>
-              <div style={{ flex: '1', backgroundColor: '#f8fafc', borderRadius: '8px', animation: 'pulse 1.5s infinite' }} />
-            </div>
-            {/* Recent Deals Skeleton */}
-            <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', padding: '24px', height: '220px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ width: '150px', height: '20px', backgroundColor: '#f1f5f9', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
-              <div style={{ flex: '1', backgroundColor: '#f8fafc', borderRadius: '8px', animation: 'pulse 1.5s infinite' }} />
+              ))}
             </div>
           </div>
         </div>
@@ -298,736 +402,316 @@ export default function TenantDetail() {
 
   if (!tenant) return null;
 
-  // Compute metrics
-  const totalDealsIncome = deals
-    .filter(d => d.status === 'won')
-    .reduce((sum, d) => sum + Number(d.value || 0), 0);
+  const statusColor = {
+    active: '#22c55e',
+    inactive: '#f59e0b',
+    suspended: '#ef4444'
+  }[tenant.owner_status] || '#22c55e';
 
-  const activeDealsCount = deals
-    .filter(d => d.status === 'open' || d.status === 'pending' || d.status === 'in_progress')
-    .length;
-
-  const closedWonCount = deals
-    .filter(d => d.status === 'won')
-    .length;
-
-  const totalClosedDeals = deals
-    .filter(d => d.status === 'won' || d.status === 'lost')
-    .length;
-
-  const conversionRate = totalClosedDeals > 0 
-    ? Math.round((closedWonCount / totalClosedDeals) * 100) 
-    : 0;
-
-  // SVG Chart data points for Deals Income Overview
-  // We can render a elegant, premium undulating curve
-  const chartPoints = [
-    { x: '01 May', y: 3000 },
-    { x: '06 May', y: 5500 },
-    { x: '11 May', y: 4800 },
-    { x: '16 May', y: 8200 },
-    { x: '21 May', y: 10567 },
-    { x: '26 May', y: 6400 },
-    { x: '31 May', y: 9200 },
-  ];
-
-  const maxVal = 15000;
-  const chartWidth = 500;
-  const chartHeight = 180;
-  const pointsString = chartPoints.map((pt, i) => {
-    const xPos = 45 + (i / (chartPoints.length - 1)) * (chartWidth - 65);
-    const yPos = chartHeight - (pt.y / maxVal) * chartHeight;
-    return `${xPos},${yPos}`;
-  }).join(' ');
-
-  const closedPath = `45,${chartHeight} ${pointsString} 480,${chartHeight}`;
+  const currentAvatar = imagePreview || (tenant.owner_profile_image ? getFileUrl(tenant.owner_profile_image) : null);
 
   return (
-    <div style={{ padding: '0 8px 24px 8px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      
-      {/* 60% Tenant Detail / 40% Deals Stats side-by-side Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : '6fr 4fr',
-        gap: '20px',
-        width: '100%',
-        alignItems: 'stretch'
-      }}>
-        {/* Left Card (60%): Tenant Info */}
-        <div style={{
-          backgroundColor: '#fff',
-          borderRadius: '16px',
-          border: '1px solid var(--border)',
-          padding: '24px',
-          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.01), 0 2px 4px -2px rgba(0,0,0,0.01)',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          gap: '20px'
-        }}>
-          {/* First Row Profile Details Layout */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '24px',
-            width: '100%'
-          }}>
-            {/* Profile Avatar & Name/Location Column */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: '260px', flex: '1' }}>
+    <div style={{ padding: '0 8px 24px 8px' }}>
+      <style>{`
+        .td-layout { display: flex; gap: 20px; align-items: flex-start; }
+        .td-sidebar { width: 300px; flex-shrink: 0; }
+        .td-content { flex: 1; min-width: 0; }
+        .td-upload-area:hover { border-color: var(--primary) !important; background-color: #eef2ff !important; }
+        .td-copy-btn:hover { color: var(--primary) !important; }
+        @media (max-width: 820px) {
+          .td-layout { flex-direction: column; }
+          .td-sidebar { width: 100%; }
+        }
+        @media (max-width: 600px) {
+          .td-form-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+
+      <div className="td-layout">
+
+        {/* ── LEFT SIDEBAR ── */}
+        <div className="td-sidebar">
+          <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+
+            {/* Gradient header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #3b5bdb 0%, #4361ee 50%, #2196f3 100%)',
+              padding: '32px 20px 28px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px'
+            }}>
               <div style={{
-                width: '80px',
-                height: '80px',
-                borderRadius: '20px',
-                backgroundColor: '#4f46e5',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '32px',
-                color: '#fff',
-                fontWeight: 'bold',
-                boxShadow: '0 10px 15px -3px rgba(79, 70, 229, 0.3)',
-                overflow: 'hidden',
-                flexShrink: 0
+                width: '90px', height: '90px', borderRadius: '50%',
+                background: 'rgba(255,255,255,0.18)',
+                border: '3px solid rgba(255,255,255,0.35)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                overflow: 'hidden', flexShrink: 0
               }}>
-                {tenant.owner_profile_image ? (
-                  <img src={getFileUrl(tenant.owner_profile_image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <span>🏢</span>
-                )}
+                {currentAvatar
+                  ? <img src={currentAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <BuildingIcon />
+                }
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <h1 style={{ fontSize: '22px', fontWeight: '850', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.5px' }}>
-                  {tenant.owner_name}
-                </h1>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: 'var(--text-muted)' }}>
-                  📍 <span>{tenant.country || 'Not specified'}</span>
-                </div>
-              </div>
+
+              <h2 style={{ color: '#fff', fontSize: '17px', fontWeight: '700', margin: 0, textAlign: 'center', lineHeight: '1.35', maxWidth: '220px', wordBreak: 'break-word' }}>
+                {tenant.owner_name}
+              </h2>
+
+              <span style={{
+                backgroundColor: statusColor,
+                color: '#fff',
+                padding: '3px 14px', borderRadius: '20px',
+                fontSize: '12px', fontWeight: '600',
+                display: 'inline-flex', alignItems: 'center', gap: '5px'
+              }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.8)', display: 'inline-block' }} />
+                {(tenant.owner_status || 'active').charAt(0).toUpperCase() + (tenant.owner_status || 'active').slice(1)}
+              </span>
             </div>
 
-            {/* Email & Phone Number Column */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '180px', flex: '1' }}>
-              <a href={`mailto:${tenant.owner_email}`} style={{ textDecoration: 'none', fontSize: '13.5px', color: 'var(--text-main)', fontWeight: '750', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                ✉️ {tenant.owner_email}
-              </a>
-              {tenant.owner_phone ? (
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  📞 {tenant.owner_phone}
+            {/* Info rows */}
+            <div style={{ padding: '6px 20px 4px' }}>
+              <InfoRow icon={<EnvelopeIcon />} label="Owner Email" value={tenant.owner_email || '—'} />
+              <InfoRow icon={<PhoneIcon />} label="Phone Number" value={tenant.owner_phone || '—'} />
+              <InfoRow icon={<CalendarIcon />} label="Plan" value={tenant.plan_name || 'Free Tier'} />
+              <InfoRow icon={<CalendarIcon />} label="Member Since" value={new Date(tenant.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} />
+              <InfoRow icon={<UsersIcon />} label="Tenant Users" value={users.length} />
+              <InfoRow icon={<ContactIcon />} label="Total Contacts" value={contacts.length} />
+            </div>
+
+            {/* Tenant ID */}
+            <div style={{ padding: '12px 20px 20px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: '7px' }}>Tenant ID</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#f8fafc', borderRadius: '8px', padding: '8px 12px', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-main)', flex: 1, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {tenant.id.substring(0, 13).toUpperCase()}
                 </span>
-              ) : (
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No phone number</span>
-              )}
+                <button
+                  className="td-copy-btn"
+                  onClick={() => { navigator.clipboard.writeText(tenant.id); toast.success('Copied!'); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '2px', transition: 'color 0.2s' }}
+                  title="Copy Tenant ID"
+                >
+                  <CopyIcon />
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
 
-            {/* Status & Edit Action Column */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start', minWidth: '110px' }}>
-              <Badge type={tenant.owner_status === 'active' ? 'success' : 'danger'}>
-                {tenant.owner_status || 'Active'}
-              </Badge>
-              <Button onClick={handleOpenEditModal} style={{ backgroundColor: 'var(--primary)', color: '#fff', border: 'none', padding: '6px 14px', fontSize: '11.5px', fontWeight: '700', borderRadius: '8px', cursor: 'pointer' }} onMouseOver={(e) => e.target.style.backgroundColor = 'var(--primary-hover)'} onMouseOut={(e) => e.target.style.backgroundColor = 'var(--primary)'}>
-                Edit Tenant
+        {/* ── RIGHT CONTENT ── */}
+        <div className="td-content">
+          <div style={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+
+            {/* Header */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+              padding: '22px 24px 18px', borderBottom: '1px solid var(--border)',
+              flexWrap: 'wrap', gap: '12px'
+            }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>Edit Tenant</h2>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                  Update the tenant's details, subscription, contact, and account information.
+                </p>
+              </div>
+              <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+                <SaveIcon />
+                {formik.isSubmitting ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
-          </div>
 
-          {/* Quick Stats Grid inside Header */}
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-            <div style={{ flex: '1', minWidth: '80px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plan</div>
-              <div style={{ fontSize: '14.5px', fontWeight: '800', color: 'var(--primary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                👑 {tenant.plan_name || 'Free Tier'}
-              </div>
-            </div>
-            <div style={{ flex: '1', minWidth: '100px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Member Since</div>
-              <div style={{ fontSize: '14.5px', fontWeight: '800', color: 'var(--text-main)', marginTop: '4px' }}>
-                {new Date(tenant.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-              </div>
-            </div>
-            <div style={{ flex: '1', minWidth: '90px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tenant Users</div>
-              <div style={{ fontSize: '14.5px', fontWeight: '800', color: 'var(--text-main)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                👥 {users.length}
-              </div>
-            </div>
-            <div style={{ flex: '1', minWidth: '95px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Contacts</div>
-              <div style={{ fontSize: '14.5px', fontWeight: '800', color: 'var(--text-main)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                👤 {contacts.length}
-              </div>
-            </div>
-          </div>
+            {/* Form body */}
+            <div style={{ padding: '24px' }}>
+              <form onSubmit={formik.handleSubmit}>
 
-          <div style={{ display: 'flex', borderTop: '1px solid var(--border)', paddingTop: '16px', alignItems: 'center' }}>
-            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: '700', backgroundColor: '#f1f5f9', padding: '3px 10px', borderRadius: '6px' }}>
-              Tenant ID : {tenant.id.substring(0, 13).toUpperCase()}
-            </div>
-          </div>
-        </div>
+                {/* Profile Image */}
+                <div style={{ marginBottom: '28px', paddingBottom: '28px', borderBottom: '1px solid var(--border)' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 4px' }}>Profile Image</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 16px' }}>Upload a new profile image for the tenant.</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
 
-        {/* Right Stack (40%): Stats Cards stacked vertically with smaller padding to align perfectly */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          justifyContent: 'space-between'
-        }}>
-          {/* Card 1: Total Deals Income */}
-          <div style={{ backgroundColor: '#eff6ff', borderRadius: '16px', padding: '16px 20px', border: '1px solid #dbeafe', boxShadow: '0 4px 6px rgba(0,0,0,0.01)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: '1' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                💸
-              </div>
-              <div>
-                <div style={{ fontSize: '12px', color: '#1e40af', fontWeight: '750' }}>Total Deals Income</div>
-                <div style={{ fontSize: '20px', fontWeight: '850', color: '#1e3a8a', marginTop: '2px' }}>
-                  ₹{totalDealsIncome.toLocaleString()}
-                </div>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '11px', color: '#1d4ed8', fontWeight: '800', backgroundColor: '#dbeafe', padding: '2px 8px', borderRadius: '30px' }}>
-                +18.6%
-              </span>
-              <div style={{ fontSize: '10px', color: '#1e40af', marginTop: '4px' }}>vs last 30 days</div>
-            </div>
-          </div>
-
-          {/* Card 2: Active Deals */}
-          <div style={{ backgroundColor: '#eff6ff', borderRadius: '16px', padding: '16px 20px', border: '1px solid #dbeafe', boxShadow: '0 4px 6px rgba(0,0,0,0.01)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: '1' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#dbeafe', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                💼
-              </div>
-              <div>
-                <div style={{ fontSize: '12px', color: '#1e40af', fontWeight: '750' }}>Active Deals</div>
-                <div style={{ fontSize: '20px', fontWeight: '850', color: '#1e3a8a', marginTop: '2px' }}>
-                  {activeDealsCount}
-                </div>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '11px', color: '#1d4ed8', fontWeight: '800', backgroundColor: '#dbeafe', padding: '2px 8px', borderRadius: '30px' }}>
-                +50%
-              </span>
-              <div style={{ fontSize: '10px', color: '#1e40af', marginTop: '4px' }}>vs last 30 days</div>
-            </div>
-          </div>
-
-          {/* Card 3: Closed Won Deals */}
-          <div style={{ backgroundColor: '#f5f3ff', borderRadius: '16px', padding: '16px 20px', border: '1px solid #ede9fe', boxShadow: '0 4px 6px rgba(0,0,0,0.01)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: '1' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#e0e7ff', color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
-                🏆
-              </div>
-              <div>
-                <div style={{ fontSize: '12px', color: '#4f46e5', fontWeight: '750' }}>Closed Won Deals</div>
-                <div style={{ fontSize: '20px', fontWeight: '850', color: '#3730a3', marginTop: '2px' }}>
-                  {closedWonCount}
-                </div>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: '800', backgroundColor: '#e0e7ff', padding: '2px 8px', borderRadius: '30px' }}>
-                +16.7%
-              </span>
-              <div style={{ fontSize: '10px', color: '#4f46e5', marginTop: '4px' }}>vs last 30 days</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid Layout containing Left Column Stack and Right Column Stack */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1.2fr 1fr',
-        gap: '20px',
-        alignItems: 'start',
-        width: '100%'
-      }}>
-        {/* Left Column Stack: Tenant Users (Staff) & Contacts */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
-          {/* Tenant Users Table */}
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '16px',
-            border: '1px solid var(--border)',
-            padding: '24px',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.01)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>👥</span>
-                <h2 style={{ fontSize: '16px', fontWeight: '850', color: 'var(--text-main)', margin: 0 }}>
-                  Tenant Users (Staff)
-                </h2>
-              </div>
-              <span style={{ fontSize: '12px', fontWeight: '800', color: '#2563eb', backgroundColor: '#eff6ff', padding: '2px 8px', borderRadius: '12px' }}>
-                {users.length} Users
-              </span>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '12px 8px', fontSize: '11px', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>User</th>
-                    <th style={{ padding: '12px 8px', fontSize: '11px', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Role</th>
-                    <th style={{ padding: '12px 8px', fontSize: '11px', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Email</th>
-                    <th style={{ padding: '12px 8px', fontSize: '11px', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.slice(0, 5).map(u => (
-                    <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '12px 8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-muted)', overflow: 'hidden', flexShrink: 0 }}>
-                            {u.profile_image_url ? (
-                              <img src={getFileUrl(u.profile_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px', color: 'var(--text-muted)' }}>
-                                {(u.name || 'U')[0]}
-                              </div>
-                            )}
-                          </div>
-                          <Link to={`/users/${u.id}`} style={{ fontWeight: '750', fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}>
-                            {u.name}
-                          </Link>
-                        </div>
-                      </td>
-                      <td style={{ padding: '12px 8px' }}>
-                        <Badge type="info">{u.roles?.role_name || u.role || 'Staff'}</Badge>
-                      </td>
-                      <td style={{ padding: '12px 8px', fontSize: '13px', color: 'var(--text-muted)' }}>{u.email}</td>
-                      <td style={{ padding: '12px 8px' }}>
-                        <Badge type={u.status === 'active' ? 'success' : 'danger'}>{u.status || 'Active'}</Badge>
-                      </td>
-                    </tr>
-                  ))}
-                  {users.length === 0 && (
-                    <tr>
-                      <td colSpan="4" style={{ padding: '30px 8px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                        No staff users registered.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ marginTop: '16px' }}>
-              <Link to="/users" style={{ fontSize: '12.5px', fontWeight: '800', color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                View All Users ➔
-              </Link>
-            </div>
-          </div>
-
-          {/* Contacts Under Tenant Users */}
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '16px',
-            border: '1px solid var(--border)',
-            padding: '24px',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.01)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>👤</span>
-                <h2 style={{ fontSize: '16px', fontWeight: '850', color: 'var(--text-main)', margin: 0 }}>
-                  Contacts Under Tenant Users
-                </h2>
-              </div>
-              <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--primary)', backgroundColor: '#eff6ff', padding: '2px 8px', borderRadius: '12px' }}>
-                Total Contacts: {contacts.length}
-              </span>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '12px 8px', fontSize: '11px', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Contact Name</th>
-                    <th style={{ padding: '12px 8px', fontSize: '11px', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Email</th>
-                    <th style={{ padding: '12px 8px', fontSize: '11px', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Phone</th>
-                    <th style={{ padding: '12px 8px', fontSize: '11px', fontWeight: '750', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {contacts.slice(0, 5).map(c => (
-                    <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '12px 8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-muted)', overflow: 'hidden', flexShrink: 0 }}>
-                            {c.profile_image_url ? (
-                              <img src={getFileUrl(c.profile_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px', color: 'var(--text-muted)' }}>
-                                {(c.first_name || 'C')[0]}
-                              </div>
-                            )}
-                          </div>
-                          <Link to={`/contacts/${c.id}`} style={{ fontWeight: '750', fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}>
-                            {c.first_name} {c.last_name || ''}
-                          </Link>
-                        </div>
-                      </td>
-                      <td style={{ padding: '12px 8px', fontSize: '13px', color: 'var(--text-muted)' }}>{c.email || '—'}</td>
-                      <td style={{ padding: '12px 8px', fontSize: '13px', color: 'var(--text-muted)' }}>{c.phone || '—'}</td>
-                      <td style={{ padding: '12px 8px' }}>
-                        <Badge type={c.status === 'active' ? 'success' : 'secondary'}>
-                          {c.status || 'lead'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                  {contacts.length === 0 && (
-                    <tr>
-                      <td colSpan="4" style={{ padding: '30px 8px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                        No contacts registered.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ marginTop: '16px' }}>
-              <Link to="/contacts" style={{ fontSize: '12.5px', fontWeight: '800', color: 'var(--primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                View All Contacts ➔
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column Stack: Deals Income Overview Chart & Recent Deals */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
-          {/* Deals Income Overview Chart */}
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '16px',
-            border: '1px solid var(--border)',
-            padding: '24px',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.01)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>📈</span>
-                <h2 style={{ fontSize: '16px', fontWeight: '850', color: 'var(--text-main)', margin: 0 }}>
-                  Deals Income Overview
-                </h2>
-              </div>
-              
-              <select 
-                value={timeFilter}
-                onChange={(e) => setTimeFilter(e.target.value)}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  fontSize: '12.5px',
-                  fontWeight: '600',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                <option>This Month</option>
-                <option>Last 30 Days</option>
-                <option>All Time</option>
-              </select>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '24px', fontWeight: '850', color: 'var(--text-main)' }}>
-                ₹{totalDealsIncome.toLocaleString()}
-              </div>
-              <div style={{ fontSize: '12.5px', color: '#2563eb', fontWeight: '750', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                ↗ 18.6% <span style={{ color: 'var(--text-muted)', fontWeight: '500' }}>vs last month</span>
-              </div>
-            </div>
-
-            {/* SVG Custom Area/Line Chart */}
-            <div style={{ position: 'relative', marginTop: '24px', width: '100%', height: `${chartHeight + 40}px` }}>
-              <svg viewBox={`0 0 ${chartWidth} ${chartHeight + 40}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-                <defs>
-                  <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2563eb" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                {/* Y Gridlines */}
-                {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
-                  const yPos = chartHeight - ratio * chartHeight;
-                  const labelVal = Math.round(ratio * maxVal);
-                  return (
-                    <g key={idx}>
-                      <line x1="45" y1={yPos} x2={chartWidth} y2={yPos} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="3,3" />
-                      <text x="36" y={yPos + 4} fill="var(--text-muted)" fontSize="9" fontWeight="700" textAnchor="end">
-                        {labelVal >= 1000 ? `${labelVal/1000}k` : labelVal}
-                      </text>
-                    </g>
-                  );
-                })}
-
-                {/* Filled Area */}
-                <polygon points={closedPath} fill="url(#chartGradient)" />
-
-                {/* Stroke Line */}
-                <polyline points={pointsString} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
-                {/* Interactive Tooltip Node for 21 May */}
-                {(() => {
-                  const activeIndex = 4; // 21 May
-                  const pt = chartPoints[activeIndex];
-                  const xPos = 45 + (activeIndex / (chartPoints.length - 1)) * (chartWidth - 65);
-                  const yPos = chartHeight - (pt.y / maxVal) * chartHeight;
-
-                  return (
-                    <g>
-                      {/* Vertical guideline */}
-                      <line x1={xPos} y1="0" x2={xPos} y2={chartHeight} stroke="#2563eb" strokeWidth="1" strokeDasharray="2,2" />
-                      
-                      {/* Pulse outer ring */}
-                      <circle cx={xPos} cy={yPos} r="8" fill="#2563eb" fillOpacity="0.15" />
-                      {/* Inner core circle */}
-                      <circle cx={xPos} cy={yPos} r="4.5" fill="#2563eb" stroke="#fff" strokeWidth="1.5" />
-                      
-                      {/* Floating Info card above the node */}
-                      <g transform={`translate(${xPos - 40}, ${yPos - 38})`}>
-                        <rect width="80" height="28" rx="6" fill="#1e293b" />
-                        <text x="40" y="12" fill="#fff" fontSize="8" fontWeight="800" textAnchor="middle">
-                          ₹{pt.y.toLocaleString()}
-                        </text>
-                        <text x="40" y="22" fill="#94a3b8" fontSize="7" fontWeight="600" textAnchor="middle">
-                          {pt.x}
-                        </text>
-                      </g>
-                    </g>
-                  );
-                })()}
-
-                {/* X Axis Labels */}
-                {chartPoints.map((pt, i) => {
-                  const xPos = 45 + (i / (chartPoints.length - 1)) * (chartWidth - 65);
-                  return (
-                    <text key={i} x={xPos} y={chartHeight + 18} fill="var(--text-muted)" fontSize="9.5" fontWeight="700" textAnchor="middle">
-                      {pt.x}
-                    </text>
-                  );
-                })}
-              </svg>
-            </div>
-          </div>
-
-          {/* Recent Deals List */}
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '16px',
-            border: '1px solid var(--border)',
-            padding: '24px',
-            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.01)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>💼</span>
-                <h2 style={{ fontSize: '16px', fontWeight: '850', color: 'var(--text-main)', margin: 0 }}>
-                  Recent Deals
-                </h2>
-              </div>
-              
-              <Link to="/deals" style={{ fontSize: '12.5px', fontWeight: '800', color: 'var(--primary)', textDecoration: 'none' }}>
-                View All
-              </Link>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {deals.slice(0, 5).map(deal => (
-                <div key={deal.id} style={{
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  border: '1px solid var(--border)',
-                  backgroundColor: '#f8fafc',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', minWidth: 0 }}>
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '10px',
-                      backgroundColor: deal.status === 'won' ? '#eff6ff' : deal.status === 'lost' ? '#fee2e2' : '#eff6ff',
-                      color: deal.status === 'won' ? '#2563eb' : deal.status === 'lost' ? '#ef4444' : '#2563eb',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '16px',
-                      flexShrink: 0
-                    }}>
-                      💰
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <Link to={`/deals/${deal.id}`} style={{ fontWeight: '750', fontSize: '13.5px', color: 'var(--text-main)', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {deal.deal_name}
-                      </Link>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                        <span>🚩 {deal.stage}</span>
-                        <span>•</span>
-                        <span>👤 {deal.assigned_to_user?.name || 'Unassigned'}</span>
+                    {/* Avatar preview */}
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <div style={{ width: '74px', height: '74px', borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--border)', backgroundColor: '#e2e8f0' }}>
+                        {currentAvatar
+                          ? <img src={currentAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #4f46e5, #6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '26px', fontWeight: '700' }}>
+                              {tenant.owner_name?.[0]?.toUpperCase() || 'T'}
+                            </div>
+                        }
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{
+                          position: 'absolute', bottom: '1px', right: '1px',
+                          width: '22px', height: '22px', borderRadius: '50%',
+                          backgroundColor: 'var(--primary)', border: '2px solid #fff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer', color: '#fff'
+                        }}
+                        title="Change image"
+                      >
+                        <svg width="9" height="9" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                      </button>
                     </div>
-                  </div>
 
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: '850', color: 'var(--text-main)' }}>
-                      ₹{deal.value?.toLocaleString()}
-                    </div>
-                    <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', color: deal.status === 'won' ? 'var(--success)' : deal.status === 'lost' ? 'var(--danger)' : 'var(--warning)', marginTop: '2px' }}>
-                      {deal.status}
+                    <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/svg+xml" onChange={handleImageChange} style={{ display: 'none' }} />
+
+                    {/* Upload area */}
+                    <div
+                      className="td-upload-area"
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{
+                        flex: 1, minWidth: '160px',
+                        border: '1.5px dashed var(--border)',
+                        borderRadius: '10px', padding: '18px 20px',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        gap: '5px', cursor: 'pointer', backgroundColor: '#fafbfc',
+                        transition: 'border-color 0.2s, background-color 0.2s'
+                      }}
+                    >
+                      <div style={{ color: '#94a3b8' }}><CloudUploadIcon /></div>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Upload Image</span>
+                      <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>JPG, PNG or SVG. Max size 2MB.</span>
                     </div>
                   </div>
                 </div>
-              ))}
 
-              {deals.length === 0 && (
-                <div style={{ padding: '30px 10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                  No deals created.
+                {/* Subscription Plan */}
+                <div style={{ marginBottom: '28px', paddingBottom: '28px', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ maxWidth: '380px' }}>
+                    <Select
+                      label="Subscription Plan"
+                      name="plan_id"
+                      value={formik.values.plan_id}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      error={formik.errors.plan_id}
+                      touched={formik.touched.plan_id}
+                      required
+                    >
+                      <option value="">Select Plan</option>
+                      {plans.map(p => (
+                        <option key={p.id} value={p.id}>{p.plan_name} (₹{p.price})</option>
+                      ))}
+                    </Select>
+                  </div>
                 </div>
-              )}
+
+                {/* Company / Owner Details */}
+                <div style={{ marginBottom: '28px', paddingBottom: '28px', borderBottom: '1px solid var(--border)' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 16px' }}>Company / Owner Details</h3>
+                  <div className="td-form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+
+                    <Input
+                      label="Company / Owner Name"
+                      name="name"
+                      placeholder="Acme Inc. / John Doe"
+                      value={formik.values.name}
+                      onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('name', true, false); }}
+                      onBlur={formik.handleBlur}
+                      error={formik.errors.name}
+                      touched={formik.touched.name}
+                      required
+                    />
+
+                    <Input
+                      label="Owner Email"
+                      name="email"
+                      type="email"
+                      placeholder="owner@acme.com"
+                      value={formik.values.email}
+                      onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('email', true, false); }}
+                      onBlur={formik.handleBlur}
+                      error={formik.errors.email}
+                      touched={formik.touched.email}
+                      required
+                    />
+
+                    {/* Phone */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+                        Phone Number <span style={{ color: 'var(--danger)' }}>*</span>
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <div style={{ width: '100px', flexShrink: 0 }}>
+                          <SearchableCountryCodeSelect
+                            value={formik.values.phoneCode}
+                            onChange={(val) => formik.setFieldValue('phoneCode', val)}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <input
+                            name="phone"
+                            type="tel"
+                            placeholder="Phone number"
+                            value={formik.values.phone}
+                            onChange={formik.handleChange}
+                            onBlur={formik.handleBlur}
+                            onKeyDown={(e) => {
+                              if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) || (e.ctrlKey || e.metaKey)) return;
+                              if (!/^[0-9]$/.test(e.key)) e.preventDefault();
+                            }}
+                            style={{
+                              width: '100%', padding: '10px 12px', borderRadius: '8px',
+                              border: `1.5px solid ${formik.touched.phone && formik.errors.phone ? 'var(--danger)' : 'var(--border)'}`,
+                              fontSize: '14px', outline: 'none', backgroundColor: '#fff',
+                              boxSizing: 'border-box', transition: 'border-color 0.2s, box-shadow 0.2s', height: '42px'
+                            }}
+                            onFocus={(e) => {
+                              if (!(formik.touched.phone && formik.errors.phone)) {
+                                e.target.style.borderColor = 'var(--primary)';
+                                e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)';
+                              }
+                            }}
+                            onBlur={(e) => {
+                              formik.handleBlur(e);
+                              if (!(formik.touched.phone && formik.errors.phone)) {
+                                e.target.style.borderColor = 'var(--border)';
+                                e.target.style.boxShadow = 'none';
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                      {formik.touched.phone && formik.errors.phone && (
+                        <div style={{ color: 'var(--danger)', fontSize: '11px', fontWeight: '500', marginTop: '4px' }}>{formik.errors.phone}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account Status */}
+                <div>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', margin: '0 0 16px' }}>Account Status</h3>
+                  <div style={{ maxWidth: '240px' }}>
+                    <Select
+                      label="Status"
+                      name="status"
+                      value={formik.values.status}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      error={formik.errors.status}
+                      touched={formik.touched.status}
+                      required
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="suspended">Suspended</option>
+                    </Select>
+                  </div>
+                </div>
+
+              </form>
             </div>
           </div>
         </div>
+
       </div>
-
-      {/* Edit Tenant Modal */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Edit Tenant Details"
-        footer={
-          <>
-            <Button type="secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-            <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
-              {formik.isSubmitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </>
-        }
-      >
-        <form onSubmit={formik.handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '16px' }}>
-            <Select
-              label="Subscription Plan"
-              name="plan_id"
-              value={formik.values.plan_id}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.plan_id}
-              touched={formik.touched.plan_id}
-              required
-            >
-              <option value="">Select Plan</option>
-              {plans.map(p => (
-                <option key={p.id} value={p.id}>{p.plan_name} (₹{p.price})</option>
-              ))}
-            </Select>
-          </div>
-
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px' }}>Company / Owner Details</h3>
-
-          <Input
-            label="Company / Owner Name"
-            name="name"
-            placeholder="Acme Inc. / John Doe"
-            value={formik.values.name}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            error={formik.errors.name}
-            touched={formik.touched.name}
-            required
-          />
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input
-              label="Owner Email"
-              name="email"
-              type="email"
-              placeholder="owner@acme.com"
-              value={formik.values.email}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.email}
-              touched={formik.touched.email}
-              required
-            />
-            <Select
-              label="Country"
-              name="country"
-              value={formik.values.country}
-              onChange={(e) => {
-                formik.setFieldValue('country', e.target.value);
-              }}
-              onBlur={formik.handleBlur}
-              error={formik.errors.country}
-              touched={formik.touched.country}
-              required
-            >
-              <option value="">Select Country</option>
-              {countries.map(c => (
-                <option key={c.name} value={c.name}>{c.name} ({c.code})</option>
-              ))}
-            </Select>
-          </div>
-
-          <Input
-            label="Phone Number"
-            name="phone"
-            type="tel"
-            placeholder="e.g. 9876543210"
-            value={formik.values.phone}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            onKeyDown={(e) => {
-              if (
-                ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', '+'].includes(e.key) ||
-                (e.key === 'a' && (e.ctrlKey === true || e.metaKey === true)) ||
-                (e.key === 'c' && (e.ctrlKey === true || e.metaKey === true)) ||
-                (e.key === 'v' && (e.ctrlKey === true || e.metaKey === true)) ||
-                (e.key === 'x' && (e.ctrlKey === true || e.metaKey === true))
-              ) {
-                return;
-              }
-              if (!/^[0-9]$/.test(e.key)) {
-                e.preventDefault();
-              }
-            }}
-            error={formik.errors.phone}
-            touched={formik.touched.phone}
-            required
-            helperText="Enter 10-digit Indian mobile number"
-          />
-
-          <Select
-            label="Status"
-            name="status"
-            value={formik.values.status}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            error={formik.errors.status}
-            touched={formik.touched.status}
-            required
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="suspended">Suspended</option>
-          </Select>
-        </form>
-      </Modal>
-
     </div>
   );
 }

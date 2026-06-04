@@ -201,6 +201,8 @@ export default function Tenants() {
   }
 
   const formik = useFormik({
+    validateOnChange: true,
+    validateOnBlur: true,
     initialValues: {
       plan_id: '',
       name: '',
@@ -215,8 +217,8 @@ export default function Tenants() {
       profile_image_url: ''
     },
     validationSchema: Yup.object({
-      name: Yup.string().required('Company / Owner Name is required'),
-      email: Yup.string().email('Invalid email address').required('Owner email is required'),
+      name: Yup.string().required('Company / Owner Name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
+      email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address').required('Owner email is required'),
       phone: Yup.string()
         .required('Phone number is required')
         .test('is-valid-phone', 'Invalid phone number for the selected country code', function (value) {
@@ -461,7 +463,6 @@ export default function Tenants() {
     { header: 'Email', key: 'owner_email' },
     {
       header: 'Status',
-      sortKey: 'owner_status',
       render: (row) => {
         const types = { active: 'success', suspended: 'danger', inactive: 'secondary' };
         return <Badge type={types[row.owner_status || 'inactive']}>{row.owner_status || 'inactive'}</Badge>;
@@ -482,12 +483,12 @@ export default function Tenants() {
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Manage all registered platform companies and their status.</p>
         </div>
         <div className="page-actions">
-          <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '6px' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
           </Button>
-          <Button onClick={() => handleOpenModal()}>
-            <span>+</span> Add Tenant
+          <Button onClick={() => handleOpenModal()} style={{ borderRadius: '6px' }}>
+            + Add Tenant
           </Button>
         </div>
       </div>
@@ -709,7 +710,7 @@ export default function Tenants() {
             name="name"
             placeholder="Acme Inc. / John Doe"
             value={formik.values.name}
-            onChange={formik.handleChange}
+            onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('name', true, false); }}
             onBlur={formik.handleBlur}
             error={formik.errors.name}
             touched={formik.touched.name}
@@ -723,7 +724,7 @@ export default function Tenants() {
               type="email"
               placeholder="owner@acme.com"
               value={formik.values.email}
-              onChange={formik.handleChange}
+              onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('email', true, false); }}
               onBlur={formik.handleBlur}
               error={formik.errors.email}
               touched={formik.touched.email}

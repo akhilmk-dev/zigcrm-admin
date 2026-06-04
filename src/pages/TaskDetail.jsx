@@ -4,7 +4,8 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import api, { getFileUrl } from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
+import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
+import { FormSelect } from '../components/common/FormSelect';
 import { toast } from 'react-hot-toast';
 import CRMWorkspaceTabs from '../components/common/CRMWorkspaceTabs';
 
@@ -93,6 +94,8 @@ export default function TaskDetail() {
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [contactDeals, setContactDeals] = useState([]);
+  const [loadingDeals, setLoadingDeals] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [tasksRemaining, setTasksRemaining] = useState(0);
   const [taskPage, setTaskPage] = useState(1);
@@ -173,7 +176,8 @@ export default function TaskDetail() {
       assigned_to: '',
       contact_id: '',
       document_url: '',
-      tenant_id: ''
+      tenant_id: '',
+      deal_id: ''
     },
     validationSchema: Yup.object({
       title: Yup.string().required('Task title is required'),
@@ -239,7 +243,7 @@ export default function TaskDetail() {
       toast.error(errorMsg);
     } finally {
       setUploading(false);
-      const fileInput = document.getElementById('file-upload');
+      const fileInput = document.getElementById('file-upload-detail');
       if (fileInput) fileInput.value = '';
     }
   };
@@ -264,7 +268,8 @@ export default function TaskDetail() {
       assigned_to: task.assigned_to || '',
       contact_id: task.contact_id || '',
       document_url: task.document_url || '',
-      tenant_id: task.tenant_id || ''
+      tenant_id: task.tenant_id || '',
+      deal_id: task.deal_id || ''
     });
 
     if (isGlobalAdmin) {
@@ -286,6 +291,20 @@ export default function TaskDetail() {
       api.get(`/users?tenant_id=${formik.values.tenant_id}`).then(res => setStaff(res.data.data || []));
     }
   }, [formik.values.tenant_id]);
+
+  useEffect(() => {
+    const contactId = formik.values.contact_id;
+    if (contactId && isEditModalOpen) {
+      setLoadingDeals(true);
+      const tenantId = formik.values.tenant_id || loggedInUser?.tenantId;
+      api.get(`/deals/selection?contact_id=${contactId}${tenantId ? `&tenant_id=${tenantId}` : ''}`)
+        .then(res => setContactDeals(res.data.data || []))
+        .catch(console.error)
+        .finally(() => setLoadingDeals(false));
+    } else {
+      setContactDeals([]);
+    }
+  }, [formik.values.contact_id, formik.values.tenant_id, isEditModalOpen]);
 
   const handleConfirmDelete = async () => {
     try {
@@ -1400,135 +1419,151 @@ function TaskDetailSkeleton() {
       </div>
 
       {/* Edit Modal */}
-      <Modal 
-        isOpen={isEditModalOpen} 
-        onClose={() => setIsEditModalOpen(false)} 
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
         title="Edit Task"
         footer={<>
           <Button type="secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
           <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
-            {formik.isSubmitting ? 'Saving...' : 'Save Changes'}
+            {formik.isSubmitting ? 'Updating...' : 'Update Task'}
           </Button>
         </>}
       >
         <form onSubmit={formik.handleSubmit}>
-          {isGlobalAdmin && (
-            <Select 
-                label="Assign to Company"
-                name="tenant_id"
-                value={formik.values.tenant_id}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                error={formik.errors.tenant_id}
-                touched={formik.touched.tenant_id}
-                required
-            >
-                <option value="">Select a Company</option>
-                {Array.isArray(tenants) && tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
-            </Select>
-          )}
-
-          <Input 
-            label="Task Title" 
+          <Input
+            label="Task Title"
             name="title"
             placeholder="Enter task title"
-            value={formik.values.title} 
-            onChange={formik.handleChange} 
+            value={formik.values.title}
+            onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={formik.errors.title}
             touched={formik.touched.title}
-            required 
+            required
           />
 
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Description</label>
-            <textarea 
+            <textarea
               name="description"
               placeholder="Provide a detailed description of the task..."
               value={formik.values.description}
               onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-               style={{
+              onBlur={(e) => { formik.handleBlur(e); e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }}
+              style={{
                 width: '100%',
                 padding: '10px 12px',
                 minHeight: '80px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                border: '1.5px solid var(--border)',
                 fontSize: '14px',
                 backgroundColor: '#fff',
                 outline: 'none',
-                fontFamily: 'inherit'
+                fontFamily: 'inherit',
+                resize: 'vertical',
+                transition: 'border-color 0.2s, box-shadow 0.2s'
               }}
+              onFocus={(e) => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
             />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input 
-                label="Due Date" 
-                type="date" 
-                name="due_date"
-                value={formik.values.due_date} 
-                onChange={formik.handleChange} 
-                onBlur={formik.handleBlur}
+            <Input
+              label="Due Date"
+              type="date"
+              name="due_date"
+              value={formik.values.due_date}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              min={new Date().toISOString().split('T')[0]}
             />
-            
-            <Select
-                label="Priority"
-                name="priority"
-                value={formik.values.priority}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                required
-            >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-            </Select>
+
+            <FormSelect
+              label="Priority"
+              name="priority"
+              value={formik.values.priority}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              required
+              options={[
+                { value: 'low',    label: 'Low',    color: '#10b981' },
+                { value: 'medium', label: 'Medium', color: '#f59e0b' },
+                { value: 'high',   label: 'High',   color: '#ef4444' },
+              ]}
+            />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Select
-                label="Assign To"
-                name="assigned_to"
-                value={formik.values.assigned_to}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-            >
-                <option value="">Select Staff</option>
-                {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </Select>
+            <FormSelect
+              label="Assign To"
+              name="assigned_to"
+              value={formik.values.assigned_to}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              searchable
+              placeholder="Select Staff"
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...staff.map(s => ({ value: s.id, label: s.name, avatar: s.name?.[0]?.toUpperCase() }))
+              ]}
+            />
 
-            <Select
-                label="Status"
-                name="status"
-                value={formik.values.status}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-            >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-            </Select>
+            <FormSelect
+              label="Status"
+              name="status"
+              value={formik.values.status}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              options={[
+                { value: 'pending',     label: 'Pending',     color: '#f59e0b' },
+                { value: 'in_progress', label: 'In Progress', color: '#3b82f6' },
+                { value: 'completed',   label: 'Completed',   color: '#10b981' },
+                { value: 'cancelled',   label: 'Cancelled',   color: '#ef4444' },
+              ]}
+            />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <Select
-                label="Contact / Partner"
-                name="contact_id"
-                value={formik.values.contact_id}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-            >
-                <option value="">Select Contact</option>
-                {contacts.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name} ({c.company_name})</option>)}
-            </Select>
+            <FormSelect
+              label="Contact / Partner"
+              name="contact_id"
+              value={formik.values.contact_id}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.contact_id}
+              touched={formik.touched.contact_id}
+              required
+              searchable
+              placeholder="Select Contact"
+              options={contacts.map(c => ({
+                value: c.id,
+                label: `${c.first_name} ${c.last_name}${c.company_name ? ` (${c.company_name})` : ''}`,
+                avatar: c.first_name?.[0]?.toUpperCase()
+              }))}
+            />
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <FormSelect
+              label="Associated Deal"
+              name="deal_id"
+              value={formik.values.deal_id}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              disabled={!formik.values.contact_id || loadingDeals}
+              placeholder={formik.values.contact_id ? (loadingDeals ? 'Loading deals…' : 'Select Deal (Optional)') : 'Please select a contact first'}
+              options={[
+                { value: '', label: 'None' },
+                ...contactDeals.map(d => ({ value: d.id, label: d.name }))
+              ]}
+            />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Reference Document</label>
-            
-            <div 
+
+            <div
               onDragEnter={handleDrag}
               onDragOver={handleDrag}
               onDragLeave={handleDrag}
@@ -1549,23 +1584,23 @@ function TaskDetailSkeleton() {
                 cursor: 'pointer',
                 overflow: 'hidden'
               }}
-              onClick={() => document.getElementById('file-upload').click()}
+              onClick={() => document.getElementById('file-upload-detail').click()}
             >
-              <input 
-                id="file-upload"
-                type="file" 
+              <input
+                id="file-upload-detail"
+                type="file"
                 style={{ display: 'none' }}
                 onChange={handleFileUpload}
                 disabled={uploading}
               />
-              
+
               {uploading ? (
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ 
-                    width: '32px', 
-                    height: '32px', 
-                    border: '3px solid rgba(var(--primary-rgb), 0.1)', 
-                    borderTopColor: 'var(--primary)', 
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    border: '3px solid rgba(var(--primary-rgb), 0.1)',
+                    borderTopColor: 'var(--primary)',
                     borderRadius: '50%',
                     animation: 'spin 1s linear infinite',
                     margin: '0 auto 12px'
@@ -1575,63 +1610,35 @@ function TaskDetailSkeleton() {
                 </div>
               ) : formik.values.document_url ? (
                 <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s ease-out' }}>
-                  <div style={{ 
-                    fontSize: '40px', 
-                    marginBottom: '12px',
-                    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))'
-                  }}>📄</div>
-                  <div style={{ 
-                    fontSize: '15px', 
-                    fontWeight: '700', 
-                    color: '#059669', 
-                    marginBottom: '4px' 
-                  }}>
+                  <div style={{ fontSize: '40px', marginBottom: '12px', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }}>📄</div>
+                  <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--primary)', marginBottom: '4px' }}>
                     Document Uploaded!
                   </div>
                   {uploadedFileName && (
-                    <div style={{ 
-                      fontSize: '13px', 
-                      color: 'var(--text-muted)', 
-                      marginBottom: '12px',
-                      maxWidth: '250px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      margin: '0 auto 12px'
-                    }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: '0 auto 12px' }}>
                       {uploadedFileName}
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '12px' }}>
-                    <a 
-                      href={getFileUrl(formik.values.document_url)} 
-                      target="_blank" 
+                    <a
+                      href={getFileUrl(formik.values.document_url)}
+                      target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      style={{ 
-                        fontSize: '13px', 
-                        color: 'var(--primary)', 
-                        fontWeight: '700', 
-                        textDecoration: 'none',
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        backgroundColor: 'rgba(var(--primary-rgb), 0.1)'
-                      }}
+                      style={{ fontSize: '13px', color: 'var(--primary)', fontWeight: '700', textDecoration: 'none', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'rgba(var(--primary-rgb), 0.1)' }}
                     >
                       Preview File
                     </a>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       type="ghost"
                       htmlType="button"
-                      onClick={(e) => { e.stopPropagation(); document.getElementById('file-upload').click(); }}
+                      onClick={(e) => { e.stopPropagation(); document.getElementById('file-upload-detail').click(); }}
                     >
                       Change File
                     </Button>
                   </div>
-                  <style>{`
-                    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-                  `}</style>
+                  <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
                 </div>
               ) : (
                 <div style={{ textAlign: 'center' }}>

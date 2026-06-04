@@ -10,12 +10,14 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
 
   const formik = useFormik({
+    validateOnChange: true,
+    validateOnBlur: true,
     initialValues: {
       email: '',
       password: ''
     },
     validationSchema: Yup.object({
-      email: Yup.string().email('Invalid email address').required('Email is required'),
+      email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address').required('Email is required'),
       password: Yup.string().required('Password is required')
     }),
     onSubmit: async (values, { setSubmitting }) => {
@@ -186,7 +188,7 @@ export default function Login() {
                 type="email"
                 placeholder="name@company.com"
                 value={formik.values.email}
-                onChange={formik.handleChange}
+                onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('email', true, false); }}
                 onBlur={formik.handleBlur}
                 style={{
                   width: '100%',

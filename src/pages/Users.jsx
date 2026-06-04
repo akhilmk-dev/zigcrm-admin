@@ -10,6 +10,7 @@ import { usePermission } from '../hooks/usePermission';
 import { toast } from 'react-hot-toast';
 import { countries } from '../constants/countries';
 import { isValidPhoneNumber } from 'libphonenumber-js';
+import AddTenantUserModal from '../components/users/AddTenantUserModal';
 
 function SearchableCountryCodeSelect({ value, onChange, label }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -210,6 +211,8 @@ export default function Users() {
   // ─── Modal State ─────────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [isTenantUserModalOpen, setIsTenantUserModalOpen] = useState(false);
+  const [editingTenantUser, setEditingTenantUser] = useState(null);
 
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -217,6 +220,8 @@ export default function Users() {
   const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   const formik = useFormik({
+    validateOnChange: true,
+    validateOnBlur: true,
     initialValues: {
       name: '',
       email: '',
@@ -230,8 +235,13 @@ export default function Users() {
       profile_image_url: '',
     },
     validationSchema: Yup.object({
-      name: Yup.string().required('Full name is required'),
-      email: Yup.string().email('Invalid email address').required('Email is required'),
+      name: Yup.string().required('Full name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      email: Yup.string()
+        .matches(
+          /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+          'Invalid email address'
+        )
+        .required('Email is required'),
       phone: Yup.string()
         .required('Phone number is required')
         .test('is-valid-phone', 'Invalid phone number for the selected country', function (value) {
@@ -346,36 +356,6 @@ export default function Users() {
     }
   }, [viewScope, filterTenantId, page, debouncedSearch, statusFilter, fromDate, toDate, dateError, isGlobalAdmin, pageSize, sortField, sortOrder]);
 
-  const handleExport = async () => {
-    try {
-      const params = new URLSearchParams({
-        sortField,
-        sortOrder,
-        export: 'true'
-      });
-      if (isGlobalAdmin) params.append('scope', viewScope);
-      if (filterTenantId) params.append('tenant_id', filterTenantId);
-      if (debouncedSearch) params.append('search', debouncedSearch);
-      if (statusFilter) params.append('status', statusFilter);
-
-      toast.loading('Exporting users...', { id: 'export-users' });
-      const response = await api.get(`/users?${params.toString()}`, {
-        responseType: 'blob'
-      });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `users_export_${Date.now()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      toast.success('Users exported successfully', { id: 'export-users' });
-    } catch (err) {
-      console.error("Export users failed", err);
-      toast.error('Failed to export users', { id: 'export-users' });
-    }
-  };
-
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   // Handle global search from navbar
@@ -393,6 +373,13 @@ export default function Users() {
 
   // ─── Modal Open/Close ─────────────────────────────────────────────────────────
   const handleOpenModal = (user = null) => {
+    if (viewScope === 'tenant') {
+      setEditingTenantUser(user || null);
+      setIsTenantUserModalOpen(true);
+      return;
+    }
+
+    // Platform admin flow
     if (user) {
       setEditingUser(user);
 
@@ -443,6 +430,7 @@ export default function Users() {
   };
 
   const handleCloseModal = () => { setIsModalOpen(false); setEditingUser(null); };
+  const handleCloseTenantUserModal = () => { setIsTenantUserModalOpen(false); setEditingTenantUser(null); };
 
   const handleDeleteUser = (user) => {
     setUserToDelete(user);
@@ -515,7 +503,6 @@ export default function Users() {
     {
       header: 'Role',
       key: 'role',
-      sortKey: 'roles(role_name)',
       render: (row) => (
         <Badge type="primary">
           {row.roles?.role_name || row.role || '—'}
@@ -543,7 +530,6 @@ export default function Users() {
     {
       header: 'Status',
       key: 'status',
-      sortKey: 'status',
       render: (row) => {
         const isActive = row.status === 'active';
         const isSuspended = row.status === 'suspended';
@@ -618,11 +604,6 @@ export default function Users() {
           </div>
         </div>
         <div className="page-actions">
-          {/* Temporarily hidden Export button */}
-          {/* <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Export
-          </Button> */}
           {hasPermission('users.manage') && (
             <Button onClick={() => handleOpenModal()} style={{ borderRadius: '6px' }}>
               + Add {isAddingPlatformUser ? 'Platform Admin' : 'Tenant User'}
@@ -888,7 +869,15 @@ export default function Users() {
         )}
       />
 
-      {/* Add/Edit User Modal */}
+      <AddTenantUserModal
+        isOpen={isTenantUserModalOpen}
+        onClose={handleCloseTenantUserModal}
+        user={editingTenantUser}
+        onSuccess={() => { fetchUsers(); }}
+        defaultTenantId={!isGlobalAdmin ? loggedInUser?.tenantId : ''}
+      />
+
+      {/* Add/Edit Platform Admin Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -947,7 +936,7 @@ export default function Users() {
             name="name"
             placeholder="Jane Doe"
             value={formik.values.name}
-            onChange={formik.handleChange}
+            onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('name', true, false); }}
             onBlur={formik.handleBlur}
             error={formik.errors.name}
             touched={formik.touched.name}
@@ -959,7 +948,10 @@ export default function Users() {
             type="email"
             placeholder="jane@company.com"
             value={formik.values.email}
-            onChange={formik.handleChange}
+            onChange={(e) => {
+              formik.handleChange(e);
+              formik.setFieldTouched('email', true, false);
+            }}
             onBlur={formik.handleBlur}
             error={formik.errors.email}
             touched={formik.touched.email}
@@ -1001,6 +993,7 @@ export default function Users() {
               error={formik.errors.target_tenant_id}
               touched={formik.touched.target_tenant_id}
               required
+              searchable
               placeholder="— Select a Company —"
               options={tenants.map(t => ({
                 value: t.id,
@@ -1020,6 +1013,7 @@ export default function Users() {
             error={formik.errors.role_id}
             touched={formik.touched.role_id}
             required
+            searchable
             disabled={formRolesLoading}
             placeholder="Select a role"
             options={filteredRoles.map(r => ({ value: r.id, label: r.role_name }))}
@@ -1051,7 +1045,8 @@ export default function Users() {
                 label={editingUser ? 'New Password' : 'Password'}
                 name="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Min 6 characters"
+                autoComplete="new-password"
                 value={formik.values.password}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
@@ -1064,7 +1059,8 @@ export default function Users() {
                 label="Confirm Password"
                 name="re_password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Re-enter password"
+                autoComplete="new-password"
                 value={formik.values.re_password}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
