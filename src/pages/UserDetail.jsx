@@ -80,6 +80,8 @@ export default function UserDetail() {
 
   // Formik for Editing User Info
   const editUserFormik = useFormik({
+    validateOnChange: true,
+    validateOnBlur: true,
     initialValues: {
       name: '',
       email: '',
@@ -94,8 +96,8 @@ export default function UserDetail() {
       reports_to: ''
     },
     validationSchema: Yup.object({
-      name: Yup.string().required('Full name is required'),
-      email: Yup.string().email('Invalid email address').required('Email is required'),
+      name: Yup.string().required('Full name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address').required('Email is required'),
       role_id: Yup.string().required('Role is required')
     }),
     onSubmit: async (values) => {
@@ -1927,23 +1929,23 @@ export default function UserDetail() {
         </>}
       >
         <form onSubmit={editUserFormik.handleSubmit}>
-          <Input 
+          <Input
             label="Full Name"
             name="name"
             value={editUserFormik.values.name}
-            onChange={editUserFormik.handleChange}
+            onChange={(e) => { editUserFormik.handleChange(e); editUserFormik.setFieldTouched('name', true, false); }}
             onBlur={editUserFormik.handleBlur}
             error={editUserFormik.errors.name}
             touched={editUserFormik.touched.name}
             required
           />
 
-          <Input 
+          <Input
             label="Email Address"
             name="email"
             type="email"
             value={editUserFormik.values.email}
-            onChange={editUserFormik.handleChange}
+            onChange={(e) => { editUserFormik.handleChange(e); editUserFormik.setFieldTouched('email', true, false); }}
             onBlur={editUserFormik.handleBlur}
             error={editUserFormik.errors.email}
             touched={editUserFormik.touched.email}
@@ -1997,11 +1999,12 @@ export default function UserDetail() {
         </>}
       >
         <form onSubmit={resetPasswordFormik.handleSubmit}>
-          <Input 
+          <Input
             label="New Password"
             name="password"
             type="password"
             placeholder="Min 6 characters"
+            autoComplete="new-password"
             value={resetPasswordFormik.values.password}
             onChange={resetPasswordFormik.handleChange}
             onBlur={resetPasswordFormik.handleBlur}
@@ -2009,11 +2012,12 @@ export default function UserDetail() {
             touched={resetPasswordFormik.touched.password}
             required
           />
-          <Input 
+          <Input
             label="Confirm Password"
             name="re_password"
             type="password"
-            placeholder="Confirm your new password"
+            placeholder="Re-enter new password"
+            autoComplete="new-password"
             value={resetPasswordFormik.values.re_password}
             onChange={resetPasswordFormik.handleChange}
             onBlur={resetPasswordFormik.handleBlur}

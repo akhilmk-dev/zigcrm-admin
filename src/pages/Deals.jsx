@@ -58,7 +58,7 @@ export default function Deals() {
       assigned_to: ''
     },
     validationSchema: Yup.object({
-      deal_name: Yup.string().required('Deal name is required'),
+      deal_name: Yup.string().required('Deal name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
       value: Yup.number()
         .typeError('Invalid value. Only numbers are allowed')
         .min(0, 'Value cannot be negative')
@@ -323,7 +323,6 @@ export default function Deals() {
     {
       header: 'Stage',
       key: 'stage',
-      sortKey: 'stage',
       render: (row) => {
         const types = { prospecting: 'primary', lead: 'primary', qualification: 'warning', proposal: 'warning', negotiation: 'warning', won: 'success', lost: 'danger', closed: 'success' };
         const displayStage = row.stage === 'prospecting' ? 'lead' : row.stage;
@@ -334,19 +333,16 @@ export default function Deals() {
     ...(isGlobalAdmin ? [{
       header: 'Owner Company',
       key: 'tenant_name',
-      sortKey: 'tenant_id',
       render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
     {
       header: 'Assignee',
       key: 'assigned_to',
-      sortKey: 'assigned_to_user(name)',
       render: (row) => row.assigned_to_user?.name || 'Unassigned'
     },
     {
       header: 'Status',
       key: 'status',
-      sortKey: 'status',
       render: (row) => {
         const types = { open: 'primary', won: 'success', lost: 'danger' };
         return <Badge type={types[row.status]}>{row.status}</Badge>;
@@ -368,12 +364,12 @@ export default function Deals() {
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Track your sales pipeline and revenue forecasting.</p>
         </div>
         <div className="page-actions">
-          <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '6px' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
           </Button>
           {hasPermission('deals.create') && (
-            <Button onClick={() => handleOpenModal()}>+ New Deal</Button>
+            <Button onClick={() => handleOpenModal()} style={{ borderRadius: '6px' }}>+ New Deal</Button>
           )}
         </div>
       </div>
@@ -582,6 +578,7 @@ export default function Deals() {
               error={formik.errors.tenant_id}
               touched={formik.touched.tenant_id}
               required
+              searchable
               placeholder="Select a company"
               options={Array.isArray(tenants) ? tenants.map(t => ({
                 value: t.id,
@@ -596,7 +593,7 @@ export default function Deals() {
             name="deal_name"
             placeholder="e.g. Enterprise License"
             value={formik.values.deal_name}
-            onChange={formik.handleChange}
+            onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('deal_name', true, false); }}
             onBlur={formik.handleBlur}
             error={formik.errors.deal_name}
             touched={formik.touched.deal_name}
@@ -643,6 +640,7 @@ export default function Deals() {
             value={formik.values.assigned_to}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
+            searchable
             placeholder="Unassigned"
             options={[
               { value: '', label: 'Unassigned' },

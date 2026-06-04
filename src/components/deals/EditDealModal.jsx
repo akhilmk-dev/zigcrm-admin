@@ -27,6 +27,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
   const [reason, setReason] = useState('');
   const [reasonTouched, setReasonTouched] = useState(false);
   const originalStageRef = useRef(null);
+  const reasonBoxRef = useRef(null);
 
   const formik = useFormik({
     initialValues: {
@@ -40,7 +41,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
       assigned_to: ''
     },
     validationSchema: Yup.object({
-      deal_name: Yup.string().required('Deal name is required'),
+      deal_name: Yup.string().required('Deal name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
       value: Yup.number()
         .typeError('Invalid value. Only numbers are allowed')
         .min(0, 'Value cannot be negative')
@@ -135,6 +136,14 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
     ? getStageIndex(formik.values.stage) < getStageIndex(originalStageRef.current)
     : false;
 
+  useEffect(() => {
+    if (isDowngrade && !isTenantUser && reasonBoxRef.current) {
+      setTimeout(() => {
+        reasonBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
+    }
+  }, [isDowngrade]);
+
   const showTenantUserAlert = isTenantUser && isDowngrade;
   const showReasonField = !isTenantUser && isDowngrade;
   const saveDisabled = formik.isSubmitting || (isTenantUser && isDowngrade);
@@ -164,6 +173,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
             error={formik.errors.tenant_id}
             touched={formik.touched.tenant_id}
             required
+            searchable
             placeholder="Select a company"
             options={Array.isArray(tenants) ? tenants.map(t => ({
               value: t.id,
@@ -178,7 +188,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
           name="deal_name"
           placeholder="e.g. Enterprise License"
           value={formik.values.deal_name}
-          onChange={formik.handleChange}
+          onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('deal_name', true, false); }}
           onBlur={formik.handleBlur}
           error={formik.errors.deal_name}
           touched={formik.touched.deal_name}
@@ -222,6 +232,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
           value={formik.values.assigned_to}
           onChange={formik.handleChange}
           onBlur={formik.handleBlur}
+          searchable
           placeholder="Unassigned"
           options={[
             { value: '', label: 'Unassigned' },
@@ -288,7 +299,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
 
         {/* Admin / tenant_admin: mandatory reason when downgrading */}
         {showReasonField && (
-          <div style={{ marginTop: '16px' }}>
+          <div ref={reasonBoxRef} style={{ marginTop: '16px' }}>
             <label style={{
               display: 'block',
               fontSize: '13px',

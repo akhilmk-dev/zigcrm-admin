@@ -217,7 +217,6 @@ export default function Roles() {
     {
       header: 'Description',
       key: 'description',
-      sortKey: 'description',
       render: (row) => <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{row.description || '—'}</span>
     },
     {
@@ -247,7 +246,7 @@ export default function Roles() {
             Platform and Tenant roles are now managed centrally. Use the <code>tenant-</code> prefix for roles intended for client staff.
           </p>
         </div>
-        <Button onClick={() => setIsNewRoleModalOpen(true)}>
+        <Button onClick={() => setIsNewRoleModalOpen(true)} style={{ borderRadius: '6px' }}>
           + Create New Role
         </Button>
       </div>

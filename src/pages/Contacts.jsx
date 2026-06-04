@@ -153,6 +153,8 @@ export default function Contacts() {
   }, [isModalOpen]);
 
   const formik = useFormik({
+    validateOnChange: true,
+    validateOnBlur: true,
     initialValues: {
       first_name: '',
       last_name: '',
@@ -172,9 +174,11 @@ export default function Contacts() {
       gender: ''
     },
     validationSchema: Yup.object({
-      first_name: Yup.string().required('First name is required'),
+      first_name: Yup.string().required('First name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      last_name: Yup.string().test('min-3', 'Minimum 3 characters required', val => !val || val.length >= 3).max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      company_name: Yup.string().test('min-3', 'Minimum 3 characters required', val => !val || val.length >= 3).max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
       tenant_id: Yup.string().required('Company assignment is required'),
-      email: Yup.string().email('Invalid email address'),
+      email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address'),
       phone: Yup.string()
         .required('Phone number is required')
         .test('is-valid-phone', 'Invalid international phone number', (val) => {
@@ -950,6 +954,7 @@ export default function Contacts() {
               error={formik.errors.tenant_id}
               touched={formik.touched.tenant_id}
               required
+              searchable
               placeholder="Select a company…"
               options={[
                 ...(Array.isArray(tenants) ? tenants.map(t => ({
@@ -968,13 +973,13 @@ export default function Contacts() {
             <Input
               label={<IcoLabel d={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}>First Name</IcoLabel>}
               name="first_name" placeholder="John"
-              value={formik.values.first_name} onChange={formik.handleChange} onBlur={formik.handleBlur}
+              value={formik.values.first_name} onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('first_name', true, false); }} onBlur={formik.handleBlur}
               error={formik.errors.first_name} touched={formik.touched.first_name} required
             />
             <Input
               label={<IcoLabel d={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}>Last Name</IcoLabel>}
               name="last_name" placeholder="Doe"
-              value={formik.values.last_name} onChange={formik.handleChange} onBlur={formik.handleBlur}
+              value={formik.values.last_name} onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('last_name', true, false); }} onBlur={formik.handleBlur}
             />
           </div>
 
@@ -982,7 +987,7 @@ export default function Contacts() {
             <Input
               label={<IcoLabel d={<><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></>}>Email</IcoLabel>}
               type="email" name="email" placeholder="john.doe@example.com"
-              value={formik.values.email} onChange={formik.handleChange} onBlur={formik.handleBlur}
+              value={formik.values.email} onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('email', true, false); }} onBlur={formik.handleBlur}
               error={formik.errors.email} touched={formik.touched.email}
             />
             <PhoneInput
@@ -1018,7 +1023,7 @@ export default function Contacts() {
             <Input
               label={<IcoLabel d={<><rect x="3" y="2" width="18" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M8 10h.01M8 14h.01M16 6h.01M16 10h.01M16 14h.01"/></>}>Workplace</IcoLabel>}
               name="company_name" placeholder="Acme Corp"
-              value={formik.values.company_name} onChange={formik.handleChange} onBlur={formik.handleBlur}
+              value={formik.values.company_name} onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('company_name', true, false); }} onBlur={formik.handleBlur}
               error={formik.errors.company_name} touched={formik.touched.company_name}
             />
             <Input
@@ -1047,6 +1052,7 @@ export default function Contacts() {
               value={formik.values.assigned_to}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
+              searchable
               placeholder="Unassigned"
               options={[
                 { value: '', label: 'Unassigned' },

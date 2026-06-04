@@ -197,6 +197,8 @@ export default function ContactDetail() {
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
 
   const formik = useFormik({
+    validateOnChange: true,
+    validateOnBlur: true,
     initialValues: {
       first_name: '',
       last_name: '',
@@ -216,13 +218,14 @@ export default function ContactDetail() {
       gender: ''
     },
     validationSchema: Yup.object({
-      first_name: Yup.string().required('First name is required'),
+      first_name: Yup.string().required('First name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      last_name: Yup.string().test('min-3', 'Minimum 3 characters required', val => !val || val.length >= 3).max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      company_name: Yup.string().test('min-3', 'Minimum 3 characters required', val => !val || val.length >= 3).max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
       tenant_id: Yup.string().required('Company assignment is required'),
-      email: Yup.string().email('Invalid email address'),
+      email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address'),
       phone: Yup.string()
         .required('Phone number is required')
         .matches(/^\+?[\d\s-]{7,15}$/, 'Invalid phone number format'),
-      company_name: Yup.string(),
       profession: Yup.string()
     }),
     onSubmit: async (values) => {
@@ -3532,7 +3535,7 @@ export default function ContactDetail() {
               name="first_name"
               placeholder="John"
               value={formik.values.first_name}
-              onChange={formik.handleChange}
+              onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('first_name', true, false); }}
               onBlur={formik.handleBlur}
               error={formik.errors.first_name}
               touched={formik.touched.first_name}
@@ -3543,7 +3546,7 @@ export default function ContactDetail() {
               name="last_name"
               placeholder="Doe"
               value={formik.values.last_name}
-              onChange={formik.handleChange}
+              onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('last_name', true, false); }}
               onBlur={formik.handleBlur}
             />
           </div>
@@ -3555,7 +3558,7 @@ export default function ContactDetail() {
               type="email"
               placeholder="john.doe@example.com"
               value={formik.values.email}
-              onChange={formik.handleChange}
+              onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('email', true, false); }}
               onBlur={formik.handleBlur}
               error={formik.errors.email}
               touched={formik.touched.email}
@@ -3579,7 +3582,7 @@ export default function ContactDetail() {
               name="company_name"
               placeholder="Acme Corp"
               value={formik.values.company_name}
-              onChange={formik.handleChange}
+              onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('company_name', true, false); }}
               onBlur={formik.handleBlur}
               error={formik.errors.company_name}
               touched={formik.touched.company_name}

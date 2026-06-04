@@ -256,6 +256,8 @@ export default function Profile() {
   const parsedPhone = getParsedPhone();
 
   const editFormik = useFormik({
+    validateOnChange: true,
+    validateOnBlur: true,
     initialValues: {
       name: profileData?.name || '',
       email: profileData?.email || '',
@@ -267,8 +269,8 @@ export default function Profile() {
     },
     enableReinitialize: true,
     validationSchema: Yup.object({
-      name: Yup.string().required('Name is required'),
-      email: Yup.string().email('Invalid email').required('Email is required'),
+      name: Yup.string().required('Name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address').required('Email is required'),
       phone: Yup.string()
         .required('Phone number is required')
         .test('is-valid-phone', 'Invalid phone number for the selected country', function (value) {
@@ -750,7 +752,8 @@ export default function Profile() {
             label="Current Password"
             name="currentPassword"
             type="password"
-            placeholder="••••••••"
+            placeholder="Enter your current password"
+            autoComplete="current-password"
             value={formik.values.currentPassword}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
@@ -765,7 +768,8 @@ export default function Profile() {
             label="New Password"
             name="newPassword"
             type="password"
-            placeholder="••••••••"
+            placeholder="Enter your new password"
+            autoComplete="new-password"
             value={formik.values.newPassword}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
@@ -778,7 +782,8 @@ export default function Profile() {
             label="Confirm New Password"
             name="confirmPassword"
             type="password"
-            placeholder="••••••••"
+            placeholder="Re-enter your new password"
+            autoComplete="new-password"
             value={formik.values.confirmPassword}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
@@ -847,7 +852,7 @@ export default function Profile() {
               name="name"
               placeholder="Your Name"
               value={editFormik.values.name}
-              onChange={editFormik.handleChange}
+              onChange={(e) => { editFormik.handleChange(e); editFormik.setFieldTouched('name', true, false); }}
               onBlur={editFormik.handleBlur}
               error={editFormik.errors.name}
               touched={editFormik.touched.name}
@@ -860,7 +865,7 @@ export default function Profile() {
               type="email"
               placeholder="your@email.com"
               value={editFormik.values.email}
-              onChange={editFormik.handleChange}
+              onChange={(e) => { editFormik.handleChange(e); editFormik.setFieldTouched('email', true, false); }}
               onBlur={editFormik.handleBlur}
               error={editFormik.errors.email}
               touched={editFormik.touched.email}

@@ -37,9 +37,11 @@ export default function ForgotPassword() {
 
   // Step 1: Email Formik
   const emailFormik = useFormik({
+    validateOnChange: true,
+    validateOnBlur: true,
     initialValues: { email: '' },
     validationSchema: Yup.object({
-      email: Yup.string().email('Invalid email address').required('Email is required'),
+      email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address').required('Email is required'),
     }),
     onSubmit: async (values, { setSubmitting }) => {
       try {
@@ -215,7 +217,7 @@ export default function ForgotPassword() {
                 type="email"
                 placeholder="name@company.com"
                 value={emailFormik.values.email}
-                onChange={emailFormik.handleChange}
+                onChange={(e) => { emailFormik.handleChange(e); emailFormik.setFieldTouched('email', true, false); }}
                 onBlur={emailFormik.handleBlur}
                 style={inputStyle(emailFormik.touched.email && emailFormik.errors.email)}
               />

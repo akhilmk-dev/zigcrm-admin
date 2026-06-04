@@ -353,37 +353,32 @@ export default function Tasks() {
     ...(isGlobalAdmin ? [{
         header: 'Owner Company',
         key: 'tenant_name',
-        sortKey: 'tenant_id',
         render: (row) => <Badge type="primary">{row.tenant_name || 'Individual'}</Badge>
     }] : []),
     { 
-      header: 'Status', 
+      header: 'Status',
       key: 'status',
-      sortKey: 'status',
       render: (row) => {
         const types = { pending: 'warning', in_progress: 'primary', completed: 'success', cancelled: 'secondary' };
         return <Badge type={types[row.status]}>{row.status.replace('_', ' ')}</Badge>;
       }
     },
     { 
-      header: 'Priority', 
+      header: 'Priority',
       key: 'priority',
-      sortKey: 'priority',
       render: (row) => {
         const types = { low: 'secondary', medium: 'warning', high: 'danger' };
         return <Badge type={types[row.priority || 'medium']}>{row.priority?.toUpperCase() || 'MEDIUM'}</Badge>;
       }
     },
     { 
-      header: 'Assignee', 
+      header: 'Assignee',
       key: 'assigned_to',
-      sortKey: 'assigned_to_user(name)',
       render: (row) => row.assigned_to_user?.name || 'Unassigned'
     },
     {
       header: 'Contact / Partner',
       key: 'contact_name',
-      sortKey: 'contact(first_name)',
       render: (row) => (
         <div style={{ fontSize: '13px' }}>
           {row.contact_first_name ? (
@@ -427,7 +422,7 @@ export default function Tasks() {
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>Keep track of daily activities and team assignments.</p>
         </div>
         {hasPermission('tasks.create') && (
-          <Button onClick={() => handleOpenModal()}>+ New Task</Button>
+          <Button onClick={() => handleOpenModal()} style={{ borderRadius: '6px' }}>+ New Task</Button>
         )}
       </div>
 
@@ -633,6 +628,7 @@ export default function Tasks() {
               error={formik.errors.tenant_id}
               touched={formik.touched.tenant_id}
               required
+              searchable
               placeholder="Select a Company"
               options={Array.isArray(tenants) ? tenants.map(t => ({
                 value: t.id,
@@ -687,6 +683,7 @@ export default function Tasks() {
               value={formik.values.due_date}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
+              min={new Date().toISOString().split('T')[0]}
             />
 
             <FormSelect
@@ -711,6 +708,7 @@ export default function Tasks() {
               value={formik.values.assigned_to}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
+              searchable
               placeholder="Select Staff"
               options={[
                 { value: '', label: 'Unassigned' },
