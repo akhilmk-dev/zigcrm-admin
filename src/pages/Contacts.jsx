@@ -613,17 +613,28 @@ export default function Contacts() {
             height: '36px',
             borderRadius: '50%',
             overflow: 'hidden',
-            backgroundColor: 'var(--bg-muted)',
+            backgroundColor: row.profile_image_url ? 'var(--bg-muted)' : row.gender === 'male' ? '#eff6ff' : row.gender === 'female' ? '#fce7f3' : 'var(--bg-muted)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            border: '1px solid var(--border)'
+            border: `1px solid ${row.gender === 'male' ? '#bfdbfe' : row.gender === 'female' ? '#fbcfe8' : 'var(--border)'}`,
+            flexShrink: 0
           }}>
             {row.profile_image_url ? (
               <img src={getFileUrl(row.profile_image_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : row.gender === 'male' ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="8" r="4" fill="#2563eb" />
+                <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="#2563eb" />
+              </svg>
+            ) : row.gender === 'female' ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="7" r="4" fill="#db2777" />
+                <path d="M7 14h10l1.5 7H5.5z" fill="#db2777" />
+              </svg>
             ) : (
               <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)' }}>
-                {row.first_name?.[0]}{row.last_name?.[0]}
+                {row.first_name?.[0]?.toUpperCase()}
               </span>
             )}
           </div>
@@ -698,7 +709,7 @@ export default function Contacts() {
               <Button
                 type="secondary"
                 onClick={downloadCSVFormat}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '6px' }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -710,7 +721,7 @@ export default function Contacts() {
               <Button
                 type="secondary"
                 onClick={() => document.getElementById('csv-import-file-input').click()}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '6px' }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -721,12 +732,12 @@ export default function Contacts() {
               </Button>
             </>
           )}
-          <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Button type="secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '6px' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export
           </Button>
           {hasPermission('contacts.create') && (
-            <Button onClick={() => handleOpenModal()}>+ Add Contact</Button>
+            <Button onClick={() => handleOpenModal()} style={{ borderRadius: '6px' }}>+ Add Contact</Button>
           )}
         </div>
       </div>
