@@ -7,7 +7,7 @@ import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
 import { SearchableSelect } from '../components/common/SearchableSelect';
 import { FormSelect } from '../components/common/FormSelect';
-
+import EditDealModal from '../components/deals/EditDealModal';
 import { toast } from 'react-hot-toast';
 import { usePermission } from '../hooks/usePermission';
 
@@ -18,6 +18,7 @@ export default function Deals() {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState(null);
   const [staff, setStaff] = useState([]);
   const [filterUsers, setFilterUsers] = useState([]);
@@ -68,17 +69,13 @@ export default function Deals() {
     }),
     onSubmit: async (values) => {
       try {
-        if (editingDeal) {
-          await api.patch(`/deals/${editingDeal.id}`, values);
-          toast.success('Deal updated successfully');
-        } else {
-          await api.post('/deals', values);
-          toast.success('Deal created successfully');
-        }
+        await api.post('/deals', values);
+        toast.success('Deal created successfully');
         fetchData();
         handleCloseModal();
       } catch (err) {
-        console.error("Save Deal Error:", err);
+        console.error("Create Deal Error:", err);
+        toast.error('Failed to create deal');
       }
     }
   });
@@ -237,16 +234,7 @@ export default function Deals() {
   const handleOpenModal = (deal = null) => {
     if (deal) {
       setEditingDeal(deal);
-      formik.setValues({
-        deal_name: deal.deal_name,
-        value: deal.value,
-        currency: deal.currency || 'INR',
-        stage: deal.stage,
-        contact_id: deal.contact_id || '',
-        status: deal.status,
-        tenant_id: deal.tenant_id || '',
-        assigned_to: deal.assigned_to || ''
-      });
+      setIsEditModalOpen(true);
     } else {
       setEditingDeal(null);
       formik.resetForm({
@@ -261,12 +249,16 @@ export default function Deals() {
           assigned_to: ''
         }
       });
+      setIsModalOpen(true);
     }
-    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
     setEditingDeal(null);
   };
 
@@ -571,11 +563,11 @@ export default function Deals() {
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={editingDeal ? 'Edit Deal' : 'New Deal'}
+        title="New Deal"
         footer={<>
           <Button type="secondary" onClick={handleCloseModal}>Cancel</Button>
           <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
-            {editingDeal ? (formik.isSubmitting ? 'Saving...' : 'Save Changes') : (formik.isSubmitting ? 'Creating...' : 'Create Deal')}
+            {formik.isSubmitting ? 'Creating...' : 'Create Deal'}
           </Button>
         </>}
       >
@@ -690,6 +682,13 @@ export default function Deals() {
           </div>
         </form>
       </Modal>
+
+      <EditDealModal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        deal={editingDeal}
+        onSuccess={() => { fetchData(); }}
+      />
 
       <ConfirmModal
         isOpen={deleteConfirmOpen}

@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
 import api, { getFileUrl } from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
-import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
-import { SearchableSelect } from '../components/common/SearchableSelect';
+import { Modal, Button, ConfirmModal } from '../components/common/Modal';
+import EditDealModal from '../components/deals/EditDealModal';
 import NoteItem from '../components/NoteItem';
 import NoteEditor from '../components/NoteEditor';
 import { toast } from 'react-hot-toast';
@@ -116,9 +114,6 @@ export default function DealDetail() {
   // Edit / Delete Modal States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [tenants, setTenants] = useState([]);
-  const [contacts, setContacts] = useState([]);
-  const [staff, setStaff] = useState([]);
 
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
@@ -143,82 +138,6 @@ export default function DealDetail() {
     fetchDetail();
   }, [id]);
 
-  const formik = useFormik({
-    initialValues: {
-      deal_name: '',
-      value: '',
-      currency: 'INR',
-      stage: 'lead',
-      contact_id: '',
-      status: 'open',
-      tenant_id: '',
-      assigned_to: ''
-    },
-    validationSchema: Yup.object({
-      deal_name: Yup.string().required('Deal name is required'),
-      value: Yup.number()
-        .typeError('Invalid value. Only numbers are allowed')
-        .min(0, 'Value cannot be negative')
-        .required('Deal value is required'),
-      currency: Yup.string().required('Currency is required'),
-      tenant_id: Yup.string().required('Company assignment is required')
-    }),
-    onSubmit: async (values) => {
-      try {
-        await api.patch(`/deals/${id}`, values);
-        toast.success('Deal updated successfully');
-        setIsEditModalOpen(false);
-        fetchDetail();
-      } catch (err) {
-        console.error("Update deal error", err);
-        toast.error('Failed to update deal');
-      }
-    }
-  });
-
-  const handleOpenEditModal = () => {
-    if (!data?.deal) return;
-    const { deal } = data;
-    formik.setValues({
-      deal_name: deal.deal_name,
-      value: deal.value,
-      currency: deal.currency || 'INR',
-      stage: deal.stage,
-      contact_id: deal.contact_id || '',
-      status: deal.status,
-      tenant_id: deal.tenant_id,
-      assigned_to: deal.assigned_to || ''
-    });
-
-    if (isGlobalAdmin) {
-      api.get('/tenants/selection').then(res => setTenants(res.data || []));
-    }
-
-    const tid = deal.tenant_id;
-    if (tid) {
-      api.get(`/contacts?tenant_id=${tid}&limit=100`).then(res => setContacts(res.data.data || []));
-      api.get(`/users?tenant_id=${tid}`).then(res => setStaff(res.data.data || []));
-    }
-
-    setIsEditModalOpen(true);
-  };
-
-  useEffect(() => {
-    if (formik.values.tenant_id && isEditModalOpen) {
-      api.get(`/contacts?tenant_id=${formik.values.tenant_id}&limit=100`).then(res => setContacts(res.data.data || []));
-      api.get(`/users?tenant_id=${formik.values.tenant_id}`).then(res => setStaff(res.data.data || []));
-    }
-  }, [formik.values.tenant_id]);
-
-  // Synchronize status with pipeline stage
-  useEffect(() => {
-    const stage = formik.values.stage;
-    if (stage === 'won' || stage === 'lost') {
-      formik.setFieldValue('status', stage);
-    } else if (stage === 'lead' || stage === 'qualification' || stage === 'proposal' || stage === 'negotiation' || stage === 'prospecting') {
-      formik.setFieldValue('status', 'open');
-    }
-  }, [formik.values.stage]);
 
   const handleConfirmDelete = async () => {
     try {
@@ -483,6 +402,18 @@ function DealDetailSkeleton() {
     return 0;
   };
   const activeIndex = getStageIndex(deal.stage);
+
+  const getStageDateTime = (stageKey) => {
+    const timeline = deal.stage_timeline;
+    if (!Array.isArray(timeline)) return null;
+    const aliases = stageKey === 'lead' ? ['lead', 'prospecting'] : stageKey === 'won' ? ['won', 'lost'] : [stageKey];
+    const entry = timeline.find(t => aliases.includes(t.stage?.toLowerCase()));
+    if (!entry?.entered_at) return null;
+    const d = new Date(entry.entered_at);
+    const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return { date, time };
+  };
 
   const getStageBadgeType = (stage) => {
     const s = stage?.toLowerCase() || '';
@@ -775,7 +706,7 @@ function DealDetailSkeleton() {
           </button>
 
           <button
-            onClick={handleOpenEditModal}
+            onClick={() => setIsEditModalOpen(true)}
             style={{
               padding: '7px 14px',
               borderRadius: '8px',
@@ -1303,99 +1234,118 @@ function DealDetailSkeleton() {
         {/* Right Workspace (75%) */}
         <main className="crm-right-col">
 
-          {/* Pipeline Progress Bar */}
+          {/* Deal Stage Timeline */}
           <div className="crm-card" style={{
-            padding: '18px 24px',
+            padding: '20px 24px',
             border: '1px solid #e2e8f0',
             borderRadius: '16px',
             backgroundColor: '#ffffff',
             boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
             marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
             overflowX: 'auto'
           }}>
-            {[
-              { label: 'Lead', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg> },
-              { label: 'Qualified', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg> },
-              { label: 'Proposal', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg> },
-              { label: 'Negotiation', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg> },
-              { label: deal.stage === 'lost' ? 'Lost' : deal.stage === 'won' ? 'Won' : 'Won / Lost', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" /><path d="M12 2a6 6 0 0 1 6 6v3.5c0 2.5-2 4.5-4.5 4.5h-3C8 16 6 14 6 11.5V8a6 6 0 0 1 6-6z" /></svg> }
-            ].map((step, idx) => {
-              const isActive = idx === activeIndex;
-              const isCompleted = idx < activeIndex;
-              const isLast = idx === 4;
+            <div style={{ display: 'flex', alignItems: 'flex-start', minWidth: '500px' }}>
+              {[
+                { label: 'Lead', stageKey: 'lead', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg> },
+                { label: 'Qualified', stageKey: 'qualification', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg> },
+                { label: 'Proposal', stageKey: 'proposal', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg> },
+                { label: 'Negotiation', stageKey: 'negotiation', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg> },
+                { label: deal.stage === 'lost' ? 'Lost' : deal.stage === 'won' ? 'Won' : 'Won / Lost', stageKey: deal.stage === 'lost' ? 'lost' : 'won', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" /><path d="M12 2a6 6 0 0 1 6 6v3.5c0 2.5-2 4.5-4.5 4.5h-3C8 16 6 14 6 11.5V8a6 6 0 0 1 6-6z" /></svg> }
+              ].map((step, idx) => {
+                const isActive = idx === activeIndex;
+                const isCompleted = idx < activeIndex;
+                const isLast = idx === 4;
+                const dt = getStageDateTime(step.stageKey);
 
-              // Styles
-              const circleBg = isActive 
-                ? '#2563eb' 
-                : isCompleted 
-                  ? '#eff6ff' 
-                  : '#ffffff';
-              const circleColor = isActive 
-                ? '#ffffff' 
-                : isCompleted 
-                  ? '#2563eb' 
-                  : '#94a3b8';
-              const circleBorder = isActive 
-                ? 'none' 
-                : isCompleted 
-                  ? '1.5px solid #dbeafe' 
-                  : '1.5px solid #cbd5e1';
-              const textColor = isActive 
-                ? '#2563eb' 
-                : isCompleted 
-                  ? '#0f172a' 
-                  : '#64748b';
-              const textWeight = isActive || isCompleted ? '700' : '500';
+                const circleBg = isActive
+                  ? '#2563eb'
+                  : isCompleted
+                    ? '#eff6ff'
+                    : '#ffffff';
+                const circleColor = isActive
+                  ? '#ffffff'
+                  : isCompleted
+                    ? '#2563eb'
+                    : '#94a3b8';
+                const circleBorder = isActive
+                  ? 'none'
+                  : isCompleted
+                    ? '1.5px solid #dbeafe'
+                    : '1.5px dashed #cbd5e1';
+                const labelColor = isActive
+                  ? '#2563eb'
+                  : isCompleted
+                    ? '#0f172a'
+                    : '#94a3b8';
 
-              return (
-                <React.Fragment key={idx}>
-                  {/* Step Item */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                    {/* Circle Badge */}
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '50%',
-                      backgroundColor: circleBg,
-                      color: circleColor,
-                      border: circleBorder,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: isActive ? '0 2px 8px rgba(37, 99, 235, 0.25)' : 'none',
-                      transition: 'all 0.2s ease'
-                    }}>
-                      {step.icon}
+                return (
+                  <React.Fragment key={idx}>
+                    {/* Step column */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, minWidth: '80px' }}>
+                      {/* Stage Label */}
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: isActive || isCompleted ? '700' : '500',
+                        color: labelColor,
+                        marginBottom: '8px',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.2s ease'
+                      }}>
+                        {step.label}
+                      </span>
+
+                      {/* Circle Badge */}
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        backgroundColor: circleBg,
+                        color: circleColor,
+                        border: circleBorder,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: isActive ? '0 2px 10px rgba(37, 99, 235, 0.3)' : 'none',
+                        transition: 'all 0.2s ease',
+                        flexShrink: 0
+                      }}>
+                        {step.icon}
+                      </div>
+
+                      {/* Date & Time */}
+                      <div style={{ marginTop: '8px', textAlign: 'center', minHeight: '32px' }}>
+                        {dt ? (
+                          <>
+                            <div style={{ fontSize: '11px', color: isActive ? '#2563eb' : '#475569', fontWeight: isActive ? '600' : '400', whiteSpace: 'nowrap' }}>
+                              {dt.date}
+                            </div>
+                            <div style={{ fontSize: '11px', color: isActive ? '#2563eb' : '#64748b', fontWeight: isActive ? '600' : '400', whiteSpace: 'nowrap' }}>
+                              {dt.time}
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: '12px', color: '#cbd5e1', letterSpacing: '2px' }}>– –</div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Step Label */}
-                    <span style={{
-                      fontSize: '13px',
-                      fontWeight: textWeight,
-                      color: textColor,
-                      transition: 'all 0.2s ease'
-                    }}>
-                      {step.label}
-                    </span>
-                  </div>
-
-                  {/* Connecting Line */}
-                  {!isLast && (
-                    <div style={{
-                      flex: 1,
-                      height: '2px',
-                      backgroundColor: isCompleted || isActive ? '#2563eb' : '#e2e8f0',
-                      minWidth: '24px',
-                      transition: 'all 0.2s ease'
-                    }} />
-                  )}
-                </React.Fragment>
-              );
-            })}
+                    {/* Connecting Line (aligned with circle row) */}
+                    {!isLast && (
+                      <div style={{
+                        flex: 1,
+                        height: '2px',
+                        backgroundColor: isCompleted ? '#2563eb' : isActive ? '#2563eb' : '#e2e8f0',
+                        backgroundImage: (!isCompleted && !isActive) ? 'repeating-linear-gradient(90deg, #cbd5e1 0, #cbd5e1 4px, transparent 4px, transparent 8px)' : 'none',
+                        minWidth: '20px',
+                        marginTop: '28px',
+                        alignSelf: 'flex-start',
+                        transition: 'all 0.2s ease'
+                      }} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
           </div>
 
           {/* Add Note removed for Deal detail (notes managed via Timeline & Notes tab) */}
@@ -1848,127 +1798,12 @@ function DealDetailSkeleton() {
         </main>
       </div>
 
-      {/* Edit Modal */}
-      <Modal
+      <EditDealModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title="Edit Deal"
-        footer={<>
-          <Button type="secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-          <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
-            {formik.isSubmitting ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </>}
-      >
-        <form onSubmit={formik.handleSubmit}>
-          {isGlobalAdmin && (
-            <SearchableSelect
-              label="Assign to Company"
-              name="tenant_id"
-              value={formik.values.tenant_id}
-              options={Array.isArray(tenants) ? tenants.map(t => ({ value: t.id, label: t.owner_name || t.tenant_name || t.name || 'Unknown Company' })) : []}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.tenant_id}
-              touched={formik.touched.tenant_id}
-              required
-            />
-          )}
-
-          <Input
-            label="Deal Name"
-            name="deal_name"
-            placeholder="e.g. Enterprise License"
-            value={formik.values.deal_name}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            error={formik.errors.deal_name}
-            touched={formik.touched.deal_name}
-            required
-          />
-
-          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '16px' }}>
-            <Input
-              label={`Value (${formik.values.currency === 'INR' ? '₹' : formik.values.currency === 'USD' ? '$' : formik.values.currency === 'EUR' ? '€' : '£'})`}
-              type="number"
-              name="value"
-              placeholder="0.00"
-              value={formik.values.value}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              onKeyDown={(e) => {
-                if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
-              }}
-              error={formik.errors.value}
-              touched={formik.touched.value}
-              required
-            />
-
-            <Select
-              label="Currency"
-              name="currency"
-              value={formik.values.currency}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              required
-            >
-              <option value="INR">INR (₹)</option>
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="GBP">GBP (£)</option>
-            </Select>
-          </div>
-
-          <SearchableSelect
-            label="Contact Partner"
-            name="contact_id"
-            value={formik.values.contact_id}
-            options={contacts.map(c => ({ value: c.id, label: `${c.first_name} ${c.last_name}` }))}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            placeholder="Select a contact"
-          />
-
-          <SearchableSelect
-            label="Assigned To"
-            name="assigned_to"
-            value={formik.values.assigned_to}
-            options={staff.map(s => ({ value: s.id, label: s.name }))}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            placeholder="Unassigned"
-          />
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Select
-              label="Pipeline Stage"
-              name="stage"
-              value={formik.values.stage}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-            >
-              <option value="lead">Lead</option>
-              <option value="qualification">Qualification</option>
-              <option value="proposal">Proposal</option>
-              <option value="negotiation">Negotiation</option>
-              <option value="won">Won</option>
-              <option value="lost">Lost</option>
-            </Select>
-
-            <Select
-              label="Status"
-              name="status"
-              value={formik.values.status}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-            >
-              <option value="open">Open</option>
-              <option value="won">Won</option>
-              <option value="lost">Lost</option>
-            </Select>
-          </div>
-        </form>
-      </Modal>
+        deal={data?.deal}
+        onSuccess={() => fetchDetail(true)}
+      />
 
       <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleConfirmDelete} title="Delete Deal" message="Are you sure you want to delete this deal? This action cannot be undone." />
 
