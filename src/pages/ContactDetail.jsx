@@ -1326,34 +1326,25 @@ export default function ContactDetail() {
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 {contact.profile_image_url ? (
                   <img src={getFileUrl(contact.profile_image_url)} alt="Profile" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #e2e8f0' }} />
-                ) : (
-                  <div style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '50%',
-                    backgroundColor: '#eff6ff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '1.5px solid #dbeafe',
-                    flexShrink: 0
-                  }}>
-                    {/* Cute SVG Owl Avatar! */}
-                    <svg width="42" height="42" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="32" cy="36" r="20" fill="#1e3a8a" />
-                      <path d="M16 28C16 20 22 16 32 16C42 16 48 20 48 28C48 30 45 32 32 32C19 32 16 30 16 28Z" fill="#2563eb" />
-                      <circle cx="23" cy="28" r="8" fill="#ffffff" />
-                      <circle cx="41" cy="28" r="8" fill="#ffffff" />
-                      <circle cx="23" cy="28" r="4" fill="#0f172a" />
-                      <circle cx="41" cy="28" r="4" fill="#0f172a" />
-                      <circle cx="24.5" cy="26.5" r="1.5" fill="#ffffff" />
-                      <circle cx="42.5" cy="26.5" r="1.5" fill="#ffffff" />
-                      <polygon points="32,32 29,37 35,37" fill="#f59e0b" />
-                      <path d="M18 20L26 23L20 16Z" fill="#1e3a8a" />
-                      <path d="M46 20L38 23L44 16Z" fill="#1e3a8a" />
-                      <path d="M26 44C29 42 35 42 38 44" stroke="#bfdbfe" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M28 48C30 46 34 46 36 48" stroke="#bfdbfe" strokeWidth="2" strokeLinecap="round" />
+                ) : contact.gender === 'male' ? (
+                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #bfdbfe', flexShrink: 0 }}>
+                    <svg width="38" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="8" r="4" fill="#2563eb" />
+                      <path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6" fill="#2563eb" />
                     </svg>
+                  </div>
+                ) : contact.gender === 'female' ? (
+                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#fce7f3', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #fbcfe8', flexShrink: 0 }}>
+                    <svg width="38" height="38" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="7" r="4" fill="#db2777" />
+                      <path d="M7 14h10l1.5 7H5.5z" fill="#db2777" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #e2e8f0', flexShrink: 0 }}>
+                    <span style={{ fontSize: '24px', fontWeight: '700', color: '#64748b' }}>
+                      {contact.first_name?.[0]?.toUpperCase()}
+                    </span>
                   </div>
                 )}
               </div>
