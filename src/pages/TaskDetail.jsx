@@ -279,7 +279,7 @@ export default function TaskDetail() {
     const tid = task.tenant_id;
     if (tid) {
       api.get(`/contacts?tenant_id=${tid}&limit=1000`).then(res => setContacts(res.data.data || []));
-      api.get(`/users?tenant_id=${tid}`).then(res => setStaff(res.data.data || []));
+      api.get(`/users?tenant_id=${tid}&module=tasks`).then(res => setStaff(res.data.data || []));
     }
 
     setIsEditModalOpen(true);
@@ -288,7 +288,7 @@ export default function TaskDetail() {
   useEffect(() => {
     if (formik.values.tenant_id && isEditModalOpen) {
       api.get(`/contacts?tenant_id=${formik.values.tenant_id}&limit=1000`).then(res => setContacts(res.data.data || []));
-      api.get(`/users?tenant_id=${formik.values.tenant_id}`).then(res => setStaff(res.data.data || []));
+      api.get(`/users?tenant_id=${formik.values.tenant_id}&module=tasks`).then(res => setStaff(res.data.data || []));
     }
   }, [formik.values.tenant_id]);
 

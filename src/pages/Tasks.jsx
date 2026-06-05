@@ -141,7 +141,7 @@ export default function Tasks() {
       const tid = selectedTenantId || loggedInUser.tenantId;
       if (tid) {
         const [staffRes, contactsRes] = await Promise.all([
-          api.get(`/users?tenant_id=${tid}`),
+          api.get(`/users?tenant_id=${tid}&module=tasks`),
           api.get(`/contacts?tenant_id=${tid}&limit=1000`)
         ]);
         setStaff(staffRes.data.data || []);
@@ -195,7 +195,7 @@ export default function Tasks() {
        formik.setFieldValue('contact_id', ''); // Reset contact when tenant changes
        setContacts([]); // Clear current list while loading new one
        Promise.all([
-         api.get(`/users?tenant_id=${formik.values.tenant_id}`),
+         api.get(`/users?tenant_id=${formik.values.tenant_id}&module=tasks`),
          api.get(`/contacts?tenant_id=${formik.values.tenant_id}&limit=1000`)
        ]).then(([staffRes, contactsRes]) => {
          setStaff(staffRes.data.data || []);
