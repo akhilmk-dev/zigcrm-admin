@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -6,74 +6,25 @@ import api, { getFileUrl } from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
 import { toast } from 'react-hot-toast';
-import NoteEditor from '../components/NoteEditor';
-import CRMWorkspaceTabs from '../components/common/CRMWorkspaceTabs';
 
 
-const formatRelativeDate = (dateString) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  
-  const isToday = date.getDate() === now.getDate() && 
-                  date.getMonth() === now.getMonth() && 
-                  date.getFullYear() === now.getFullYear();
-                  
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday = date.getDate() === yesterday.getDate() && 
-                      date.getMonth() === yesterday.getMonth() && 
-                      date.getFullYear() === yesterday.getFullYear();
-
-  const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-
-  if (isToday) {
-    return `Today, ${timeStr}`;
-  } else if (isYesterday) {
-    return `Yesterday, ${timeStr}`;
-  } else {
-    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return `${dateStr}, ${timeStr}`;
-  }
-};
 
 export default function UserDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [userData, setUserData] = useState(null);
   const [contacts, setContacts] = useState([]);
-  const [deals, setDeals] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [notes, setNotes] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modal states
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
-  const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isAddNoteModalOpen, setIsAddNoteModalOpen] = useState(false);
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
 
-  const [newNote, setNewNote] = useState('');
   const [newContactId, setNewContactId] = useState('');
-  const [allContacts, setAllContacts] = useState([]); // For add contact dropdown
-
-  const [activeTab, setActiveTab] = useState('activities');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterTime, setFilterTime] = useState('all');
-  const [visibleActivitiesCount, setVisibleActivitiesCount] = useState(5);
-  const [visibleNotesCount, setVisibleNotesCount] = useState(5);
-  const [visibleDealsCount, setVisibleDealsCount] = useState(5);
-  const [visibleTasksCount, setVisibleTasksCount] = useState(5);
-  const [noteTitle, setNoteTitle] = useState('');
-  const [selectedDealId, setSelectedDealId] = useState('');
-  const [showDealDropdown, setShowDealDropdown] = useState(false);
-  const [taskPage, setTaskPage] = useState(1);
-  const [dealPage, setDealPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const [allContacts, setAllContacts] = useState([]);
 
   const loggedInUser = JSON.parse(localStorage.getItem('user'));
   const isGlobalAdmin = loggedInUser?.isSuperAdmin || loggedInUser?.isAdmin;
@@ -96,7 +47,7 @@ export default function UserDetail() {
       reports_to: ''
     },
     validationSchema: Yup.object({
-      name: Yup.string().required('Full name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      name: Yup.string().required('Full name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed'),
       email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address').required('Email is required'),
       role_id: Yup.string().required('Role is required')
     }),
@@ -117,7 +68,6 @@ export default function UserDetail() {
         };
         await api.patch(`/users/${id}`, payload);
         toast.success('User updated successfully');
-        setIsEditModalOpen(false);
         fetchUserDetails();
       } catch (err) {
         console.error('Update User Error:', err);
@@ -178,18 +128,7 @@ export default function UserDetail() {
       const contactsRes = await api.get(`/contacts?assigned_to=${id}&limit=100`);
       setContacts(contactsRes.data.data || []);
 
-      // 3. Fetch associated deals
-      const dealsRes = await api.get(`/deals?assigned_to=${id}&limit=100`);
-      setDeals(dealsRes.data.data || []);
-
-      // 4. Fetch associated tasks
-      const tasksRes = await api.get(`/tasks?assigned_to=${id}&limit=100`);
-      setTasks(tasksRes.data.data || []);
-
-      // 5. Populate some mock notes since backend might not support user-specific notes model
-      setNotes([]);
-
-      // 6. Fetch all contacts for link dropdown
+      // 3. Fetch all contacts for link dropdown
       const allContactsRes = await api.get(`/contacts?limit=200`);
       setAllContacts(allContactsRes.data.data || []);
 
@@ -213,19 +152,6 @@ export default function UserDetail() {
     fetchUserDetails();
   }, [id]);
 
-  const handleDeactivate = async () => {
-    try {
-      const newStatus = userData?.status === 'active' ? 'suspended' : 'active';
-      await api.patch(`/users/${id}/status`, { status: newStatus });
-      toast.success(`User successfully ${newStatus === 'active' ? 'activated' : 'deactivated'}`);
-      setIsDeactivateModalOpen(false);
-      fetchUserDetails();
-    } catch (err) {
-      console.error('Deactivate User Error:', err);
-      toast.error('Failed to change status');
-    }
-  };
-
   const handleDeleteUser = async () => {
     try {
       await api.delete(`/users/${id}`);
@@ -237,154 +163,6 @@ export default function UserDetail() {
       toast.error('Failed to delete user');
     }
   };
-
-  const handleAddNote = () => {
-    if (!newNote.trim()) {
-      toast.error('Note content cannot be empty');
-      return;
-    }
-    const note = {
-      id: `note-${Date.now()}`,
-      content: newNote,
-      author: loggedInUser?.name || 'Admin User',
-      date: new Date().toISOString()
-    };
-    setNotes([note, ...notes]);
-    setNewNote('');
-    setIsAddNoteModalOpen(false);
-    toast.success('Note added successfully');
-  };
-
-  const handleDeleteNote = (noteId) => {
-    if (window.confirm("Delete this note?")) {
-      setNotes(notes.filter(n => n.originalId !== noteId && n.id !== noteId));
-    }
-  };
-
-  const totalDealValue = deals.reduce((sum, d) => sum + Number(d.value || 0), 0);
-
-  // Helper mappings
-  const mapNote = (n) => ({
-    id: `note-${n.id}`,
-    originalId: n.id,
-    type: 'note',
-    date: new Date(n.date || n.created_at || Date.now()),
-    title: 'Note added',
-    subTitle: n.title,
-    description: n.content,
-    author: n.author || n.author_name || 'System',
-    attachments: n.attachments,
-    badgeColor: '#f97316', // Orange
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-      </svg>
-    ),
-    deal: n.deal
-  });
-
-  const mapDeal = (d) => ({
-    id: `deal-${d.id}`,
-    originalId: d.id,
-    type: 'deal',
-    date: new Date(d.created_at || Date.now()),
-    title: 'Deal associated',
-    subTitle: d.deal_name,
-    description: `New CRM Deal associated. Stage: <strong style="color: var(--primary); font-weight: 700; text-transform: uppercase; background-color: #eff6ff; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${d.stage?.replace('_', ' ')}</strong>. Value: <strong style="color: #2563eb; font-weight: 800; background-color: #eff6ff; padding: 2px 6px; border-radius: 4px; font-size: 12px;">₹${Number(d.value || 0).toLocaleString('en-IN')}</strong>`,
-    author: d.assignee_name || 'System',
-    badgeColor: '#1e3a8a', // Dark blue
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /><path d="M22 13a18.15 18.15 0 0 1-20 0" /><path d="M12 12h.01" />
-      </svg>
-    )
-  });
-
-  const mapTask = (t) => ({
-    id: `task-${t.id}`,
-    originalId: t.id,
-    type: 'task',
-    date: new Date(t.created_at || Date.now()),
-    title: 'Task created',
-    subTitle: t.title,
-    taskDescription: t.description || 'No description provided.',
-    description: `Task assigned. Priority: ${(t.priority||'').toUpperCase()}. Due Date: ${t.due_date ? new Date(t.due_date).toLocaleDateString() : 'No limit'}`,
-    author: t.assignee_name || 'System',
-    priority: t.priority,
-    status: t.status,
-    due_date: t.due_date,
-    badgeColor: '#8b5cf6', // Purple
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    )
-  });
-
-  const activitiesToShow = [
-    ...notes.map(mapNote),
-    ...deals.map(mapDeal),
-    ...tasks.map(mapTask)
-  ].sort((a, b) => b.date - a.date);
-
-  const notesToShow = notes.map(mapNote);
-  const dealsToShow = deals.map(mapDeal);
-  const tasksToShow = tasks.map(mapTask);
-
-  const filteredActivities = activitiesToShow.filter(act => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchTitle = act.title.toLowerCase().includes(query);
-      const matchSub = (act.subTitle || '').toLowerCase().includes(query);
-      const matchDesc = (act.description || '').toLowerCase().includes(query);
-      if (!matchTitle && !matchSub && !matchDesc) return false;
-    }
-    if (filterType !== 'all') {
-      if (act.type !== filterType) return false;
-    }
-    if (filterTime !== 'all') {
-      const now = new Date();
-      const diffTime = Math.abs(now - act.date);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      if (filterTime === 'today' && diffDays > 1) return false;
-      if (filterTime === 'week' && diffDays > 7) return false;
-      if (filterTime === 'month' && diffDays > 30) return false;
-    }
-    return true;
-  });
-
-  const filteredNotes = notesToShow.filter(act => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchTitle = act.title.toLowerCase().includes(query);
-      const matchSub = (act.subTitle || '').toLowerCase().includes(query);
-      const matchDesc = (act.description || '').toLowerCase().includes(query);
-      if (!matchTitle && !matchSub && !matchDesc) return false;
-    }
-    return true;
-  });
-
-  const filteredDeals = dealsToShow.filter(act => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchTitle = act.title.toLowerCase().includes(query);
-      const matchSub = (act.subTitle || '').toLowerCase().includes(query);
-      const matchDesc = (act.description || '').toLowerCase().includes(query);
-      if (!matchTitle && !matchSub && !matchDesc) return false;
-    }
-    return true;
-  });
-
-  const filteredTasks = tasksToShow.filter(act => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchTitle = act.title.toLowerCase().includes(query);
-      const matchSub = (act.subTitle || '').toLowerCase().includes(query);
-      const matchDesc = (act.description || '').toLowerCase().includes(query);
-      if (!matchTitle && !matchSub && !matchDesc) return false;
-    }
-    return true;
-  });
 
   const handleLinkContact = async () => {
     if (!newContactId) {
@@ -514,64 +292,14 @@ export default function UserDetail() {
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Button 
-            type="secondary" 
-            onClick={() => setIsEditModalOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', padding: '8px 14px', borderRadius: '8px' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            Edit User
-          </Button>
-
-          <Button 
-            type="secondary" 
+          <Button
+            type="secondary"
             onClick={() => setIsResetPasswordModalOpen(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '700', padding: '8px 14px', borderRadius: '8px' }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             Reset Password
           </Button>
-
-          <Button 
-            type="secondary" 
-            onClick={() => setIsDeactivateModalOpen(true)}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              fontSize: '13px', 
-              fontWeight: '700', 
-              padding: '8px 14px', 
-              borderRadius: '8px',
-              color: userData?.status === 'active' ? '#dc2626' : '#2563eb',
-              borderColor: userData?.status === 'active' ? '#fecaca' : '#bfdbfe',
-              backgroundColor: userData?.status === 'active' ? '#fef2f2' : '#eff6ff'
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
-            {userData?.status === 'active' ? 'Deactivate User' : 'Activate User'}
-          </Button>
-
-          <button 
-            onClick={() => setIsDeleteModalOpen(true)}
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              backgroundColor: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: 'var(--text-muted)',
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={(e) => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.borderColor = '#fca5a5'; }}
-            onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-          </button>
         </div>
       </div>
 
@@ -597,24 +325,12 @@ export default function UserDetail() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     border: '1.5px solid #dbeafe',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    fontSize: '22px',
+                    fontWeight: '800',
+                    color: '#2563eb'
                   }}>
-                    {/* Cute SVG Owl Avatar! */}
-                    <svg width="42" height="42" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="32" cy="36" r="20" fill="#1e3a8a" />
-                      <path d="M16 28C16 20 22 16 32 16C42 16 48 20 48 28C48 30 45 32 32 32C19 32 16 30 16 28Z" fill="#2563eb" />
-                      <circle cx="23" cy="28" r="8" fill="#ffffff" />
-                      <circle cx="41" cy="28" r="8" fill="#ffffff" />
-                      <circle cx="23" cy="28" r="4" fill="#0f172a" />
-                      <circle cx="41" cy="28" r="4" fill="#0f172a" />
-                      <circle cx="24.5" cy="26.5" r="1.5" fill="#ffffff" />
-                      <circle cx="42.5" cy="26.5" r="1.5" fill="#ffffff" />
-                      <polygon points="32,32 29,37 35,37" fill="#f59e0b" />
-                      <path d="M18 20L26 23L20 16Z" fill="#1e3a8a" />
-                      <path d="M46 20L38 23L44 16Z" fill="#1e3a8a" />
-                      <path d="M26 44C29 42 35 42 38 44" stroke="#bfdbfe" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M28 48C30 46 34 46 36 48" stroke="#bfdbfe" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
+                    {(userData?.name || 'U')[0].toUpperCase()}
                   </div>
                 )}
               </div>
@@ -624,11 +340,10 @@ export default function UserDetail() {
                   <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', margin: 0, letterSpacing: '-0.5px' }}>
                     {userData?.name}
                   </h2>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: userData?.status === 'suspended' ? '#fef2f2' : '#eff6ff', padding: '2px 8px', borderRadius: '4px' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: userData?.status === 'suspended' ? '#fef2f2' : '#eff6ff', padding: '2px 8px', borderRadius: '4px' }}>
                     <span style={{ fontSize: '10px', fontWeight: '850', color: userData?.status === 'suspended' ? '#dc2626' : '#2563eb', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       {userData?.status || 'ACTIVE'}
                     </span>
-                    <span style={{ color: userData?.status === 'suspended' ? '#fca5a5' : '#3b82f6', fontSize: '12px', display: 'flex', alignItems: 'center' }}>★</span>
                   </div>
                 </div>
 
@@ -871,7 +586,7 @@ export default function UserDetail() {
             padding: '20px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--text-muted)' }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <h3 style={{ margin: 0, fontSize: '14.5px', fontWeight: '800', color: 'var(--text-main)' }}>Associated Contacts ({contacts.length})</h3>
@@ -904,8 +619,8 @@ export default function UserDetail() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {contacts.slice(0, 3).map((contact, idx) => (
-                  <div key={contact.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: idx < 2 ? '14px' : '0', borderBottom: idx < 2 ? '1px solid var(--border)' : 'none' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div key={contact.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingBottom: idx < 2 ? '14px' : '0', borderBottom: idx < 2 ? '1px solid var(--border)' : 'none', minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                       <div style={{
                         width: '32px',
                         height: '32px',
@@ -917,19 +632,20 @@ export default function UserDetail() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        border: '1px solid rgba(0, 109, 47, 0.1)'
+                        border: '1px solid rgba(0, 109, 47, 0.1)',
+                        flexShrink: 0
                       }}>
                         {getInitials(contact.first_name + ' ' + (contact.last_name || ''))}
                       </div>
-                      <div>
-                        <Link to={`/contacts/${contact.id}`} style={{ fontWeight: '800', fontSize: '13.5px', color: 'var(--text-main)', textDecoration: 'none' }} onMouseOver={(e) => e.target.style.color = 'var(--primary)'} onMouseOut={(e) => e.target.style.color = 'var(--text-main)'}>
+                      <div style={{ minWidth: 0 }}>
+                        <Link to={`/contacts/${contact.id}`} style={{ fontWeight: '800', fontSize: '13.5px', color: 'var(--text-main)', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onMouseOver={(e) => e.target.style.color = 'var(--primary)'} onMouseOut={(e) => e.target.style.color = 'var(--text-main)'}>
                           {contact.first_name} {contact.last_name}
                         </Link>
-                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>{contact.company_name || 'Individual'}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.company_name || 'Individual'}</p>
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                       {contact.email && (
                         <a href={`mailto:${contact.email}`} style={{ display: 'flex', color: 'var(--text-muted)' }} title={contact.email}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
@@ -941,7 +657,7 @@ export default function UserDetail() {
                         </a>
                       )}
                       {idx === 0 && (
-                        <span style={{ fontSize: '10px', fontWeight: '800', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px' }}>
+                        <span style={{ fontSize: '10px', fontWeight: '800', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
                           Primary
                         </span>
                       )}
@@ -962,1029 +678,73 @@ export default function UserDetail() {
 
         {/* ================= RIGHT COLUMN ================= */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }} className="crm-right-col">
-          
-          {/* Note Editor Card removed as requested */}
 
-          <CRMWorkspaceTabs
-            tabs={[
-              {
-                id: 'activities',
-                label: 'All Activities',
-                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: activeTab === 'activities' ? '#2563eb' : '#64748b' }}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
-              },
-              {
-                id: 'notes',
-                label: 'Notes',
-                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: activeTab === 'notes' ? '#2563eb' : '#64748b' }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>,
-                count: notes.length
-              },
-              {
-                id: 'deals',
-                label: 'Deals',
-                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: activeTab === 'deals' ? '#2563eb' : '#64748b' }}><rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /><path d="M22 13a18.15 18.15 0 0 1-20 0" /><path d="M12 12h.01" /></svg>,
-                count: deals.length
-              },
-              {
-                id: 'tasks',
-                label: 'Tasks',
-                icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ color: activeTab === 'tasks' ? '#2563eb' : '#64748b' }}><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
-                count: tasks.length
-              }
-            ]}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            searchPlaceholder={activeTab === 'activities' ? "Search activities..." : activeTab === 'notes' ? "Search notes..." : activeTab === 'deals' ? "Search deals..." : "Search tasks..."}
-            filterType={filterType}
-            setFilterType={setFilterType}
-            filterTime={filterTime}
-            setFilterTime={setFilterTime}
-            showFilterType={activeTab === 'activities'}
-            showFilterTime={true}
-            filterTypeOptions={[
-              { value: 'all', label: 'All Types' },
-              { value: 'note', label: 'Notes Only' },
-              { value: 'task', label: 'Tasks Only' },
-              { value: 'deal', label: 'Deals Only' }
-            ]}
-            filterTimeOptions={[
-              { value: 'all', label: 'All Time' },
-              { value: 'today', label: 'Today' },
-              { value: 'week', label: 'Past Week' },
-              { value: 'month', label: 'Past Month' }
-            ]}
-          >
-            {/* Tab 1: activities timeline */}
-            {activeTab === 'activities' && (
-              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                {filteredActivities.length > 0 && <div className="timeline-line" />}
-
-                {filteredActivities.length === 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
-                    <div style={{ 
-                      width: '56px', 
-                      height: '56px', 
-                      borderRadius: '50%', 
-                      backgroundColor: '#f8fafc', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      marginBottom: '16px',
-                      border: '1px solid #e2e8f0',
-                      color: '#94a3b8'
-                    }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                    </div>
-                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No activities found</div>
-                    <div style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '280px' }}>Try adjusting your search query or selecting a different filter.</div>
-                  </div>
-                ) : (
-                  filteredActivities.slice(0, visibleActivitiesCount).map((act) => (
-                    <div key={act.id} className="timeline-item-container">
-
-                      {/* Timeline Node Badge Icon (Snug size) */}
-                      <div
-                        className="timeline-node"
-                        style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: act.badgeColor === '#f97316' ? '#fffbeb' : act.badgeColor === '#1e3a8a' ? '#eff6ff' : act.badgeColor === '#8b5cf6' ? '#faf5ff' : '#f1f5f9',
-                          color: act.badgeColor,
-                          border: '3px solid #fff',
-                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-                          flexShrink: 0,
-                          zIndex: 2
-                        }}
-                      >
-                        {act.icon}
-                      </div>
-
-                      {/* Timeline snug info card */}
-                      <div style={{
-                        flex: 1,
-                        backgroundColor: '#ffffff',
-                        padding: '6px 0px 8px 0px',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        gap: '16px'
-                      }}>
-                        {/* LEFT COLUMN: Title & Description */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
-                              {act.title}
-                            </h4>
-                            {act.subTitle && (
-                              <div style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb', marginBottom: '1px' }}>
-                                {act.subTitle}
-                              </div>
-                            )}
-                            <div
-                              style={{ fontSize: '12.5px', color: '#475569', lineHeight: '1.5', wordBreak: 'break-word', fontWeight: '400' }}
-                              dangerouslySetInnerHTML={{ __html: act.description }}
-                            />
-                          </div>
-
-                          {act.type === 'note' && act.attachments && act.attachments.length > 0 && (
-                            <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                              {act.attachments.map((file, idx) => (
-                                <a
-                                  key={idx}
-                                  href={getFileUrl(file.url)}
-                                  download
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '3px 8px',
-                                    backgroundColor: '#fff',
-                                    borderRadius: '4px',
-                                    textDecoration: 'none',
-                                    color: 'var(--primary)',
-                                    fontSize: '11px',
-                                    fontWeight: '700',
-                                    border: '1px solid #e2e8f0'
-                                  }}
-                                >
-                                  📎 {file.name}
-                                </a>
-                              ))}
-                            </div>
-                          )}
-
-                          {act.type === 'note' && act.deal && (
-                            <Link
-                              to={`/deals/${act.deal.id}`}
-                              style={{
-                                display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                  padding: '4px 10px',
-                                  backgroundColor: '#eff6ff',
-                                  borderRadius: '6px',
-                                  textDecoration: 'none',
-                                  color: '#1e40af',
-                                  fontSize: '11px',
-                                  fontWeight: '700',
-                                  border: '1px solid #bfdbfe',
-                                  marginTop: '6px',
-                                  width: 'fit-content',
-                                  transition: 'all 0.15s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#dbeafe';
-                                e.currentTarget.style.borderColor = '#93c5fd';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#eff6ff';
-                                e.currentTarget.style.borderColor = '#bfdbfe';
-                              }}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#2563eb' }}>
-                                <rect width="20" height="14" x="2" y="6" rx="2" />
-                                <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-                              </svg>
-                              <span>Linked Deal: <strong>{act.deal.deal_name}</strong> (₹{Number(act.deal.value).toLocaleString('en-IN')})</span>
-                            </Link>
-                          )}
-                        </div>
-
-                        {/* RIGHT COLUMN: Date & Avatar/Name */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
-                          <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '500' }}>
-                            {formatRelativeDate(act.date)}
-                          </span>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <div style={{
-                              width: '20px',
-                              height: '20px',
-                              borderRadius: '50%',
-                              backgroundColor: '#f1f5f9',
-                              color: '#475569',
-                              fontSize: '10px',
-                              fontWeight: '700',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                              overflow: 'hidden'
-                            }}>
-                              <span style={{ textTransform: 'uppercase' }}>{(act.author || 'U')[0]}</span>
-                            </div>
-                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>
-                              {act.author || 'User'}
-                            </span>
-                          </div>
-
-                          {act.type === 'note' && (
-                            <button
-                              onClick={() => handleDeleteNote(act.originalId)}
-                              style={{
-                                border: 'none',
-                                background: 'transparent',
-                                color: '#dc2626',
-                                fontSize: '11px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                opacity: 0.7,
-                                marginTop: '4px',
-                                padding: 0
-                              }}
-                              onMouseOver={(e) => e.currentTarget.style.opacity = 1}
-                              onMouseOut={(e) => e.currentTarget.style.opacity = 0.7}
-                            >
-                              Delete note
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Horizontal Line Partition intersecting with Vertical Line */}
-                      <div style={{
-                        position: 'absolute',
-                        left: '8px',
-                        right: '0',
-                        bottom: '0',
-                        height: '1px',
-                        backgroundColor: '#f1f5f9',
-                        zIndex: 1
-                      }} />
-                    </div>
-                  ))
-                )}
-
-                {filteredActivities.length > visibleActivitiesCount && (
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', marginBottom: '12px' }}>
-                    <button
-                      onClick={() => setVisibleActivitiesCount(prev => prev + 5)}
-                      style={{
-                        padding: '4px 6px',
-                        backgroundColor: 'transparent',
-                        color: 'hsl(219.81deg 84.06% 50.78%)',
-                        border: 'none',
-                        borderRadius: '0',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        transition: 'color 0.15s'
-                      }}
-                      onMouseOver={(e) => { e.currentTarget.style.color = 'rgb(24 82 215)'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.color = 'hsl(219.81deg 84.06% 50.78%)'; }}
-                    >
-                      Load More ({filteredActivities.length - visibleActivitiesCount})
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
-                        <path d="m6 9 6 6 6-6" />
-                      </svg>
-                    </button>
-                    {visibleActivitiesCount > 5 && (
-                      <button
-                        onClick={() => setVisibleActivitiesCount(5)}
-                        style={{
-                          padding: '4px 6px',
-                          backgroundColor: 'transparent',
-                          color: '#dc2626',
-                          border: 'none',
-                          borderRadius: '0',
-                          fontSize: '13px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'color 0.15s'
-                        }}
-                        onMouseOver={(e) => { e.currentTarget.style.color = '#b91c1c'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.color = '#dc2626'; }}
-                      >
-                        Show Less
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
-                          <path d="m18 15-6-6-6 6" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                )}
+          {/* INLINE EDIT USER FORM */}
+          <div className="crm-card" style={{ padding: '24px', border: '1px solid #e2e8f0', borderRadius: '16px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </div>
-            )}
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>Edit User Details</h3>
+            </div>
 
-            {/* Tab 2: Notes Detailed View */}
-            {activeTab === 'notes' && (
-              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                {filteredNotes.length > 0 && <div className="timeline-line" />}
+            <form style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <Input
+                label="Full Name"
+                name="name"
+                value={editUserFormik.values.name}
+                onChange={(e) => { editUserFormik.handleChange(e); editUserFormik.setFieldTouched('name', true, false); }}
+                onBlur={editUserFormik.handleBlur}
+                error={editUserFormik.errors.name}
+                touched={editUserFormik.touched.name}
+                required
+              />
 
-                {filteredNotes.length === 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
-                    <div style={{ 
-                      width: '56px', 
-                      height: '56px', 
-                      borderRadius: '50%', 
-                      backgroundColor: '#fff7ed', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      marginBottom: '16px',
-                      border: '1px solid #ffedd5',
-                      color: '#ea580c'
-                    }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-                    </div>
-                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No notes found</div>
-                    <div style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '280px' }}>Try adding a note above or adjusting your search criteria.</div>
-                  </div>
-                ) : (
-                  filteredNotes.slice(0, visibleNotesCount).map((act) => (
-                    <div key={act.id} className="timeline-item-container">
-                      {/* Timeline Node Badge Icon (Snug size) */}
-                      <div
-                        className="timeline-node"
-                        style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: '#fffbeb',
-                          color: '#f97316',
-                          border: '3px solid #fff',
-                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-                          flexShrink: 0,
-                          zIndex: 2
-                        }}
-                      >
-                        {act.icon}
-                      </div>
+              <Input
+                label="Email Address"
+                name="email"
+                type="email"
+                value={editUserFormik.values.email}
+                onChange={(e) => { editUserFormik.handleChange(e); editUserFormik.setFieldTouched('email', true, false); }}
+                onBlur={editUserFormik.handleBlur}
+                error={editUserFormik.errors.email}
+                touched={editUserFormik.touched.email}
+                required
+              />
 
-                      {/* Timeline snug info card */}
-                      <div style={{
-                        flex: 1,
-                        backgroundColor: '#ffffff',
-                        padding: '6px 0px 8px 0px',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        gap: '16px'
-                      }}>
-                        {/* LEFT COLUMN: Title & Description */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
-                              {act.title}
-                            </h4>
-                            {act.subTitle && (
-                              <div style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb', marginBottom: '1px' }}>
-                                {act.subTitle}
-                              </div>
-                            )}
-                            <div
-                              style={{ fontSize: '12.5px', color: '#475569', lineHeight: '1.5', wordBreak: 'break-word', fontWeight: '400' }}
-                              dangerouslySetInnerHTML={{ __html: act.description }}
-                            />
-                          </div>
+              <Input
+                label="Phone Number"
+                name="phone"
+                value={editUserFormik.values.phone}
+                onChange={editUserFormik.handleChange}
+                onBlur={editUserFormik.handleBlur}
+              />
 
-                          {act.attachments && act.attachments.length > 0 && (
-                            <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                              {act.attachments.map((file, idx) => (
-                                <a
-                                  key={idx}
-                                  href={getFileUrl(file.url)}
-                                  download
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '3px 8px',
-                                    backgroundColor: '#fff',
-                                    borderRadius: '4px',
-                                    textDecoration: 'none',
-                                    color: 'var(--primary)',
-                                    fontSize: '11px',
-                                    fontWeight: '700',
-                                    border: '1px solid #e2e8f0'
-                                  }}
-                                >
-                                  📎 {file.name}
-                                </a>
-                              ))}
-                            </div>
-                          )}
+              {isGlobalAdmin && (
+                <Select
+                  label="Role"
+                  name="role_id"
+                  value={editUserFormik.values.role_id}
+                  onChange={editUserFormik.handleChange}
+                  onBlur={editUserFormik.handleBlur}
+                  required
+                >
+                  <option value="">Select a role</option>
+                  {roles.map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
+                </Select>
+              )}
 
-                          {act.deal && (
-                            <Link
-                              to={`/deals/${act.deal.id}`}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                padding: '4px 10px',
-                                backgroundColor: '#eff6ff',
-                                borderRadius: '6px',
-                                textDecoration: 'none',
-                                color: '#1e40af',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                border: '1px solid #bfdbfe',
-                                marginTop: '6px',
-                                width: 'fit-content',
-                                transition: 'all 0.15s ease'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#dbeafe';
-                                e.currentTarget.style.borderColor = '#93c5fd';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#eff6ff';
-                                e.currentTarget.style.borderColor = '#bfdbfe';
-                              }}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#2563eb' }}>
-                                <rect width="20" height="14" x="2" y="6" rx="2" />
-                                <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-                              </svg>
-                              <span>Linked Deal: <strong>{act.deal.deal_name}</strong> (₹{Number(act.deal.value).toLocaleString('en-IN')})</span>
-                            </Link>
-                          )}
-                        </div>
-
-                        {/* RIGHT COLUMN: Date & Avatar/Name */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
-                          <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '500' }}>
-                            {formatRelativeDate(act.date)}
-                          </span>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <div style={{
-                              width: '20px',
-                              height: '20px',
-                              borderRadius: '50%',
-                              backgroundColor: '#f1f5f9',
-                              color: '#475569',
-                              fontSize: '10px',
-                              fontWeight: '700',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                              overflow: 'hidden'
-                            }}>
-                              <span style={{ textTransform: 'uppercase' }}>{act.author[0] || 'U'}</span>
-                            </div>
-                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>
-                              {act.author || 'User'}
-                            </span>
-                          </div>
-
-                          <button
-                            onClick={() => handleDeleteNote(act.originalId)}
-                            style={{
-                              border: 'none',
-                              background: 'transparent',
-                              color: '#dc2626',
-                              fontSize: '11px',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              opacity: 0.7,
-                              marginTop: '4px',
-                              padding: 0
-                            }}
-                            onMouseOver={(e) => e.currentTarget.style.opacity = 1}
-                            onMouseOut={(e) => e.currentTarget.style.opacity = 0.7}
-                          >
-                            Delete note
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Horizontal Line Partition intersecting with Vertical Line */}
-                      <div style={{
-                        position: 'absolute',
-                        left: '8px',
-                        right: '0',
-                        bottom: '0',
-                        height: '1px',
-                        backgroundColor: '#f1f5f9',
-                        zIndex: 1
-                      }} />
-                    </div>
-                  ))
-                )}
-
-                {filteredNotes.length > visibleNotesCount && (
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', marginBottom: '12px' }}>
-                    <button
-                      onClick={() => setVisibleNotesCount(prev => prev + 5)}
-                      style={{
-                        padding: '4px 6px',
-                        backgroundColor: 'transparent',
-                        color: 'hsl(219.81deg 84.06% 50.78%)',
-                        border: 'none',
-                        borderRadius: '0',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        transition: 'color 0.15s'
-                      }}
-                      onMouseOver={(e) => { e.currentTarget.style.color = 'rgb(24 82 215)'; }}
-                      onMouseOut={(e) => { e.currentTarget.style.color = 'hsl(219.81deg 84.06% 50.78%)'; }}
-                    >
-                      Load More ({filteredNotes.length - visibleNotesCount})
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
-                        <path d="m6 9 6 6 6-6" />
-                      </svg>
-                    </button>
-                    {visibleNotesCount > 5 && (
-                      <button
-                        onClick={() => setVisibleNotesCount(5)}
-                        style={{
-                          padding: '4px 6px',
-                          backgroundColor: 'transparent',
-                          color: '#dc2626',
-                          border: 'none',
-                          borderRadius: '0',
-                          fontSize: '13px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'color 0.15s'
-                        }}
-                        onMouseOver={(e) => { e.currentTarget.style.color = '#b91c1c'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.color = '#dc2626'; }}
-                      >
-                        Show Less
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
-                          <path d="m18 15-6-6-6 6" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
+                <Button onClick={editUserFormik.handleSubmit} disabled={editUserFormik.isSubmitting}>
+                  {editUserFormik.isSubmitting ? 'Saving...' : 'Save Changes'}
+                </Button>
               </div>
-            )}
-
-            {/* Tab 3: Deals Detailed View */}
-            {activeTab === 'deals' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  {filteredDeals.length > 0 && <div className="timeline-line" />}
-
-                  {filteredDeals.length === 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
-                      <div style={{ 
-                        width: '56px', 
-                        height: '56px', 
-                        borderRadius: '50%', 
-                        backgroundColor: '#f0fdf4', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        marginBottom: '16px',
-                        border: '1px solid #dcfce7',
-                        color: '#16a34a'
-                      }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>
-                      </div>
-                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No deals associated</div>
-                      <div style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '280px' }}>This user doesn't have any deals assigned.</div>
-                    </div>
-                  ) : (
-                    <>
-                      {filteredDeals.slice(0, visibleDealsCount).map((act) => (
-                        <div key={act.id} className="timeline-item-container">
-                          {/* Timeline Node Badge Icon */}
-                          <div
-                            className="timeline-node"
-                            style={{
-                              width: '42px',
-                              height: '42px',
-                              borderRadius: '50%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              backgroundColor: '#eff6ff',
-                              color: '#1e3a8a',
-                              border: '3px solid #fff',
-                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-                              flexShrink: 0,
-                              zIndex: 2
-                            }}
-                          >
-                            {act.icon}
-                          </div>
-
-                          {/* Timeline snug info card */}
-                          <div style={{
-                            flex: 1,
-                            backgroundColor: '#ffffff',
-                            padding: '6px 0px 8px 0px',
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            justifyContent: 'space-between',
-                            gap: '16px'
-                          }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
-                                  {act.title}
-                                </h4>
-                                {act.subTitle && (
-                                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb', marginBottom: '1px' }}>
-                                    {act.subTitle}
-                                  </div>
-                                )}
-                                <div
-                                  style={{ fontSize: '12.5px', color: '#475569', lineHeight: '1.5', wordBreak: 'break-word', fontWeight: '400' }}
-                                  dangerouslySetInnerHTML={{ __html: act.description }}
-                                />
-                              </div>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
-                              <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '500' }}>
-                                {formatRelativeDate(act.date)}
-                              </span>
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <div style={{
-                                  width: '20px',
-                                  height: '20px',
-                                  borderRadius: '50%',
-                                  backgroundColor: '#f1f5f9',
-                                  color: '#475569',
-                                  fontSize: '10px',
-                                  fontWeight: '700',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0,
-                                  overflow: 'hidden'
-                                }}>
-                                  <span style={{ textTransform: 'uppercase' }}>{act.author[0] || 'U'}</span>
-                                </div>
-                                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>
-                                  {act.author || 'User'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Horizontal Line Partition intersecting with Vertical Line */}
-                          <div style={{
-                            position: 'absolute',
-                            left: '8px',
-                            right: '0',
-                            bottom: '0',
-                            height: '1px',
-                            backgroundColor: '#f1f5f9',
-                            zIndex: 1
-                          }} />
-                        </div>
-                      ))}
-                      {filteredDeals.length > visibleDealsCount && (
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', marginBottom: '12px' }}>
-                          <button
-                            onClick={() => setVisibleDealsCount(prev => prev + 5)}
-                            style={{
-                              padding: '4px 6px',
-                              backgroundColor: 'transparent',
-                              color: 'hsl(219.81deg 84.06% 50.78%)',
-                              border: 'none',
-                              borderRadius: '0',
-                              fontSize: '13px',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              transition: 'color 0.15s'
-                            }}
-                            onMouseOver={(e) => { e.currentTarget.style.color = 'rgb(24 82 215)'; }}
-                            onMouseOut={(e) => { e.currentTarget.style.color = 'hsl(219.81deg 84.06% 50.78%)'; }}
-                          >
-                            Load More ({filteredDeals.length - visibleDealsCount})
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
-                              <path d="m6 9 6 6 6-6" />
-                            </svg>
-                          </button>
-                          {visibleDealsCount > 5 && (
-                            <button
-                              onClick={() => setVisibleDealsCount(5)}
-                              style={{
-                                padding: '4px 6px',
-                                backgroundColor: 'transparent',
-                                color: '#dc2626',
-                                border: 'none',
-                                borderRadius: '0',
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                transition: 'color 0.15s'
-                              }}
-                              onMouseOver={(e) => { e.currentTarget.style.color = '#b91c1c'; }}
-                              onMouseOut={(e) => { e.currentTarget.style.color = '#dc2626'; }}
-                            >
-                              Show Less
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
-                                <path d="m18 15-6-6-6 6" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Tab 4: Tasks Detailed View */}
-            {activeTab === 'tasks' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  {filteredTasks.length > 0 && <div className="timeline-line" />}
-
-                  {filteredTasks.length === 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
-                      <div style={{ 
-                        width: '56px', 
-                        height: '56px', 
-                        borderRadius: '50%', 
-                        backgroundColor: '#f5f3ff', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        marginBottom: '16px',
-                        border: '1px solid #ede9fe',
-                        color: '#8b5cf6'
-                      }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
-                      </div>
-                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '4px' }}>No tasks linked</div>
-                      <div style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '280px' }}>This user doesn't have any tasks linked.</div>
-                    </div>
-                  ) : (
-                    <>
-                      {filteredTasks.slice(0, visibleTasksCount).map((act) => (
-                        <div key={act.id} className="timeline-item-container">
-                          {/* Timeline Node Badge Icon */}
-                          <div
-                            className="timeline-node"
-                            style={{
-                              width: '42px',
-                              height: '42px',
-                              borderRadius: '50%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              backgroundColor: '#faf5ff',
-                              color: '#8b5cf6',
-                              border: '3px solid #fff',
-                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-                              flexShrink: 0,
-                              zIndex: 2
-                            }}
-                          >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
-                          </div>
-
-                          {/* Timeline snug info card */}
-                          <div style={{
-                            flex: 1,
-                            backgroundColor: '#ffffff',
-                            padding: '6px 0px 8px 0px',
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            justifyContent: 'space-between',
-                            gap: '16px'
-                          }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <h4 style={{ margin: 0, fontSize: '13.5px', fontWeight: '700', color: '#0f172a' }}>
-                                  {act.subTitle || 'Untitled Task'}
-                                </h4>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
-                                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
-                                    Priority:
-                                  </span>
-                                  <span style={{
-                                    fontSize: '10px',
-                                    fontWeight: '800',
-                                    textTransform: 'uppercase',
-                                    color: act.priority === 'high' ? '#b91c1c' : act.priority === 'medium' ? '#d97706' : '#475569',
-                                    backgroundColor: act.priority === 'high' ? '#fee2e2' : act.priority === 'medium' ? '#fef3c7' : '#f1f5f9',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px'
-                                  }}>
-                                    {act.priority || 'medium'}
-                                  </span>
-
-                                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', marginLeft: '6px' }}>
-                                    Status:
-                                  </span>
-                                  <span style={{
-                                    fontSize: '10px',
-                                    fontWeight: '800',
-                                    textTransform: 'uppercase',
-                                    color: act.status === 'completed' ? '#2563eb' : '#d97706',
-                                    backgroundColor: act.status === 'completed' ? '#eff6ff' : '#fef3c7',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px'
-                                  }}>
-                                    {act.status?.replace('_', ' ') || 'pending'}
-                                  </span>
-
-                                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500', marginLeft: '6px' }}>
-                                    Due: {act.due_date ? new Date(act.due_date).toLocaleDateString() : 'No date'}
-                                  </span>
-                                </div>
-                                {act.taskDescription && (
-                                  <div style={{
-                                    fontSize: '12.5px',
-                                    color: '#475569',
-                                    marginTop: '6px',
-                                    lineHeight: '1.5',
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word',
-                                    fontWeight: '400'
-                                  }}>
-                                    {act.taskDescription}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
-                              <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '500' }}>
-                                {formatRelativeDate(act.date)}
-                              </span>
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <div style={{
-                                  width: '20px',
-                                  height: '20px',
-                                  borderRadius: '50%',
-                                  backgroundColor: '#f1f5f9',
-                                  color: '#475569',
-                                  fontSize: '10px',
-                                  fontWeight: '700',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexShrink: 0,
-                                  overflow: 'hidden'
-                                }}>
-                                  <span style={{ textTransform: 'uppercase' }}>{act.author[0] || 'U'}</span>
-                                </div>
-                                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>
-                                  {act.author || 'User'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Horizontal Line Partition intersecting with Vertical Line */}
-                          <div style={{
-                            position: 'absolute',
-                            left: '8px',
-                            right: '0',
-                            bottom: '0',
-                            height: '1px',
-                            backgroundColor: '#f1f5f9',
-                            zIndex: 1
-                          }} />
-                        </div>
-                      ))}
-                      {filteredTasks.length > visibleTasksCount && (
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', marginBottom: '12px' }}>
-                          <button
-                            onClick={() => setVisibleTasksCount(prev => prev + 5)}
-                            style={{
-                              padding: '4px 6px',
-                              backgroundColor: 'transparent',
-                              color: 'hsl(219.81deg 84.06% 50.78%)',
-                              border: 'none',
-                              borderRadius: '0',
-                              fontSize: '13px',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              transition: 'color 0.15s'
-                            }}
-                            onMouseOver={(e) => { e.currentTarget.style.color = 'rgb(24 82 215)'; }}
-                            onMouseOut={(e) => { e.currentTarget.style.color = 'hsl(219.81deg 84.06% 50.78%)'; }}
-                          >
-                            Load More ({filteredTasks.length - visibleTasksCount})
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
-                              <path d="m6 9 6 6 6-6" />
-                            </svg>
-                          </button>
-                          {visibleTasksCount > 5 && (
-                            <button
-                              onClick={() => setVisibleTasksCount(5)}
-                              style={{
-                                padding: '4px 6px',
-                                backgroundColor: 'transparent',
-                                color: '#dc2626',
-                                border: 'none',
-                                borderRadius: '0',
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                transition: 'color 0.15s'
-                              }}
-                              onMouseOver={(e) => { e.currentTarget.style.color = '#b91c1c'; }}
-                              onMouseOut={(e) => { e.currentTarget.style.color = '#dc2626'; }}
-                            >
-                              Show Less
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '6px', verticalAlign: 'middle' }}>
-                                <path d="m18 15-6-6-6 6" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </CRMWorkspaceTabs>
+            </form>
+          </div>
         </div>
       </div>
 
       {/* ================= MODALS ================= */}
-
-      {/* EDIT USER DETAILS MODAL */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Edit User Details"
-        footer={<>
-          <Button type="secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-          <Button onClick={editUserFormik.handleSubmit} disabled={editUserFormik.isSubmitting}>
-            {editUserFormik.isSubmitting ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </>}
-      >
-        <form onSubmit={editUserFormik.handleSubmit}>
-          <Input
-            label="Full Name"
-            name="name"
-            value={editUserFormik.values.name}
-            onChange={(e) => { editUserFormik.handleChange(e); editUserFormik.setFieldTouched('name', true, false); }}
-            onBlur={editUserFormik.handleBlur}
-            error={editUserFormik.errors.name}
-            touched={editUserFormik.touched.name}
-            required
-          />
-
-          <Input
-            label="Email Address"
-            name="email"
-            type="email"
-            value={editUserFormik.values.email}
-            onChange={(e) => { editUserFormik.handleChange(e); editUserFormik.setFieldTouched('email', true, false); }}
-            onBlur={editUserFormik.handleBlur}
-            error={editUserFormik.errors.email}
-            touched={editUserFormik.touched.email}
-            required
-          />
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input
-              label="Phone Number"
-              name="phone"
-              value={editUserFormik.values.phone}
-              onChange={editUserFormik.handleChange}
-              onBlur={editUserFormik.handleBlur}
-            />
-            <Input
-              label="Location"
-              name="location"
-              placeholder="e.g. New York, USA"
-              value={editUserFormik.values.location}
-              onChange={editUserFormik.handleChange}
-              onBlur={editUserFormik.handleBlur}
-            />
-          </div>
-
-          {isGlobalAdmin && (
-            <Select
-              label="Role"
-              name="role_id"
-              value={editUserFormik.values.role_id}
-              onChange={editUserFormik.handleChange}
-              onBlur={editUserFormik.handleBlur}
-              required
-            >
-              <option value="">Select a role</option>
-              {roles.map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
-            </Select>
-          )}
-        </form>
-      </Modal>
 
       {/* RESET PASSWORD MODAL */}
       <Modal
@@ -2028,17 +788,6 @@ export default function UserDetail() {
         </form>
       </Modal>
 
-      {/* DEACTIVATE CONFIRM MODAL */}
-      <ConfirmModal 
-        isOpen={isDeactivateModalOpen}
-        onClose={() => setIsDeactivateModalOpen(false)}
-        onConfirm={handleDeactivate}
-        title={userData?.status === 'active' ? 'Deactivate User Account' : 'Activate User Account'}
-        message={`Are you sure you want to ${userData?.status === 'active' ? 'deactivate' : 'activate'} this user? ${userData?.status === 'active' ? 'This user will no longer be able to log in or access the portal.' : 'This will restore their portal login privileges.'}`}
-        confirmText="Confirm"
-        confirmType={userData?.status === 'active' ? 'danger' : 'success'}
-      />
-
       {/* DELETE CONFIRM MODAL */}
       <ConfirmModal 
         isOpen={isDeleteModalOpen}
@@ -2049,36 +798,6 @@ export default function UserDetail() {
         confirmText="Yes, Delete"
         confirmType="danger"
       />
-
-      {/* ADD NOTE MODAL */}
-      <Modal
-        isOpen={isAddNoteModalOpen}
-        onClose={() => setIsAddNoteModalOpen(false)}
-        title="Add Private Note"
-        footer={<>
-          <Button type="secondary" onClick={() => setIsAddNoteModalOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddNote}>Add Note</Button>
-        </>}
-      >
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>Note Content</label>
-          <textarea 
-            placeholder="Write user notes, reminders or review info..."
-            value={newNote}
-            onChange={(e) => setNewNote(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '12px 14px',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              minHeight: '100px',
-              outline: 'none',
-              fontSize: '14px',
-              fontFamily: 'inherit'
-            }}
-          />
-        </div>
-      </Modal>
 
       {/* ADD ASSOCIATED CONTACT MODAL */}
       <Modal
@@ -2096,7 +815,7 @@ export default function UserDetail() {
           onChange={(e) => setNewContactId(e.target.value)}
           required
         >
-          <option value="">— Select a Contact —</option>
+          <option value="">â€” Select a Contact â€”</option>
           {allContacts.filter(c => c.assigned_to !== id).map(c => (
             <option key={c.id} value={c.id}>{c.first_name} {c.last_name} ({c.company_name || 'Individual'})</option>
           ))}
@@ -2114,7 +833,7 @@ function DetailRow({ label, value, icon }) {
         <span>{label}</span>
       </div>
       <div style={{ color: 'var(--text-main)', fontWeight: '750', textAlign: 'right' }}>
-        {value || '—'}
+        {value || 'â€”'}
       </div>
     </div>
   );

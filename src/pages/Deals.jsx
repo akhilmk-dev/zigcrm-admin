@@ -10,6 +10,7 @@ import { FormSelect } from '../components/common/FormSelect';
 import EditDealModal from '../components/deals/EditDealModal';
 import { toast } from 'react-hot-toast';
 import { usePermission } from '../hooks/usePermission';
+import { useScrollToError } from '../hooks/useScrollToError';
 
 export default function Deals() {
   const { hasPermission } = usePermission();
@@ -58,7 +59,7 @@ export default function Deals() {
       assigned_to: ''
     },
     validationSchema: Yup.object({
-      deal_name: Yup.string().required('Deal name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
+      deal_name: Yup.string().required('Deal name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed'),
       value: Yup.number()
         .typeError('Invalid value. Only numbers are allowed')
         .min(0, 'Value cannot be negative')
@@ -79,6 +80,7 @@ export default function Deals() {
       }
     }
   });
+  useScrollToError(formik);
 
   const fetchData = async () => {
     setLoading(true);
@@ -629,7 +631,7 @@ export default function Deals() {
             touched={formik.touched.contact_id}
             options={contacts.map(c => ({
               value: c.id,
-              label: `${c.first_name} ${c.last_name}`,
+              label: `${c.first_name} ${c.last_name || ''}`.trim(),
               avatar: c.first_name?.[0]?.toUpperCase()
             }))}
           />

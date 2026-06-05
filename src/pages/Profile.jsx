@@ -269,7 +269,7 @@ export default function Profile() {
     },
     enableReinitialize: true,
     validationSchema: Yup.object({
-      name: Yup.string().required('Name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      name: Yup.string().required('Name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed'),
       email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address').required('Email is required'),
       phone: Yup.string()
         .required('Phone number is required')
@@ -447,6 +447,9 @@ export default function Profile() {
   const filteredProfileItems = profileItems.filter(item => {
     const isTenantUser = user?.user_type === 'tenant_admin' || user?.user_type === 'tenant_user' || user?.isTenant;
     if (isTenantUser && (item.label === 'Department' || item.label === 'Username')) {
+      return false;
+    }
+    if (user?.user_type === 'tenant_user' && item.label === 'Address') {
       return false;
     }
     return true;

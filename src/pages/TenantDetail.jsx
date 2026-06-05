@@ -283,8 +283,7 @@ export default function TenantDetail() {
       name: Yup.string()
         .required('Company / Owner Name is required')
         .min(3, 'Minimum 3 characters required')
-        .max(60, 'Maximum 60 characters allowed')
-        .matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
+        .max(60, 'Maximum 60 characters allowed'),
       email: Yup.string()
         .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address')
         .required('Owner email is required'),
