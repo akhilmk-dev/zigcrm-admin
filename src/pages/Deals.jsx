@@ -117,7 +117,7 @@ export default function Deals() {
       const tid = formik.values.tenant_id || selectedTenantId || loggedInUser.tenantId;
       if (tid) {
         api.get(`/contacts?tenant_id=${tid}&limit=100`).then(res => setContacts(res.data.data || []));
-        api.get(`/users?tenant_id=${tid}`).then(res => setStaff(res.data.data || []));
+        api.get(`/users?tenant_id=${tid}&module=deals`).then(res => setStaff(res.data.data || []));
       }
 
     } catch (err) {
@@ -210,7 +210,7 @@ export default function Deals() {
   useEffect(() => {
     if (formik.values.tenant_id) {
       api.get(`/contacts?tenant_id=${formik.values.tenant_id}&limit=100`).then(res => setContacts(res.data.data || []));
-      api.get(`/users?tenant_id=${formik.values.tenant_id}`).then(res => setStaff(res.data.data || []));
+      api.get(`/users?tenant_id=${formik.values.tenant_id}&module=deals`).then(res => setStaff(res.data.data || []));
     }
   }, [formik.values.tenant_id]);
 
@@ -243,7 +243,7 @@ export default function Deals() {
         values: {
           deal_name: '',
           value: '',
-          currency: 'INR',
+          currency: 'USD',
           stage: 'lead',
           contact_id: '',
           status: 'open',

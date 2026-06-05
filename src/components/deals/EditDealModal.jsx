@@ -34,7 +34,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
     initialValues: {
       deal_name: '',
       value: '',
-      currency: 'INR',
+      currency: 'USD',
       stage: 'lead',
       contact_id: '',
       status: 'open',
@@ -91,7 +91,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
         values: {
           deal_name: deal.deal_name || '',
           value: deal.value || '',
-          currency: deal.currency || 'INR',
+          currency: deal.currency || 'USD',
           stage: deal.stage || 'lead',
           contact_id: deal.contact_id || '',
           status: deal.status || 'open',
@@ -106,7 +106,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
       const tid = deal.tenant_id;
       if (tid) {
         api.get(`/contacts?tenant_id=${tid}&limit=100`).then(res => setContacts(res.data.data || []));
-        api.get(`/users?tenant_id=${tid}`).then(res => setStaff(res.data.data || []));
+        api.get(`/users?tenant_id=${tid}&module=deals`).then(res => setStaff(res.data.data || []));
       }
     }
   }, [isOpen, deal?.id]);
@@ -114,7 +114,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
   useEffect(() => {
     if (formik.values.tenant_id && isOpen) {
       api.get(`/contacts?tenant_id=${formik.values.tenant_id}&limit=100`).then(res => setContacts(res.data.data || []));
-      api.get(`/users?tenant_id=${formik.values.tenant_id}`).then(res => setStaff(res.data.data || []));
+      api.get(`/users?tenant_id=${formik.values.tenant_id}&module=deals`).then(res => setStaff(res.data.data || []));
     }
   }, [formik.values.tenant_id]);
 
