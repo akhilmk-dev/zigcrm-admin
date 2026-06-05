@@ -5,6 +5,7 @@ import api from '../../api/axiosConfig';
 import { Modal, Button, Input } from '../common/Modal';
 import { FormSelect } from '../common/FormSelect';
 import { toast } from 'react-hot-toast';
+import { useScrollToError } from '../../hooks/useScrollToError';
 
 const getStageIndex = (stage) => {
   const s = stage?.toLowerCase() || '';
@@ -41,7 +42,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
       assigned_to: ''
     },
     validationSchema: Yup.object({
-      deal_name: Yup.string().required('Deal name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
+      deal_name: Yup.string().required('Deal name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed'),
       value: Yup.number()
         .typeError('Invalid value. Only numbers are allowed')
         .min(0, 'Value cannot be negative')
@@ -71,6 +72,7 @@ export default function EditDealModal({ isOpen, onClose, deal, onSuccess }) {
       }
     }
   });
+  useScrollToError(formik);
 
   const handleClose = () => {
     formik.resetForm();

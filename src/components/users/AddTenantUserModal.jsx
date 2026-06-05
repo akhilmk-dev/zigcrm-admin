@@ -6,6 +6,7 @@ import api, { getFileUrl } from '../../api/axiosConfig';
 import { Modal, Button, Input } from '../common/Modal';
 import { FormSelect } from '../common/FormSelect';
 import { toast } from 'react-hot-toast';
+import { useScrollToError } from '../../hooks/useScrollToError';
 import { countries } from '../../constants/countries';
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -120,7 +121,7 @@ export default function AddTenantUserModal({ isOpen, onClose, user, onSuccess, d
       profile_image_url: '',
     },
     validationSchema: Yup.object({
-      name: Yup.string().required('Full name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      name: Yup.string().required('Full name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed'),
       email: Yup.string()
         .matches(EMAIL_REGEX, 'Invalid email address')
         .required('Email is required'),
@@ -172,10 +173,10 @@ export default function AddTenantUserModal({ isOpen, onClose, user, onSuccess, d
         handleClose();
       } catch (err) {
         console.error('Save User Error:', err);
-        toast.error('Failed to save user');
       }
     }
   });
+  useScrollToError(formik);
 
   const handleClose = () => {
     formik.resetForm();
@@ -302,6 +303,7 @@ export default function AddTenantUserModal({ isOpen, onClose, user, onSuccess, d
           label="Email Address"
           name="email"
           type="email"
+          autoComplete="off"
           placeholder="jane@company.com"
           value={formik.values.email}
           onChange={(e) => {

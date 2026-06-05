@@ -186,6 +186,7 @@ export default function Login() {
               <input
                 name="email"
                 type="email"
+                autoComplete="email"
                 placeholder="name@company.com"
                 value={formik.values.email}
                 onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('email', true, false); }}
@@ -232,6 +233,7 @@ export default function Login() {
               <input
                 name="password"
                 type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
                 placeholder="••••••••"
                 value={formik.values.password}
                 onChange={formik.handleChange}

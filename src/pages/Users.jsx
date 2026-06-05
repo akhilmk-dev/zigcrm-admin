@@ -7,6 +7,7 @@ import { DataTable, Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
 import { FormSelect } from '../components/common/FormSelect';
 import { usePermission } from '../hooks/usePermission';
+import { useScrollToError } from '../hooks/useScrollToError';
 import { toast } from 'react-hot-toast';
 import { countries } from '../constants/countries';
 import { isValidPhoneNumber } from 'libphonenumber-js';
@@ -235,7 +236,7 @@ export default function Users() {
       profile_image_url: '',
     },
     validationSchema: Yup.object({
-      name: Yup.string().required('Full name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
+      name: Yup.string().required('Full name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed'),
       email: Yup.string()
         .matches(
           /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
@@ -300,6 +301,7 @@ export default function Users() {
       }
     }
   });
+  useScrollToError(formik);
 
   // ─── Debounce ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -672,7 +674,6 @@ export default function Users() {
               <option value="">All Statuses</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
-              <option value="suspended">Suspended</option>
             </select>
             <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b', display: 'flex', alignItems: 'center' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

@@ -8,6 +8,7 @@ import { Modal, Button, Input, ConfirmModal } from '../components/common/Modal';
 import { SearchableSelect } from '../components/common/SearchableSelect';
 import { FormSelect } from '../components/common/FormSelect';
 import { usePermission } from '../hooks/usePermission';
+import { useScrollToError } from '../hooks/useScrollToError';
 import { toast } from 'react-hot-toast';
 
 export default function Tasks() {
@@ -85,6 +86,7 @@ export default function Tasks() {
       }
     }
   });
+  useScrollToError(formik);
 
   // Fetch deals when contact_id changes
   useEffect(() => {
@@ -745,7 +747,7 @@ export default function Tasks() {
               placeholder="Select Contact"
               options={contacts.map(c => ({
                 value: c.id,
-                label: `${c.first_name} ${c.last_name}${c.company_name ? ` (${c.company_name})` : ''}`,
+                label: `${c.first_name} ${c.last_name || ''}`.trim() + `${c.company_name ? ` (${c.company_name})` : ''}`,
                 avatar: c.first_name?.[0]?.toUpperCase()
               }))}
             />

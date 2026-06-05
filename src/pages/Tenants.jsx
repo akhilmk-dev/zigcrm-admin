@@ -217,7 +217,7 @@ export default function Tenants() {
       profile_image_url: ''
     },
     validationSchema: Yup.object({
-      name: Yup.string().required('Company / Owner Name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
+      name: Yup.string().required('Company / Owner Name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed'),
       email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address').required('Owner email is required'),
       phone: Yup.string()
         .required('Phone number is required')
@@ -273,6 +273,68 @@ export default function Tenants() {
       }
     }
   });
+
+  const setFieldValueRef = useRef(formik.setFieldValue);
+  useEffect(() => { setFieldValueRef.current = formik.setFieldValue; });
+
+  // Load Google Places API
+  useEffect(() => {
+    if (!document.getElementById('google-places-zindex-style')) {
+      const style = document.createElement('style');
+      style.id = 'google-places-zindex-style';
+      style.innerHTML = `.pac-container { z-index: 99999 !important; }`;
+      document.head.appendChild(style);
+    }
+    if (!window.google) {
+      const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  // Attach Places autocomplete to the company name field when modal opens
+  useEffect(() => {
+    let nameAutocomplete = null;
+    let timer = null;
+
+    if (isModalOpen) {
+      timer = setTimeout(() => {
+        const nameInput = document.querySelector('input[name="name"]');
+        if (nameInput && window.google?.maps?.places) {
+          nameAutocomplete = new window.google.maps.places.Autocomplete(nameInput, {
+            types: ['establishment'],
+          });
+          nameAutocomplete.addListener('place_changed', () => {
+            const place = nameAutocomplete.getPlace();
+            if (place?.name) setFieldValueRef.current('name', place.name);
+            if (place?.formatted_address) setFieldValueRef.current('address', place.formatted_address);
+          });
+        }
+      }, 300);
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (nameAutocomplete && window.google?.maps?.event) {
+        window.google.maps.event.clearInstanceListeners(nameAutocomplete);
+      }
+    };
+  }, [isModalOpen]);
+
+  // Scroll to first validation error on submit
+  useEffect(() => {
+    if (formik.submitCount === 0 || !isModalOpen) return;
+    const fieldOrder = ['plan_id', 'name', 'email', 'phone', 'password', 're_password', 'status'];
+    const firstErrorField = fieldOrder.find(f => formik.errors[f]);
+    if (!firstErrorField) return;
+    const el =
+      document.querySelector(`input[name="${firstErrorField}"]`) ||
+      document.querySelector(`[data-field="${firstErrorField}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [formik.submitCount]);
 
   // Load plans for the dropdown
   useEffect(() => {
@@ -689,18 +751,20 @@ export default function Tenants() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', marginBottom: '16px' }}>
-            <FormSelect
-              label="Subscription Plan"
-              name="plan_id"
-              value={formik.values.plan_id}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.plan_id}
-              touched={formik.touched.plan_id}
-              required
-              placeholder="Select Plan"
-              options={plans.map(p => ({ value: p.id, label: `${p.plan_name} (₹${p.price})` }))}
-            />
+            <div data-field="plan_id">
+              <FormSelect
+                label="Subscription Plan"
+                name="plan_id"
+                value={formik.values.plan_id}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.errors.plan_id}
+                touched={formik.touched.plan_id}
+                required
+                placeholder="Select Plan"
+                options={plans.map(p => ({ value: p.id, label: `${p.plan_name} (₹${p.price})` }))}
+              />
+            </div>
           </div>
 
           <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px' }}>Company / Owner Details</h3>
@@ -722,6 +786,7 @@ export default function Tenants() {
               label="Owner Email"
               name="email"
               type="email"
+              autoComplete="off"
               placeholder="owner@acme.com"
               value={formik.values.email}
               onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('email', true, false); }}
@@ -814,6 +879,7 @@ export default function Tenants() {
               label={editingTenant ? "New Password (optional)" : "Password"}
               name="password"
               type="password"
+              autoComplete="new-password"
               placeholder="••••••••"
               value={formik.values.password}
               onChange={formik.handleChange}
@@ -826,6 +892,7 @@ export default function Tenants() {
               label="Confirm Password"
               name="re_password"
               type="password"
+              autoComplete="new-password"
               placeholder="••••••••"
               value={formik.values.re_password}
               onChange={formik.handleChange}
@@ -836,20 +903,23 @@ export default function Tenants() {
             />
           </div>
 
-          <FormSelect
-            label="Status"
-            name="status"
-            value={formik.values.status}
-            onChange={formik.handleChange}
-            onBlur={formik.handleBlur}
-            error={formik.errors.status}
-            touched={formik.touched.status}
-            required
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="suspended">Suspended</option>
-          </FormSelect>
+          <div data-field="status">
+            <FormSelect
+              label="Status"
+              name="status"
+              value={formik.values.status}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.errors.status}
+              touched={formik.touched.status}
+              required
+              options={[
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+                { value: 'suspended', label: 'Suspended' },
+              ]}
+            />
+          </div>
         </form>
       </Modal>
 

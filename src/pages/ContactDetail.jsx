@@ -12,6 +12,8 @@ import { toast } from 'react-hot-toast';
 import { PhoneInput } from '../components/common/PhoneInput';
 import { SearchableSelect } from '../components/common/SearchableSelect';
 import CRMWorkspaceTabs from '../components/common/CRMWorkspaceTabs';
+import EditContactForm from '../components/contacts/EditContactForm';
+import { useScrollToError } from '../hooks/useScrollToError';
 
 const formatRelativeDate = (dateString) => {
   if (!dateString) return 'N/A';
@@ -218,9 +220,9 @@ export default function ContactDetail() {
       gender: ''
     },
     validationSchema: Yup.object({
-      first_name: Yup.string().required('First name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
-      last_name: Yup.string().test('min-3', 'Minimum 3 characters required', val => !val || val.length >= 3).max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z\s'-]*$/, 'Special characters or symbols are not allowed'),
-      company_name: Yup.string().test('min-3', 'Minimum 3 characters required', val => !val || val.length >= 3).max(60, 'Maximum 60 characters allowed').matches(/^[a-zA-Z0-9\s'.,&()-]*$/, 'Special characters or symbols are not allowed'),
+      first_name: Yup.string().required('First name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed'),
+      last_name: Yup.string().max(60, 'Maximum 60 characters allowed'),
+      company_name: Yup.string().test('min-3', 'Minimum 3 characters required', val => !val || val.length >= 3).max(60, 'Maximum 60 characters allowed'),
       tenant_id: Yup.string().required('Company assignment is required'),
       email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address'),
       phone: Yup.string()
@@ -248,6 +250,7 @@ export default function ContactDetail() {
       }
     }
   });
+  useScrollToError(formik);
 
   const addTaskFormik = useFormik({
     initialValues: {
@@ -280,6 +283,7 @@ export default function ContactDetail() {
       }
     }
   });
+  useScrollToError(addTaskFormik);
 
   const addDealFormik = useFormik({
     initialValues: {
@@ -311,6 +315,7 @@ export default function ContactDetail() {
       }
     }
   });
+  useScrollToError(addDealFormik);
 
   // Synchronize status with pipeline stage for Deal modal
   useEffect(() => {
@@ -1601,37 +1606,7 @@ export default function ContactDetail() {
                 </span>
               </div>
 
-              {/* Row 3: Work */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#fff',
-                  cursor: 'default',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect width="20" height="14" x="2" y="6" rx="2" /><path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /><path d="M12 12h.01" /></svg>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Work</span>
-                    <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      N/A
-                    </span>
-                  </div>
-                </div>
-                <span style={{ color: '#cbd5e1', display: 'flex', alignItems: 'center' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
-                </span>
-              </div>
-
-              {/* Row 4: Company (Respective Navigation to /tenants/:id) */}
+              {/* Row 3: Workplace (Respective Navigation to /tenants/:id) */}
               <div
                 onClick={() => contact.tenant_id && navigate(`/tenants/${contact.tenant_id}`)}
                 style={{
@@ -1667,7 +1642,7 @@ export default function ContactDetail() {
                     </svg>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Company</span>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Workplace</span>
                     <span style={{ fontSize: '13px', fontWeight: '750', color: contact.tenant_id ? '#2563eb' : '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {contact.company_name || 'N/A'}
                     </span>
@@ -1697,7 +1672,7 @@ export default function ContactDetail() {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect width="20" height="14" x="2" y="5" rx="2" /><line x1="8" y1="19" x2="16" y2="19" /><line x1="12" y1="14" x2="12" y2="19" /></svg>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Industry</span>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>Profession</span>
                     <span style={{ fontSize: '13px', fontWeight: '750', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {contact.profession || 'N/A'}
                     </span>
@@ -3455,6 +3430,7 @@ export default function ContactDetail() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         title="Edit Contact Details"
+        maxWidth="640px"
         footer={<>
           <Button type="secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
           <Button onClick={formik.handleSubmit} disabled={formik.isSubmitting}>
@@ -3462,229 +3438,12 @@ export default function ContactDetail() {
           </Button>
         </>}
       >
-        <form onSubmit={formik.handleSubmit}>
-          {/* Avatar Upload */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-            <div style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '50%',
-              backgroundColor: '#e2e8f0',
-              position: 'relative',
-              overflow: 'hidden',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '2px solid var(--border)'
-            }}>
-              {formik.values.profile_image_url ? (
-                <img src={getFileUrl(formik.values.profile_image_url)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <span style={{ color: 'var(--text-muted)', fontSize: '24px' }}>👤</span>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
-                onChange={async (e) => {
-                  const file = e.currentTarget.files[0];
-                  if (file) {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    try {
-                      const res = await api.post('/upload', formData);
-                      formik.setFieldValue('profile_image_url', res.data.url);
-                    } catch (err) {
-                      console.error("Upload failed", err);
-                    }
-                  }
-                }}
-              />
-            </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '500' }}>Click avatar to upload profile picture</p>
-          </div>
-
-          {isGlobalAdmin && (
-            <Select
-              label="Assign to Company"
-              name="tenant_id"
-              value={formik.values.tenant_id}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.tenant_id}
-              touched={formik.touched.tenant_id}
-              required
-            >
-              <option value="">Select a Company</option>
-              {tenants.map(t => <option key={t.id} value={t.id}>{t.owner_name || t.tenant_name || t.name || 'Unknown Company'}</option>)}
-            </Select>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input
-              label="First Name"
-              name="first_name"
-              placeholder="John"
-              value={formik.values.first_name}
-              onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('first_name', true, false); }}
-              onBlur={formik.handleBlur}
-              error={formik.errors.first_name}
-              touched={formik.touched.first_name}
-              required
-            />
-            <Input
-              label="Last Name"
-              name="last_name"
-              placeholder="Doe"
-              value={formik.values.last_name}
-              onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('last_name', true, false); }}
-              onBlur={formik.handleBlur}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input
-              label="Email"
-              name="email"
-              type="email"
-              placeholder="john.doe@example.com"
-              value={formik.values.email}
-              onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('email', true, false); }}
-              onBlur={formik.handleBlur}
-              error={formik.errors.email}
-              touched={formik.touched.email}
-            />
-            <Input
-              label="Phone"
-              name="phone"
-              placeholder="+1 (555) 000-0000"
-              value={formik.values.phone}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.phone}
-              touched={formik.touched.phone}
-              required
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input
-              label="Workplace Name"
-              name="company_name"
-              placeholder="Acme Corp"
-              value={formik.values.company_name}
-              onChange={(e) => { formik.handleChange(e); formik.setFieldTouched('company_name', true, false); }}
-              onBlur={formik.handleBlur}
-              error={formik.errors.company_name}
-              touched={formik.touched.company_name}
-            />
-            <Input
-              label="Profession"
-              name="profession"
-              placeholder="e.g. Attorney, Realtor"
-              value={formik.values.profession}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.profession}
-              touched={formik.touched.profession}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input
-              label="Address"
-              name="address"
-              placeholder="e.g. 123 Main St"
-              value={formik.values.address}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.address}
-              touched={formik.touched.address}
-            />
-            <Input
-              label="GST Number"
-              name="gst_no"
-              placeholder="e.g. 22AAAAA0000A1Z5"
-              value={formik.values.gst_no}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.errors.gst_no}
-              touched={formik.touched.gst_no}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Select
-              label="Gender"
-              name="gender"
-              value={formik.values.gender}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-            >
-              <option value="">Select Gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </Select>
-            <div />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Select
-              label="Assigned To"
-              name="assigned_to"
-              value={formik.values.assigned_to}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-            >
-              <option value="">Unassigned</option>
-              {tenantUsers.map(u => <option key={u.id} value={u.id}>{u.name} ({u.roles?.role_name})</option>)}
-            </Select>
-
-            <Input
-              label="Job Title"
-              name="job_title"
-              placeholder="CEO"
-              value={formik.values.job_title}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Select
-              label="Lead Status"
-              name="status"
-              value={formik.values.status}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-            >
-              <option value="new">New</option>
-              <option value="discussion">Discussion</option>
-              <option value="won">Won</option>
-              <option value="loss">Loss</option>
-            </Select>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Input
-              label="Source"
-              name="source"
-              placeholder="e.g. LinkedIn"
-              value={formik.values.source}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-            />
-            <Input
-              label="Tags"
-              name="tags"
-              placeholder="e.g. VIP, Prospect"
-              value={formik.values.tags}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-            />
-          </div>
-        </form>
+        <EditContactForm
+          formik={formik}
+          tenants={tenants}
+          tenantUsers={tenantUsers}
+          isGlobalAdmin={isGlobalAdmin}
+        />
       </Modal>
 
       {/* Task Details Modal */}
