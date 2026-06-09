@@ -449,7 +449,7 @@ export default function Profile() {
     if (isTenantUser && (item.label === 'Department' || item.label === 'Username')) {
       return false;
     }
-    if (user?.user_type === 'tenant_user' && item.label === 'Address') {
+    if (isTenantUser && item.label === 'Address') {
       return false;
     }
     return true;
@@ -913,7 +913,7 @@ export default function Profile() {
               </div>
             </div>
 
-            {(user?.user_type === 'tenant_admin' || user?.isSuperAdmin) && (
+            {user?.isSuperAdmin && (
               <>
                 <hr style={{ margin: '8px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
                 <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Organization Details</p>
