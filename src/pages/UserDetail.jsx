@@ -1,13 +1,100 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 import api, { getFileUrl } from '../api/axiosConfig';
 import { Badge } from '../components/common/DataTable';
 import { Modal, Button, Input, Select, ConfirmModal } from '../components/common/Modal';
+import { FormSelect } from '../components/common/FormSelect';
 import { toast } from 'react-hot-toast';
+import { countries } from '../constants/countries';
 
 
+
+function SearchableCountryCodeSelect({ value, onChange, label }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const filtered = countries.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.code.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+      {label && (
+        <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>{label}</label>
+      )}
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          padding: '10px 12px', borderRadius: '12px',
+          border: `1px solid ${isOpen ? 'var(--primary)' : 'var(--border)'}`,
+          backgroundColor: '#fff', fontSize: '13px', cursor: 'pointer',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          height: '38px', boxSizing: 'border-box', color: 'var(--text-main)',
+          transition: 'all 0.2s',
+          boxShadow: isOpen ? '0 0 0 2px rgba(99, 102, 241, 0.15)' : 'none'
+        }}
+      >
+        <span style={{ fontWeight: '600' }}>{value}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+      {isOpen && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999,
+          backgroundColor: '#fff', border: '1px solid var(--border)',
+          borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          maxHeight: '220px', overflow: 'hidden', display: 'flex', flexDirection: 'column', marginTop: '4px'
+        }}>
+          <div style={{ padding: '8px' }}>
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search country..."
+              style={{
+                width: '100%', padding: '7px 10px', border: '1px solid var(--border)',
+                borderRadius: '8px', fontSize: '12px', outline: 'none', boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          <div style={{ overflowY: 'auto', maxHeight: '160px' }}>
+            {filtered.map(c => (
+              <div
+                key={c.code}
+                onClick={() => { onChange(c.code); setIsOpen(false); setSearch(''); }}
+                style={{
+                  padding: '8px 12px', cursor: 'pointer', fontSize: '13px',
+                  display: 'flex', justifyContent: 'space-between',
+                  backgroundColor: c.code === value ? 'var(--primary-light, #eff6ff)' : 'transparent',
+                  color: c.code === value ? 'var(--primary)' : 'var(--text-main)'
+                }}
+                onMouseEnter={e => { if (c.code !== value) e.currentTarget.style.backgroundColor = '#f8fafc'; }}
+                onMouseLeave={e => { if (c.code !== value) e.currentTarget.style.backgroundColor = 'transparent'; }}
+              >
+                <span>{c.name}</span>
+                <span style={{ fontWeight: '700', color: 'var(--primary)' }}>{c.code}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function UserDetail() {
   const { id } = useParams();
@@ -36,11 +123,12 @@ export default function UserDetail() {
     initialValues: {
       name: '',
       email: '',
+      phoneCode: '+91',
+      phone: '',
       role_id: '',
       target_tenant_id: '',
       status: 'active',
       profile_image_url: '',
-      phone: '',
       department: '',
       employee_id: '',
       location: '',
@@ -49,6 +137,14 @@ export default function UserDetail() {
     validationSchema: Yup.object({
       name: Yup.string().required('Full name is required').min(3, 'Minimum 3 characters required').max(60, 'Maximum 60 characters allowed'),
       email: Yup.string().matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email address').required('Email is required'),
+      phone: Yup.string()
+        .required('Phone number is required')
+        .test('is-valid-phone', 'Invalid phone number for the selected country', function (value) {
+          if (!value) return false;
+          const { phoneCode } = this.parent;
+          const fullNumber = `${phoneCode}${value.replace(/[\s()-]/g, '')}`;
+          try { return isValidPhoneNumber(fullNumber); } catch { return false; }
+        }),
       role_id: Yup.string().required('Role is required')
     }),
     onSubmit: async (values) => {
@@ -60,7 +156,7 @@ export default function UserDetail() {
           target_tenant_id: values.target_tenant_id || userData?.tenant_id,
           status: values.status,
           profile_image_url: values.profile_image_url,
-          phone: values.phone,
+          phone: `${values.phoneCode}${values.phone.replace(/[\s()-]/g, '')}`,
           department: values.department,
           employee_id: values.employee_id,
           location: values.location,
@@ -104,41 +200,62 @@ export default function UserDetail() {
   const fetchUserDetails = async () => {
     setLoading(true);
     try {
-      // 1. Fetch user primary details
-      const userRes = await api.get(`/users/${id}`);
+      // Fetch user + roles in parallel so role_id can be resolved before setValues
+      const [userRes, rolesRes] = await Promise.all([
+        api.get(`/users/${id}`),
+        api.get('/roles?limit=1000'),
+      ]);
+
       const user = userRes.data;
+      const rolesData = rolesRes.data.data || [];
+
       setUserData(user);
+      setRoles(rolesData);
+
+      // Parse stored phone into country code + local number
+      let matchedCode = '+91';
+      let matchedPhone = user.phone || '';
+      if (user.phone?.startsWith('+')) {
+        const sorted = [...countries].sort((a, b) => b.code.length - a.code.length);
+        const found = sorted.find(c => user.phone.startsWith(c.code));
+        if (found) { matchedCode = found.code; matchedPhone = user.phone.substring(found.code.length); }
+      }
+
+      // Resolve role_id: prefer flat field, fall back to join-object id,
+      // then match by role_name (always present in the join) as last resort
+      const resolvedRoleId =
+        user.role_id ||
+        user.roles?.id ||
+        rolesData.find(r => r.role_name === user.roles?.role_name)?.id ||
+        '';
 
       // Populate Edit Formik
       editUserFormik.setValues({
         name: user.name || '',
         email: user.email || '',
-        role_id: user.role_id || '',
+        phoneCode: matchedCode,
+        phone: matchedPhone,
+        role_id: resolvedRoleId,
         target_tenant_id: user.tenant_id || '',
         status: user.status || 'active',
         profile_image_url: user.profile_image_url || '',
-        phone: user.phone || '',
         department: user.department || '',
         employee_id: user.employee_id || '',
         location: user.location || '',
         reports_to: user.reports_to || ''
       });
 
-      // 2. Fetch associated contacts
-      const contactsRes = await api.get(`/contacts?assigned_to=${id}&limit=100`);
+      // Fetch contacts in parallel with optional tenants fetch
+      const contactRequests = [
+        api.get(`/contacts?assigned_to=${id}&limit=100`),
+        api.get(`/contacts?limit=200`),
+      ];
+      if (isGlobalAdmin) contactRequests.push(api.get('/tenants/selection'));
+
+      const [contactsRes, allContactsRes, tenantsRes] = await Promise.all(contactRequests);
       setContacts(contactsRes.data.data || []);
-
-      // 3. Fetch all contacts for link dropdown
-      const allContactsRes = await api.get(`/contacts?limit=200`);
       setAllContacts(allContactsRes.data.data || []);
-
-      // 7. Load roles and tenants if admin
-      if (isGlobalAdmin) {
-        const tenantsRes = await api.get('/tenants/selection');
-        setTenants(tenantsRes.data || []);
-        const rolesRes = await api.get('/roles?limit=100');
-        setRoles(rolesRes.data.data || []);
-      }
+      if (tenantsRes) setTenants(tenantsRes.data || []);
     } catch (err) {
       console.error('Fetch User Details Error:', err);
       toast.error('Failed to load user details');
@@ -712,27 +829,56 @@ export default function UserDetail() {
                 required
               />
 
-              <Input
-                label="Phone Number"
-                name="phone"
-                value={editUserFormik.values.phone}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', width: '100%' }}>
+                <div style={{ width: '140px', flexShrink: 0 }}>
+                  <SearchableCountryCodeSelect
+                    label="Code"
+                    value={editUserFormik.values.phoneCode}
+                    onChange={(code) => editUserFormik.setFieldValue('phoneCode', code)}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Input
+                    label="Phone Number"
+                    name="phone"
+                    type="text"
+                    placeholder="e.g. 9876543210"
+                    value={editUserFormik.values.phone}
+                    onChange={editUserFormik.handleChange}
+                    onBlur={editUserFormik.handleBlur}
+                    error={editUserFormik.errors.phone}
+                    touched={editUserFormik.touched.phone}
+                    required
+                  />
+                </div>
+              </div>
+
+              <FormSelect
+                label="Assigned Role"
+                name="role_id"
+                value={editUserFormik.values.role_id}
                 onChange={editUserFormik.handleChange}
                 onBlur={editUserFormik.handleBlur}
+                error={editUserFormik.errors.role_id}
+                touched={editUserFormik.touched.role_id}
+                required
+                searchable
+                placeholder="Select a role"
+                options={roles.map(r => ({ value: r.id, label: r.role_name }))}
               />
 
-              {isGlobalAdmin && (
-                <Select
-                  label="Role"
-                  name="role_id"
-                  value={editUserFormik.values.role_id}
-                  onChange={editUserFormik.handleChange}
-                  onBlur={editUserFormik.handleBlur}
-                  required
-                >
-                  <option value="">Select a role</option>
-                  {roles.map(r => <option key={r.id} value={r.id}>{r.role_name}</option>)}
-                </Select>
-              )}
+              <FormSelect
+                label="Account Status"
+                name="status"
+                value={editUserFormik.values.status}
+                onChange={editUserFormik.handleChange}
+                onBlur={editUserFormik.handleBlur}
+                required
+                options={[
+                  { value: 'active', label: 'Active', color: '#10b981' },
+                  { value: 'inactive', label: 'Inactive', color: '#94a3b8' },
+                ]}
+              />
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid #e2e8f0' }}>
                 <Button onClick={editUserFormik.handleSubmit} disabled={editUserFormik.isSubmitting}>
